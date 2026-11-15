@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # npm provenance / trusted publishing (OIDC)
+      id-token: write # required for npm trusted publishing (OIDC)
     steps:
       # Publish exactly what was tagged, not whatever main has moved on to in
       # the meantime. The release PR already bumped package.json.
@@ -63,10 +63,13 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
 
+      # Deliberately no `registry-url`. That input writes an `.npmrc` holding
+      # `${NODE_AUTH_TOKEN}`, and with no token secret that leaves npm trying to
+      # expand an undefined variable. Trusted publishing authenticates over OIDC
+      # instead, and npm already defaults to registry.npmjs.org.
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
 
       - name: Verify the tag matches package.json
         env:
@@ -80,25 +83,18 @@ jobs:
           echo "Publishing dsh-idle-power@$actual from tag ${{ needs.release-please.outputs.tag_name }}"
 
       # Nothing is built, but a broken tarball is not worth a version number.
-      - name: Run the test suite
-        run: npm test
+      # Only the portable half runs here: host.test.mjs asserts the Windows
+      # power backend, and ci.yml already runs it on a Windows runner against
+      # this same commit.
+      - name: Run the browser-half tests
+        run: npm run test:client
 
       - name: Inspect the tarball
         run: npm pack --dry-run
 
-      - name: Check npm credentials
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          if [ -z "$NPM_TOKEN" ]; then
-            echo "::notice::NPM_TOKEN is unset; relying on npm trusted publishing (OIDC)."
-            echo "::notice::If this publish fails with ENEEDAUTH, add an NPM_TOKEN secret or configure a trusted publisher."
-          fi
-
-      # --provenance links the published package to this workflow run. It needs
-      # id-token: write and works with either an NPM_TOKEN or npm trusted
-      # publishing; --access public is explicit for an unscoped package.
+      # No token and no --provenance flag: trusted publishing authenticates by
+      # OIDC and npm attaches provenance automatically for a public package
+      # from a public repository. The trusted publisher is registered on npm
+      # for exactly this file — renaming it breaks publishing.
       - name: Publish
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public

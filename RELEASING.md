@@ -44,34 +44,40 @@ CI 会在 PR 上校验**每一个 commit 的标题**和 **PR 标题**（squash �
 合并发布 PR 的那一刻，`release.yml` 会：
 
 1. 创建 tag `vX.Y.Z` 和对应的 GitHub Release（正文来自 CHANGELOG）；
-2. 在同一个 workflow run 里跑测试、`npm pack --dry-run`，然后 `npm publish --provenance --access public`。
+2. 在同一个 workflow run 里校验版本号、跑浏览器半的测试、`npm pack --dry-run`，然后 `npm publish --access public`。
 
 之所以把 npm 发布放在同一个 workflow，而不是监听 `release: published`：用内置 `GITHUB_TOKEN` 创建的事件不会再触发其它 workflow，那样发布 job 永远不会跑。
 
-## 4. npm 认证（一次性）
+## 4. npm 认证 —— 已经配好，不需要密钥
 
-`dsh-idle-power` 的首次发布必须有人类凭证，二选一：
+`dsh-idle-power` 用的是 **npm Trusted Publishing（OIDC）**，仓库里**没有** `NPM_TOKEN` secret，也不需要有人维护长期密钥。发布时 GitHub Actions 用 `id-token: write` 换取一个短效凭证，npm 同时自动生成 provenance。
 
-**A. NPM_TOKEN（最省事，首次发布一定能用）** — 在 npmjs.com 生成一个 granular access token，权限选 **Read and write (publish and stage)**、勾选 Bypass 2FA、范围只给 `dsh-idle-power`，然后：
+已生效的配置：
+
+| 项 | 值 |
+|---|---|
+| 包 | `dsh-idle-power`（id `5692fd88-9b5f-42af-8440-fd088be9f4c1`） |
+| Organization or user | `tzzs` |
+| Repository | `tzzs/dsh-idle-power` |
+| Workflow filename | `release.yml` |
+| Permissions | `npm publish` + `npm stage publish` |
+
+用 CLI 核对：
 
 ```powershell
-gh secret set NPM_TOKEN -R tzzs/dsh-idle-power
+npm trust list dsh-idle-power --registry https://registry.npmjs.org/
 ```
 
-**B. npm Trusted Publishing（推荐，无长期密钥）** — 在 npmjs.com 的包设置里加 trusted publisher：
+⚠️ **不要改 `release.yml` 的文件名** —— trusted publisher 绑定的是这个文件名，改名会让发布立刻以 `ENEEDAUTH` 失败。改动绑定要删掉旧的再加新的：
 
-| 字段 | 值 |
-|---|---|
-| Organization or user | `tzzs` |
-| Repository | `dsh-idle-power` |
-| Workflow filename | `release.yml` |
-| Allowed actions | 勾选 `npm publish` |
+```powershell
+npm trust revoke dsh-idle-power --id <id> --registry https://registry.npmjs.org/
+npm trust github dsh-idle-power --file release.yml --repo tzzs/dsh-idle-power --allow-publish
+```
 
-workflow 已经带上了 `id-token: write`、`--provenance` 和 `--access public`，配置好就能用；trusted publishing 还会自动生成 provenance。
+这两个命令都需要交互式 2FA（安全密钥/验证器）。
 
-⚠️ 两个坑：`npm trust` CLI 要求包**已经存在**于 registry，`dsh-idle-power` 目前还没有；npmjs.com 网页端对新包提供的是 "pending" 配置，必须在 **2 天内完成首次发布**来把它激活，否则过期要删掉重建。所以最稳的顺序是：**用 A 的 token 完成第一次发布 → 在 npmjs.com 配 B → 删掉 NPM_TOKEN secret**，之后就完全没有长期密钥了。另外 npm 已宣布 2027 年 1 月起废弃 token 的直接发布能力，长期看 B 是唯一路径。
-
-两种都没配时，发布 job 会以 `ENEEDAUTH` 失败，但 tag 和 GitHub Release 已经建好；补上认证后重跑该 workflow 即可。
+**历史包袱**：`0.2.0` 是在接上自动化之前手动发布的，因此没有 provenance；同时 npm 对新包会先占位一个 `0.0.0-stage` 空版本，这个版本无害、可以忽略。从 `0.2.1` 起全部由 CI 带 provenance 发布。
 
 ## 5. 可选：让 CI 也跑在发布 PR 上
 
