@@ -174,6 +174,9 @@ window.__ModuleLoader__.load({
 
     // ---------------------------------------------------------------- styles
     const CSS = `
+/* A short press, a soft settle, and a readable reveal share the same cadence.
+   Keep these tokens local: a plugin must not change the host's motion system. */
+:where(.ipa-panel,.ipa-scrim,.ipa-entry,.ipa-fab){--ipa-ease:cubic-bezier(.2,.7,.2,1);--ipa-settle:cubic-bezier(.22,1.35,.36,1);--ipa-fast:140ms;--ipa-move:300ms}
 .ipa-fab{display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:none;border-radius:var(--dsw-radius-sm);background:0 0;color:var(--dsw-alias-label-secondary);cursor:pointer;position:relative;flex:none}
 @media (hover:hover){.ipa-fab:hover{background:var(--dsw-alias-interactive-bg-hover)}}
 .ipa-fab:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color);outline-offset:2px}
@@ -192,23 +195,21 @@ window.__ModuleLoader__.load({
 /* The scrim is the dialog's positioning and stacking context. The card below is
    opaque and always fills the viewport, so the mask only ever shows in the
    moment before layout settles — which is why it does no blur work. */
-.ipa-scrim{position:fixed;inset:0;z-index:60;box-sizing:border-box;overflow:auto;overscroll-behavior:contain;background-color:var(--dsw-alias-bg-mask-3);color:var(--dsw-alias-label-primary);animation:ipa-fade .24s ease-out}
+.ipa-scrim{position:fixed;inset:0;z-index:60;box-sizing:border-box;overflow:auto;overscroll-behavior:contain;background-color:var(--dsw-alias-bg-mask-3);color:var(--dsw-alias-label-primary);animation:ipa-fade 160ms var(--ipa-ease)}
 @media (prefers-reduced-motion:reduce){.ipa-scrim{animation:none}}
 @keyframes ipa-fade{from{opacity:0}to{opacity:1}}
 /* A rail pinned to the viewport edge keeps draining in peripheral vision even
    when the Harness window is stretched across two monitors, where dead centre
    can land on the bezel between them. */
 .ipa-rail{position:fixed;top:0;left:0;right:0;height:clamp(4px,.7vmin,10px);z-index:2;background:var(--dsw-alias-border-l2);pointer-events:none}
-.ipa-railFill{display:block;height:100%;width:100%;background:var(--dsw-alias-brand-primary);transition:width .26s linear,background-color .3s ease}
+.ipa-railFill{display:block;height:100%;width:100%;transform-origin:left center;background:var(--dsw-alias-brand-primary);transition:transform .26s linear,background-color .2s var(--ipa-ease)}
 .ipa-isUrgent .ipa-railFill{background:var(--dsw-alias-state-error-primary)}
 @media (prefers-reduced-motion:reduce){.ipa-railFill{transition:none}}
 /* Three rows spanning the full viewport, no fixed card width: the information
    breathes with whatever monitor (or monitors) the window is on. The surface
    colour is the host's own overlay token, so its label tokens stay readable in
    BOTH themes — dark labels on the dark mask were illegible. */
-.ipa-card{position:relative;box-sizing:border-box;width:100%;min-height:100vh;min-height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(10px,1.8vmin,30px);padding:clamp(24px,4vmin,64px) clamp(20px,4.4vmin,80px) clamp(18px,3vmin,48px);background-color:var(--dsw-alias-bg-overlay);background-image:radial-gradient(ellipse at 50% 38%,rgba(120,135,165,.07),transparent 72%);animation:ipa-rise .22s var(--ds-ease-out,ease-out)}
-@media (prefers-reduced-motion:reduce){.ipa-card{animation:none}}
-@keyframes ipa-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.ipa-card{position:relative;box-sizing:border-box;width:100%;min-height:100vh;min-height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(10px,1.8vmin,30px);padding:clamp(24px,4vmin,64px) clamp(20px,4.4vmin,80px) clamp(18px,3vmin,48px);background-color:var(--dsw-alias-bg-overlay);background-image:radial-gradient(ellipse at 50% 38%,rgba(120,135,165,.07),transparent 72%)}
 /* ---- background presets -------------------------------------------------
    All three keep the surface/text token PAIR consistent, so contrast never
    depends on what happens to be behind the window. color-mix() is progressive:
@@ -251,11 +252,12 @@ background-color:rgba(9,11,16,.42);
 /* Wrapping hero: a short/wide window puts the dial beside the copy, a narrow
    one stacks them. Either way Cancel stays above the fold. */
 .ipa-stage{display:flex;align-items:center;justify-content:center;gap:clamp(18px,4vmin,80px);flex-wrap:wrap;min-height:0;padding:clamp(8px,1.5vmin,24px) 0}
-.ipa-dialWrap{flex:0 0 auto;display:grid;place-items:center}
+.ipa-dialWrap{flex:0 0 auto;display:grid;place-items:center;animation:ipa-dial-in 380ms var(--ipa-ease)}
+@keyframes ipa-dial-in{from{opacity:.6;transform:scale(.96)}to{opacity:1;transform:none}}
 .ipa-dial{position:relative;display:grid;place-items:center;width:clamp(190px,52vmin,640px);height:clamp(190px,52vmin,640px)}
 .ipa-ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
 .ipa-ringTrack{fill:none;stroke:var(--dsw-alias-border-l2);stroke-width:2.4}
-.ipa-ringValue{fill:none;stroke:var(--dsw-alias-brand-primary);stroke-width:2.4;stroke-linecap:round;transition:stroke-dashoffset .3s linear,stroke .3s ease}
+.ipa-ringValue{fill:none;stroke:var(--dsw-alias-brand-primary);stroke-width:2.4;stroke-linecap:round;transition:stroke-dashoffset .26s linear,stroke .2s var(--ipa-ease)}
 @media (prefers-reduced-motion:reduce){.ipa-ringValue{transition:none}}
 .ipa-dial[data-urgent] .ipa-ringValue{stroke:var(--dsw-alias-state-error-primary)}
 .ipa-dialCenter{display:flex;align-items:baseline;gap:clamp(4px,.8vmin,12px);color:var(--dsw-alias-label-primary)}
@@ -263,9 +265,6 @@ background-color:rgba(9,11,16,.42);
 .ipa-unit{font-size:clamp(16px,2.4vmin,32px);font-weight:400;color:var(--dsw-alias-label-secondary)}
 .ipa-dial[data-urgent] .ipa-dialCenter{color:var(--dsw-alias-state-error-primary)}
 .ipa-dial[data-urgent] .ipa-unit{color:var(--dsw-alias-state-error-primary)}
-.ipa-dial[data-urgent] .ipa-count{animation:ipa-pulse 1s ease-in-out infinite}
-@media (prefers-reduced-motion:reduce){.ipa-dial[data-urgent] .ipa-count{animation:none}}
-@keyframes ipa-pulse{0%,100%{opacity:1}50%{opacity:.7}}
 .ipa-stageText{display:flex;flex-direction:column;align-items:flex-start;gap:clamp(10px,1.7vmin,24px);min-width:min(300px,82vw);max-width:min(560px,86vw)}
 .ipa-mode{font-size:clamp(20px,3.1vmin,46px);font-weight:600;line-height:1.15;color:var(--dsw-alias-label-primary)}
 .ipa-metaLine{font-size:clamp(12px,1.5vmin,18px);line-height:1.6;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}
@@ -281,44 +280,43 @@ background-color:rgba(9,11,16,.42);
 .ipa-scopeTag{font-size:clamp(10px,1.15vmin,13px);color:var(--dsw-alias-label-tertiary);text-align:right;white-space:nowrap}
 .ipa-feedback{color:var(--dsw-alias-state-error-primary);font-size:clamp(12px,1.5vmin,17px);line-height:1.5;max-width:520px;overflow-wrap:anywhere}
 .ipa-mirrorNote{font-size:clamp(10px,1.15vmin,13px);color:var(--dsw-alias-label-tertiary);line-height:1.5;max-width:44ch}
-/* --- motion: every animation here encodes a state change, not decoration --- */
-.ipa-panel{transform-origin:bottom left;animation:ipa-pop .17s var(--ds-ease-out,cubic-bezier(.16,1,.3,1))}
-@keyframes ipa-pop{from{opacity:0;transform:translateY(7px) scale(.975)}to{opacity:1;transform:none}}
-.ipa-modeOption{transition:background-color .16s var(--ds-ease-out,ease-out),border-color .16s var(--ds-ease-out,ease-out),color .16s var(--ds-ease-out,ease-out),transform .12s var(--ds-ease-out,ease-out)}
-.ipa-modeOption:active:not(:disabled){transform:scale(.994)}
-.ipa-primary,.ipa-cancel,.ipa-cta,.ipa-close,.ipa-entry{transition:background-color .15s var(--ds-ease-out,ease-out),color .15s var(--ds-ease-out,ease-out),box-shadow .15s var(--ds-ease-out,ease-out),transform .12s var(--ds-ease-out,ease-out)}
-.ipa-primary:active:not(:disabled),.ipa-cancel:active:not(:disabled),.ipa-cta:active{transform:scale(.982)}
-/* The countdown digit replays a short settle on every second so the eye
-   registers that time is still moving even when it is not looking directly. */
-.ipa-count{animation:ipa-tick .32s var(--ds-ease-out,ease-out)}
-@keyframes ipa-tick{from{opacity:.5;transform:translateY(-2px) scale(1.035)}to{opacity:1;transform:none}}
-/* The ring is driven by a fractional remaining value, so a linear transition
-   spanning one update interval makes it sweep continuously instead of stepping. */
-.ipa-ringValue{transition:stroke-dashoffset .26s linear}
-/* A reservation that is running its countdown breathes; one merely armed only
-   blinks its dot so it is noticeable without being alarming. */
-.ipa-entry[data-active] .ipa-dot{animation:ipa-blink 2.4s ease-in-out infinite}
-.ipa-entry[data-phase=counting] .ipa-dot{animation:ipa-blink .9s ease-in-out infinite}
-@keyframes ipa-blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.8)}}
-.ipa-entry[data-phase=counting]{animation:ipa-breathe 2.4s ease-in-out infinite}
-@keyframes ipa-breathe{0%,100%{background-color:var(--dsw-alias-bg-layer-2)}50%{background-color:var(--dsw-alias-interactive-bg-hover)}}
-@media (prefers-reduced-motion:reduce){
-.ipa-panel,.ipa-count,.ipa-entry[data-active] .ipa-dot,.ipa-entry[data-phase=counting] .ipa-dot,.ipa-entry[data-phase=counting],.ipa-scrim,.ipa-card,.ipa-dial[data-urgent] .ipa-count{animation:none}
-.ipa-ringValue,.ipa-railFill{transition:none}
-.ipa-primary,.ipa-cancel,.ipa-cta,.ipa-close,.ipa-entry,.ipa-modeOption{transition:none}
-.ipa-primary:active,.ipa-cancel:active,.ipa-cta:active,.ipa-modeOption:active{transform:none}
-}
+/* Motion answers an action: the panel opens from its trigger and a selection
+   travels to its destination. Countdown digits stay still for easy scanning. */
+.ipa-panel{transform-origin:bottom left;animation:ipa-pop var(--ipa-move) var(--ipa-settle)}
+@keyframes ipa-pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+.ipa-modeOption,.ipa-bgOption,.ipa-primary,.ipa-cancel,.ipa-cta,.ipa-close,.ipa-entry,.ipa-fab,.ipa-mirrors,.ipa-alignBtn{transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease),color var(--ipa-fast) var(--ipa-ease),box-shadow var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
+.ipa-modeOption:active:not(:disabled),.ipa-bgOption:active:not(:disabled){transform:scale(.985)}
+.ipa-primary:active:not(:disabled),.ipa-cancel:active:not(:disabled),.ipa-cta:active:not([aria-disabled=true]),.ipa-close:active,.ipa-entry:active,.ipa-fab:active,.ipa-mirrors:active:not(:disabled),.ipa-alignBtn:active{transform:scale(.975)}
+/* Key only on a semantic state change, never on a polling/clock update. No
+   opacity-zero start: warnings and cancellation remain readable immediately. */
+.ipa-stateText,.ipa-modeNote[data-active]{display:block;animation:ipa-label-in 180ms var(--ipa-ease)}
+@keyframes ipa-label-in{from{transform:translateY(3px)}to{transform:none}}
+.ipa-entry[data-phase=counting] .ipa-dot,.ipa-fab[data-phase=counting] .ipa-dot{animation:ipa-blink 1.6s ease-in-out infinite}
+@keyframes ipa-blink{0%,100%{opacity:1}50%{opacity:.45}}
 .ipa-panel{position:fixed;z-index:59;left:12px;bottom:150px;width:min(320px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow-y:auto;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);box-shadow:var(--dsw-elevation-prominent);color:var(--dsw-alias-label-primary);font-size:13px}
 .ipa-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .ipa-title{font-size:14px;font-weight:600}
 .ipa-close{flex:none;width:22px;height:22px;border:none;background:0 0;color:var(--dsw-alias-label-tertiary);cursor:pointer;border-radius:var(--dsw-radius-xs);font-size:15px;line-height:1}
 @media (hover:hover){.ipa-close:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}}
 .ipa-sub{color:var(--dsw-alias-label-secondary);line-height:1.55;margin-top:-4px}
-.ipa-modes{display:flex;flex-direction:column;gap:8px}
-.ipa-modeOption{display:flex;flex-direction:column;gap:3px;text-align:left;padding:9px 11px;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:inherit;cursor:pointer;font-size:13px}
-@media (hover:hover){.ipa-modeOption:hover{background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-modeOption[data-active]{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2)}
-.ipa-modeOption .ipa-optionTitle{font-weight:600}
+.ipa-modes{position:relative;isolation:isolate;display:grid;grid-template-rows:repeat(2,1fr);gap:8px}
+/* Equal rows let one surface travel between modes without measuring layout.
+   Only Host-confirmed mode changes move it, including changes in other windows. */
+.ipa-modes::before{content:'';position:absolute;z-index:0;pointer-events:none;inset:0 0 auto;height:calc((100% - 8px)/2);box-sizing:border-box;border:1px solid var(--dsw-alias-brand-primary);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-2);transition:transform var(--ipa-move) var(--ipa-settle)}
+.ipa-modes[data-mode=shutdown]::before{transform:translateY(calc(100% + 8px))}
+.ipa-modeOption{position:relative;z-index:1;display:flex;flex-direction:column;gap:3px;text-align:left;padding:9px 11px;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l1);background:transparent;color:inherit;cursor:pointer;font-size:13px}
+@media (hover:hover){.ipa-modeOption:not(:disabled):not([data-active]):hover{background:var(--dsw-alias-interactive-bg-hover)}}
+.ipa-modeOption[data-active]{border-color:transparent}
+.ipa-modeOption .ipa-optionTitle{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:600;width:100%}
+.ipa-modeMark{display:grid;place-items:center;flex:none;width:16px;height:16px;border:1px solid var(--dsw-alias-border-l2);border-radius:50%;color:var(--dsw-alias-label-primary-foreground);transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease)}
+.ipa-modeOption[data-active] .ipa-modeMark{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-brand-primary)}
+.ipa-modeMark path{stroke-dasharray:16;stroke-dashoffset:16;transition:stroke-dashoffset 180ms var(--ipa-ease)}
+.ipa-modeOption[data-active] .ipa-modeMark path{stroke-dashoffset:0}
+/* Stack both notes in one cell to reserve their tallest wrapped height. The
+   popover and buttons stay still when the selected warning changes. */
+.ipa-modeNotes{display:grid;margin-top:-6px}
+.ipa-modeNote{grid-area:1/1;visibility:hidden}
+.ipa-modeNote[data-active]{visibility:visible}
 .ipa-modeOption .ipa-optionDesc{color:var(--dsw-alias-label-secondary);line-height:1.5;font-size:12px}
 .ipa-note{color:var(--dsw-alias-label-tertiary);line-height:1.5;font-size:12px}
 .ipa-status{padding-top:10px;border-top:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);line-height:1.5}
@@ -333,17 +331,19 @@ background-color:rgba(9,11,16,.42);
 .ipa-title{font-size:16px;line-height:1.4}
 .ipa-close{width:32px;height:32px;font-size:20px}
 .ipa-modeOption{padding:12px;gap:5px;min-height:44px}
-.ipa-modeOption[data-active] .ipa-optionTitle::before{content:'✓';margin-right:8px;color:var(--dsw-alias-brand-primary)}
 .ipa-modeOption:focus-visible,.ipa-close:focus-visible,.ipa-primary:focus-visible,.ipa-cancel:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:2px}
 .ipa-primary,.ipa-cancel{min-height:44px}
 /* Compact appearance picker in the popover: a group of toggle buttons (not a
    second radiogroup) so the mode radios stay the only radios in the panel. */
 .ipa-bg{display:flex;flex-direction:column;gap:6px}
 .ipa-bgHead{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary)}
-.ipa-bgOptions{display:flex;gap:4px;padding:3px;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}
-.ipa-bgOption{flex:1;min-width:0;min-height:36px;padding:6px 8px;border:none;border-radius:var(--dsw-radius-xs);background:0 0;color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500;cursor:pointer}
+.ipa-bgOptions{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border-radius:var(--dsw-radius-sm);box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}
+.ipa-bgThumb{position:absolute;pointer-events:none;z-index:0;left:4px;top:4px;bottom:4px;width:calc((100% - 16px)/3);border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-layer-2);box-shadow:inset 0 0 0 1px var(--dsw-alias-brand-primary);transition:transform var(--ipa-move) var(--ipa-settle)}
+.ipa-bgOptions[data-background=glass] .ipa-bgThumb{transform:translateX(calc(100% + 4px))}
+.ipa-bgOptions[data-background=blur] .ipa-bgThumb{transform:translateX(calc(200% + 8px))}
+.ipa-bgOption{position:relative;z-index:1;min-width:0;min-height:36px;padding:6px 8px;border:none;border-radius:var(--dsw-radius-xs);background:0 0;color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500;cursor:pointer}
 @media (hover:hover){.ipa-bgOption:not(:disabled):not([aria-pressed=true]):hover{background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-bgOption[aria-pressed=true]{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-brand-primary);font-weight:600;box-shadow:inset 0 0 0 1px var(--dsw-alias-brand-primary)}
+.ipa-bgOption[aria-pressed=true]{color:var(--dsw-alias-brand-primary);font-weight:600}
 .ipa-bgOption:disabled{opacity:.5;cursor:default}
 .ipa-bgOption:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:1px}
 .ipa-bgDesc{font-size:11.5px;line-height:1.5;color:var(--dsw-alias-label-tertiary)}
@@ -384,6 +384,14 @@ background-color:rgba(9,11,16,.42);
 /* A committed or failed power action must not look like an idle row. */
 .ipa-entry[data-phase=executing]{color:var(--dsw-alias-brand-primary)}
 .ipa-entry[data-phase=failed],.ipa-fab[data-phase=failed]{color:var(--dsw-alias-state-error-primary)}
+/* Keep this last so every decorative transition has an immediate readable
+   counterpart. Progress still updates from the Host; only interpolation stops. */
+@media (prefers-reduced-motion:reduce){
+.ipa-panel,.ipa-count,.ipa-dialWrap,.ipa-stateText,.ipa-modeNote[data-active],.ipa-entry[data-phase=counting] .ipa-dot,.ipa-fab[data-phase=counting] .ipa-dot,.ipa-scrim,.ipa-card{animation:none}
+.ipa-ringValue,.ipa-railFill{transition:none}
+.ipa-modes::before,.ipa-bgThumb,.ipa-modeMark,.ipa-modeMark path,.ipa-modeOption,.ipa-bgOption,.ipa-primary,.ipa-cancel,.ipa-cta,.ipa-close,.ipa-entry,.ipa-fab,.ipa-mirrors,.ipa-alignBtn{transition:none}
+.ipa-modeOption:active:not(:disabled),.ipa-bgOption:active:not(:disabled),.ipa-primary:active:not(:disabled),.ipa-cancel:active:not(:disabled),.ipa-cta:active:not([aria-disabled=true]),.ipa-close:active,.ipa-entry:active,.ipa-fab:active,.ipa-mirrors:active:not(:disabled),.ipa-alignBtn:active{transform:none}
+}
 `;
 
     // ----------------------------------------------------------------- store
@@ -632,7 +640,9 @@ background-color:rgba(9,11,16,.42);
       const bar = doc.createElement('div');
       bar.style.cssText = 'position:fixed;left:0;top:0;height:8px;width:100%;background:#2a303c';
       const fill = doc.createElement('div');
-      fill.style.cssText = 'height:100%;width:100%;background:#4a8cff;transition:width .25s linear';
+      // Mirror windows inherit the reader's motion preference from this display.
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+      fill.style.cssText = `height:100%;width:100%;transform-origin:left center;background:#4a8cff;transition:${reduceMotion ? 'none' : 'transform .26s linear'}`;
       bar.appendChild(fill);
       body.appendChild(bar);
       const eyebrow = doc.createElement('div');
@@ -891,7 +901,7 @@ background-color:rgba(9,11,16,.42);
       else if (data.phase === 'executing') statusText = t('status.executing');
       else statusText = t('status.idle');
 
-      const option = (value, titleKey, descKey, noteKey) => h('button', {
+      const option = (value, titleKey, descKey) => h('button', {
         type: 'button',
         className: 'ipa-modeOption',
         'data-active': mode === value || undefined,
@@ -915,9 +925,15 @@ background-color:rgba(9,11,16,.42);
         role: 'radio',
         'aria-checked': mode === value,
       },
-        h('span', { className: 'ipa-optionTitle' }, t(titleKey)),
+        h('span', { className: 'ipa-optionTitle' },
+          t(titleKey),
+          h('span', { className: 'ipa-modeMark', 'aria-hidden': true },
+            h('svg', { viewBox: '0 0 16 16', width: 12, height: 12 },
+              h('path', { d: 'M3.5 8l3 3 6-6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+            ),
+          ),
+        ),
         h('span', { className: 'ipa-optionDesc' }, t(descKey)),
-        mode === value && noteKey !== undefined && h('span', { className: 'ipa-note' }, t(noteKey)),
       );
 
       return h('div', {
@@ -939,13 +955,21 @@ background-color:rgba(9,11,16,.42);
           }, '\u00d7'),
         ),
         h('div', { className: 'ipa-sub' }, t('panel.subtitle')),
-        h('div', { className: 'ipa-modes', role: 'radiogroup', 'aria-label': t('panel.mode') },
-          option('hibernate', 'panel.hibernate', 'panel.hibernateDesc', 'panel.hibernateNote'),
-          option('shutdown', 'panel.shutdown', 'panel.shutdownDesc', 'panel.shutdownNote'),
+        h('div', { className: 'ipa-modes', 'data-mode': mode, role: 'radiogroup', 'aria-label': t('panel.mode') },
+          option('hibernate', 'panel.hibernate', 'panel.hibernateDesc'),
+          option('shutdown', 'panel.shutdown', 'panel.shutdownDesc'),
+        ),
+        h('div', { className: 'ipa-modeNotes' },
+          ...['hibernate', 'shutdown'].map((value) => h('div', {
+            className: 'ipa-note ipa-modeNote', key: value,
+            'data-active': mode === value || undefined,
+            'aria-hidden': mode !== value,
+          }, t(value === 'shutdown' ? 'panel.shutdownNote' : 'panel.hibernateNote'))),
         ),
         h('div', { className: 'ipa-bg' },
           h('div', { className: 'ipa-bgHead' }, t('panel.background')),
-          h('div', { className: 'ipa-bgOptions', role: 'group', 'aria-label': t('panel.background') },
+          h('div', { className: 'ipa-bgOptions', 'data-background': background, role: 'group', 'aria-label': t('panel.background') },
+            h('span', { className: 'ipa-bgThumb', 'aria-hidden': true }),
             ...styleChoices.map(([value, labelKey]) => h('button', {
               type: 'button',
               key: value,
@@ -970,13 +994,17 @@ background-color:rgba(9,11,16,.42);
               },
             }, t(labelKey))),
           ),
-          h('div', { className: 'ipa-bgDesc' }, t(`background.${background}Desc`)),
+          h('div', { className: 'ipa-bgDesc' },
+            h('span', { className: 'ipa-stateText', key: background }, t(`background.${background}Desc`)),
+          ),
         ),
         h('div', { className: 'ipa-flow', 'aria-label': t('panel.flow') },
           h('strong', null, `${data.quietSeconds} ${t('panel.quiet')} → ${data.countdownSeconds} ${t('panel.countdown')}`),
           h('span', { className: 'ipa-note' }, t('panel.scope')),
         ),
-        h('div', { className: 'ipa-status', 'data-tone': statusTone, role: 'status' }, statusText),
+        h('div', { className: 'ipa-status', 'data-tone': statusTone, role: 'status' },
+          h('span', { className: 'ipa-stateText', key: `${data.phase}:${statusTone}:${ready}:${offline}` }, statusText),
+        ),
         armed && data.busy.total > 0 && h('dl', { className: 'ipa-details' },
           [['agentsRunning', 'status.agents'], ['inboxPending', 'status.inbox'], ['jobsRunning', 'status.jobs']]
             .flatMap(([key, label]) => [
@@ -994,13 +1022,13 @@ background-color:rgba(9,11,16,.42);
               className: 'ipa-cancel',
               disabled: busy,
               onClick: () => { void cancel(); },
-            }, t(busy ? 'countdown.cancelling' : 'panel.cancel'))
+            }, h('span', { className: 'ipa-stateText', key: String(busy) }, t(busy ? 'countdown.cancelling' : 'panel.cancel')))
             : h('button', {
               type: 'button',
               className: 'ipa-primary',
               disabled: busy || !ready || offline || !data.supported || locked || data.busy?.available === false,
               onClick: () => { void arm(mode); },
-            }, t(locked ? 'status.executing' : busy ? 'status.saving' : 'panel.arm')),
+            }, h('span', { className: 'ipa-stateText', key: `${locked}:${busy}` }, t(locked ? 'status.executing' : busy ? 'status.saving' : 'panel.arm'))),
         ),
       );
     }
@@ -1122,7 +1150,7 @@ background-color:rgba(9,11,16,.42);
       const quietSeconds = data.quietSeconds > 0 ? data.quietSeconds : 20;
       const windowSeconds = total > 0 ? total : remaining;
       const valueNow = Math.max(0, Math.min(remaining, Math.max(1, windowSeconds)));
-      const railWidth = `${(fraction * 100).toFixed(2)}%`;
+      const railScale = `scaleX(${fraction})`;
 
       // Seconds only, so the title changes once a second rather than four times.
       useEffect(() => {
@@ -1134,14 +1162,14 @@ background-color:rgba(9,11,16,.42);
         for (const handle of mirrorsRef.current) {
           try {
             handle.count.textContent = String(remaining);
-            handle.fill.style.width = railWidth;
+            handle.fill.style.transform = railScale;
             handle.fill.style.backgroundColor = urgent ? '#ff6b6b' : '#4a8cff';
             handle.count.style.color = urgent ? '#ff6b6b' : '#f3f5f9';
             handle.action.textContent = action;
             handle.meta.textContent = fmt(t('countdown.scheduledAt'), scheduledAt);
           } catch { /* a closed mirror is harmless */ }
         }
-      }, [remaining, action, scheduledAt, railWidth, urgent, t]);
+      }, [remaining, action, scheduledAt, railScale, urgent, t]);
 
       const alignChoices = [
         ['left', 'countdown.alignLeft'],
@@ -1165,7 +1193,7 @@ background-color:rgba(9,11,16,.42);
           'aria-valuenow': valueNow,
           'aria-valuetext': fmt(t('countdown.remaining'), String(remaining)),
         },
-          h('span', { className: 'ipa-railFill', style: { width: railWidth } }),
+          h('span', { className: 'ipa-railFill', style: { transform: railScale } }),
         ),
         h('div', { className: 'ipa-card', 'data-align': align === 'center' ? undefined : align },
           h('div', { className: 'ipa-top' },
@@ -1225,9 +1253,8 @@ background-color:rgba(9,11,16,.42);
                   }),
                 ),
                 h('div', { className: 'ipa-dialCenter', role: 'timer', 'aria-live': 'off' },
-                  // Re-keying on the whole second restarts the tick animation,
-                  // which makes the digit visibly settle once per second.
-                  h('span', { className: 'ipa-count', key: remaining }, String(remaining)),
+                  // Update text in place so each second keeps the same baseline.
+                  h('span', { className: 'ipa-count' }, String(remaining)),
                   h('span', { className: 'ipa-unit' }, t('countdown.suffix')),
                 ),
               ),

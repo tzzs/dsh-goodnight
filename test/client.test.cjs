@@ -655,16 +655,16 @@ console.log('\n=== countdown: ring edge cases ===')
   check('a live deadline advances the ring fractionally', live > 0.01 && live < circumference, String(live))
 }
 
-console.log('\n=== countdown: motion hooks ===')
+console.log('\n=== countdown: stable digits ===')
 {
   const counting = { data: { ...baseState, phase: 'counting', remainingSeconds: 47, countdownSeconds: 60, deadline: null } }
   const { tree } = renderEntry(countdown, counting)
   const digit = findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className === 'ipa-count')
-  check('the digit carries a re-keying hook', digit?.props.key === 47, String(digit?.props.key))
-  const now = new Date().getTime()
+  check('the digit renders the current second', textsOf(digit).join('') === '47')
   const later = renderEntry(countdown, { data: { ...baseState, phase: 'counting', remainingSeconds: 46, countdownSeconds: 60, deadline: null } }).tree
   const digit2 = findElement(later, (n) => typeof n.props.className === 'string' && n.props.className === 'ipa-count')
-  check('the key changes when the second changes', digit2?.props.key === 46, String(digit2?.props.key))
+  check('the text updates when the second changes', textsOf(digit2).join('') === '46')
+  check('second changes do not force the digit to remount', digit?.props.key === undefined && digit2?.props.key === undefined)
   check('the countdown card still renders', findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-card')) !== undefined)
   check('ring still present', findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-ringValue')) !== undefined)
 }
@@ -679,7 +679,7 @@ console.log('\n=== motion: reduced-motion coverage in CSS ===')
   for (const sel of ['ipa-panel', 'ipa-count', 'ipa-ringValue', 'ipa-entry']) {
     check(`reduced motion disables ${sel}`, reduceBlock.includes(sel), sel)
   }
-  check('animations declare keyframes', css.includes('@keyframes ipa-pop') && css.includes('@keyframes ipa-tick'))
+  check('animations declare keyframes', css.includes('@keyframes ipa-pop') && css.includes('@keyframes ipa-dial-in'))
 }
 
 console.log('\n=== countdown: urgent near zero ===')
@@ -732,7 +732,7 @@ console.log('\n=== countdown: full-window layout and richer information ===')
   check('progressbar exposes the window length', rail?.props['aria-valuemax'] === 60, String(rail?.props['aria-valuemax']))
   check('progressbar has an accessible label', rail?.props['aria-label'] === 'countdown.progress', String(rail?.props['aria-label']))
   const fill = findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-railFill'))
-  check('edge rail drains with the ring fraction', fill?.props.style?.width === '75.00%', JSON.stringify(fill?.props.style))
+  check('edge rail drains with the ring fraction', fill?.props.style?.transform === 'scaleX(0.75)', JSON.stringify(fill?.props.style))
 
   const hasClass = (name) => findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes(name)) !== undefined
   check('renders top / stage / bottom bands', hasClass('ipa-top') && hasClass('ipa-stage') && hasClass('ipa-bottom'))
