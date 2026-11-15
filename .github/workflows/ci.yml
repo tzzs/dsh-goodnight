@@ -1,0 +1,97 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A superseded run on the same branch has nothing left to prove; the newest
+# commit is the one that matters.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The power backend is Windows-only, but the state machine, the HTTP
+        # routes and the browser half are platform independent. Running the
+        # suite on all three surfaces the platform assumptions that would
+        # otherwise only appear on a user's machine.
+        #
+        # Node 20 is the floor declared by `engines`; 24 is current. The
+        # versions in between cannot fail in a way these two miss.
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        node: [20, 24]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+
+      # The suite has no dependencies, so there is nothing to install and no
+      # `npm ci` to run: the repository ships without a lockfile, and a plugin
+      # that users install with npm should not need a build step to be
+      # verified from a clean checkout.
+      - name: Run the test suite
+        run: npm test
+
+  commit-messages:
+    name: commit messages
+    # Release Please writes its own commits and its own PR title. Those are
+    # generated, not authored, so they are not ours to lint. The branch prefix
+    # is checked instead of a label because the label is applied after the PR
+    # is opened and would lose a race with the first CI run.
+    if: >-
+      github.event_name == 'pull_request' &&
+      !startsWith(github.event.pull_request.head.ref, 'release-please--')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      # Keep the default ref: on a pull_request event actions/checkout checks
+      # out the merge commit, whose ancestry contains both the PR commits and
+      # the base branch. Pinning to head.sha instead breaks PRs from forks,
+      # where that SHA lives in another repository.
+      - uses: actions/checkout@v7
+        with:
+          # `origin/<base>..HEAD` needs the whole history, not a shallow clone.
+          fetch-depth: 0
+
+      - name: Check every commit subject
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: node .github/scripts/lint-commit-subjects.mjs "origin/${BASE_REF}" HEAD
+
+      # Squash merges take their message from the PR title, which is not a
+      # commit in the branch, so the title needs its own check.
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Must stay in step with `changelog-sections` in
+          # release-please-config.json: a type that is not listed there is
+          # hidden from the changelog and does not bump the version.
+          types: |
+            feat
+            fix
+            perf
+            revert
+            docs
+            style
+            chore
+            refactor
+            test
+            build
+            ci
+          requireScope: false

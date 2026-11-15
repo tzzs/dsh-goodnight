@@ -1,0 +1,91 @@
+# 发布流程 / Releasing
+
+发布由 [Release Please](https://github.com/googleapis/release-please) 驱动，全部在 GitHub Actions 里完成，不需要本地手动改版本号。
+
+## 一句话流程
+
+往 `main` 合并 Conventional Commits → Release Please 自动开「发布 PR」→ 你审阅并合并这个 PR → 自动打 tag、建 GitHub Release、发布到 npm。
+
+## 1. 写提交信息
+
+版本号来自提交信息，所以标题必须遵守 [Conventional Commits](https://www.conventionalcommits.org/)：
+
+| 前缀 | 版本变化 | 是否进 CHANGELOG |
+|---|---|---|
+| `fix:` | `0.2.0` → `0.2.1` | ✅ Bug Fixes |
+| `feat:` | `0.2.0` → `0.3.0` | ✅ Features |
+| `feat!:` 或 `BREAKING CHANGE:` footer | 破坏性变更 | ✅ |
+| `perf:` / `revert:` | patch | ✅ |
+| `docs:` `style:` `chore:` `refactor:` `test:` `build:` `ci:` | **不涨版本** | 隐藏 |
+
+例子：
+
+```
+feat: add a cancellable quiet-window override
+fix(host): refuse an arm whose executable lookup resolved out of order
+ci: add GitHub Actions and Release Please
+```
+
+CI 会在 PR 上校验**每一个 commit 的标题**和 **PR 标题**（squash 合并时 PR 标题会变成 main 上的 commit message）。不符合规范的 PR 会变红。不符合规范的提交会被 release-please 静默丢弃——版本号因此不涨，所以这个检查是必要的，不是形式主义。
+
+## 2. 合并到 main
+
+`ci.yml` 跑测试（Windows / Ubuntu / macOS × Node 20 / 24）和提交规范检查。合并后 `release.yml` 在 `main` 上触发：
+
+- 有 `feat` / `fix` 等用户可见的提交 → 自动打开或更新一个名为 `chore(main): release X.Y.Z` 的发布 PR。这个 PR 只改三处：`package.json` 的版本、`CHANGELOG.md`、`.release-please-manifest.json`。
+- 只有 `ci:` / `chore:` 等隐藏类型的提交 → **不会**打开发布 PR，这是预期行为，不是故障。
+
+发布 PR 会随着后续合并持续更新，攒够一批再发。
+
+## 3. 审阅并合并发布 PR
+
+合并发布 PR 的那一刻，`release.yml` 会：
+
+1. 创建 tag `vX.Y.Z` 和对应的 GitHub Release（正文来自 CHANGELOG）；
+2. 在同一个 workflow run 里跑测试、`npm pack --dry-run`，然后 `npm publish --provenance --access public`。
+
+之所以把 npm 发布放在同一个 workflow，而不是监听 `release: published`：用内置 `GITHUB_TOKEN` 创建的事件不会再触发其它 workflow，那样发布 job 永远不会跑。
+
+## 4. npm 认证（一次性）
+
+`dsh-idle-power` 的首次发布必须有人类凭证，二选一：
+
+**A. NPM_TOKEN（简单）** — 在 npmjs.com 生成一个 granular access token（只给 `dsh-idle-power` 的读写权限，别用全账户的 automation token），然后：
+
+```powershell
+gh secret set NPM_TOKEN -R tzzs/dsh-idle-power
+```
+
+**B. npm Trusted Publishing（推荐，无长期密钥）** — 在 npmjs.com 的包设置里加一个 trusted publisher：
+
+| 字段 | 值 |
+|---|---|
+| Organization or user | `tzzs` |
+| Repository | `dsh-idle-power` |
+| Workflow filename | `release.yml` |
+| Allowed actions | 勾选 `npm publish` |
+
+workflow 已经带上了 `id-token: write` 和 `--provenance`，配置好就能用。注意 npm 要求新配置的 trusted publisher 在 **2 天内**完成首次发布，否则会过期需要重建。
+
+两种都没配时，发布 job 会以 `ENEEDAUTH` 失败，但 tag 和 GitHub Release 已经建好；补上认证后重跑该 workflow 即可。
+
+## 5. 可选：让 CI 也跑在发布 PR 上
+
+内置 `GITHUB_TOKEN` 创建的 PR 不会触发其它 workflow，所以发布 PR 上没有 CI 勾选框。这不影响发布（发布 PR 只改版本号）。如果希望它也有 CI：
+
+1. 建一个 classic PAT（`repo` scope）或 fine-grained PAT（Contents RW + Pull requests RW）；
+2. `gh secret set RELEASE_PLEASE_TOKEN -R tzzs/dsh-idle-power`。
+
+`release.yml` 会自动优先使用它，不需要改代码。仓库设置里的 "Allow GitHub Actions to create and approve pull requests" 已经打开。
+
+## 关键文件
+
+| 文件 | 作用 |
+|---|---|
+| `release-please-config.json` | 版本策略、CHANGELOG 分节、tag 格式 |
+| `.release-please-manifest.json` | 当前已发布版本（起始 `0.2.0`） |
+| `.github/workflows/ci.yml` | 测试 + 提交规范 |
+| `.github/workflows/release.yml` | 发布 PR → tag / Release → npm |
+| `.github/scripts/lint-commit-subjects.mjs` | 无依赖的提交标题校验 |
+
+`bootstrap-sha` 指向接入前的 `main` 顶点，用来把历史里 4 个非规范提交排除在 CHANGELOG 之外；第一个正式 Release 生成后这个字段就会被忽略。

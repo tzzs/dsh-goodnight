@@ -1,0 +1,104 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Two releases must never race: the tag is created from the head of main, so a
+# superseded run would tag the wrong commit. Queue them instead of cancelling.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      # `RELEASE_PLEASE_TOKEN` is optional. A PAT (or GitHub App token) makes
+      # the release PR trigger ci.yml; the built-in GITHUB_TOKEN creates PRs
+      # and releases fine, but GitHub suppresses workflows on anything it
+      # creates, so CI checks will not appear on the release PR. Supplying the
+      # PAT is the only difference — either way the release itself works.
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Summarise
+        env:
+          RELEASE_CREATED: ${{ steps.release.outputs.release_created }}
+          PRS_CREATED: ${{ steps.release.outputs.prs_created }}
+          TAG_NAME: ${{ steps.release.outputs.tag_name }}
+        run: |
+          echo "prs_created=$PRS_CREATED" >> "$GITHUB_STEP_SUMMARY"
+          echo "release_created=$RELEASE_CREATED" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$RELEASE_CREATED" = "true" ]; then
+            echo "tag=$TAG_NAME" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  publish:
+    name: publish to npm
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance / trusted publishing (OIDC)
+    steps:
+      # Publish exactly what was tagged, not whatever main has moved on to in
+      # the meantime. The release PR already bumped package.json.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify the tag matches package.json
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
+        run: |
+          actual=$(node -p "require('./package.json').version")
+          if [ "$actual" != "$VERSION" ]; then
+            echo "::error::package.json says $actual but release-please released $VERSION"
+            exit 1
+          fi
+          echo "Publishing dsh-idle-power@$actual from tag ${{ needs.release-please.outputs.tag_name }}"
+
+      # Nothing is built, but a broken tarball is not worth a version number.
+      - name: Run the test suite
+        run: npm test
+
+      - name: Inspect the tarball
+        run: npm pack --dry-run
+
+      - name: Check npm credentials
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "::notice::NPM_TOKEN is unset; relying on npm trusted publishing (OIDC)."
+            echo "::notice::If this publish fails with ENEEDAUTH, add an NPM_TOKEN secret or configure a trusted publisher."
+          fi
+
+      # --provenance links the published package to this workflow run. It needs
+      # id-token: write and works with either an NPM_TOKEN or npm trusted
+      # publishing; --access public is explicit for an unscoped package.
+      - name: Publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
