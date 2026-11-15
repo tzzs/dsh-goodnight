@@ -2,6 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>dsh-idle-power · countdown preview</title>
 <style>
   /* Stand-ins for the DSH design tokens, so the plugin CSS resolves the same way. */
@@ -52,6 +53,14 @@
   .fake-app .tile.b { left: 620px; top: 430px; width: 300px; height: 150px; background: #e8934a; }
   .fake-app .tile.c { left: 950px; top: 430px; width: 300px; height: 150px; background: #3fa88f; }
   .fake-app .tile.d { left: 290px; top: 620px; width: 620px; height: 110px; background: #8a6bd8; }
+  /* Opt-in controls never appear in the screenshot/background iframe URLs. */
+  #preview-controls[hidden] { display: none; }
+  #preview-controls { position: fixed; z-index: 100; right: 12px; bottom: 12px; max-width: calc(100vw - 24px); box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); box-shadow: var(--dsw-elevation-soft); font-size: 12px; line-height: 1.5; }
+  .preview-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  #preview-controls button { min-height: 44px; padding: 6px 12px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 6px; background: var(--dsw-alias-bg-layer-2); color: inherit; font: inherit; cursor: pointer; }
+  #preview-controls button:hover { background: var(--dsw-alias-interactive-bg-hover); }
+  #preview-controls button:focus-visible { outline: 2px solid var(--dsw-focus-ring-color); outline-offset: 2px; }
+  #preview-status { margin-top: 4px; max-width: 42ch; color: var(--dsw-alias-label-secondary); }
 </style>
 </head>
 <body>
@@ -66,10 +75,18 @@
   <div class="tile a"></div><div class="tile b"></div><div class="tile c"></div><div class="tile d"></div>
 </div>
 <div id="overlay-root"></div>
+<aside id="preview-controls" aria-label="交互预览控制" hidden>
+  <div class="preview-actions">
+    <button id="preview-open" type="button" data-ipa-trigger aria-haspopup="dialog" aria-expanded="false">打开设置</button>
+    <button id="preview-start" type="button">演示倒计时</button>
+    <button id="preview-reset" type="button">重置</button>
+  </div>
+  <div id="preview-status" role="status">安全演示：所有操作仅修改本页，不执行电源命令。</div>
+</aside>
 
 <script>
-  // A tiny React stand-in: one render pass is enough for a static design review,
-  // but it renders the REAL component and the REAL stylesheet from client.js.
+  // Load the REAL components and stylesheet with a local, dependency-free host.
+  // Plain script tags also work from file://, without fetch, a CDN, or a server.
   let captured = null;
   window.__ModuleLoader__ = { load(entry) { captured = entry.factory; } };
   if (new URLSearchParams(location.search).has('multi')) {
@@ -91,169 +108,329 @@
 <script src="../client.js"></script>
 <script>
 (function () {
-  let cursor = 0;
-  let slots = [];
-  function beginComponent() { cursor = 0; slots = []; }
+  const params = new URLSearchParams(location.search);
+  const live = params.get('live') === '1';
+  const panelMode = params.has('panel');
+  const secondsParam = Number(params.get('s') || 47);
+  const initialSeconds = Number.isFinite(secondsParam) ? Math.max(0, Math.min(3600, Math.ceil(secondsParam))) : 47;
+  const initialMode = params.get('mode') === 'shutdown' ? 'shutdown' : 'hibernate';
+  const initialBackground = ['solid', 'glass', 'blur'].includes(params.get('bg')) ? params.get('bg') : 'solid';
+  let alive = true;
+  let current = null;
+  let scheduled = false;
+  let tree = null;
+  let effects = [];
 
+  // This deliberately implements only the React surface used by client.js.
+  // Each function component owns its hooks; effects run AFTER the DOM commit.
+  const sameDeps = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((value, i) => Object.is(value, b[i]));
+  function scheduleRender() {
+    if (!live || !alive || scheduled) return;
+    scheduled = true;
+    queueMicrotask(() => { scheduled = false; if (alive) render(); });
+  }
   const React = {
-    createElement(type, props) {
-      const children = Array.prototype.slice.call(arguments, 2).flat(Infinity)
-        .filter((c) => c !== undefined && c !== null && c !== false && c !== true);
-      return { type: type, props: props || {}, children: children };
+    createElement(type, props, ...children) {
+      return { type, props: props || {}, children: children.flat(Infinity).filter((child) => child !== null && child !== undefined && typeof child !== 'boolean') };
     },
-    useState(init) {
-      const i = cursor++;
-      if (!(i in slots)) slots[i] = typeof init === 'function' ? init() : init;
-      return [slots[i], (next) => { slots[i] = typeof next === 'function' ? next(slots[i]) : next; }];
+    useState(initial) {
+      const owner = current;
+      const index = owner.cursor++;
+      if (!owner.hooks[index]) {
+        const slot = { value: typeof initial === 'function' ? initial() : initial };
+        slot.set = (next) => {
+          if (!owner.mounted || !live) return;
+          const value = typeof next === 'function' ? next(slot.value) : next;
+          if (!Object.is(value, slot.value)) { slot.value = value; scheduleRender(); }
+        };
+        owner.hooks[index] = slot;
+      }
+      const slot = owner.hooks[index];
+      return [slot.value, slot.set];
     },
-    useEffect(fn) { cursor++; const cleanup = fn(); return typeof cleanup === 'function' ? cleanup : undefined; },
-    useCallback(fn) { cursor++; return fn; },
-    useMemo(fn) { cursor++; return fn(); },
-    useRef(v) { cursor++; return { current: v }; },
+    useEffect(callback, deps) {
+      const owner = current;
+      const index = owner.cursor++;
+      const previous = owner.hooks[index];
+      if (previous && sameDeps(previous.deps, deps)) return;
+      const slot = { deps, cleanup: previous?.cleanup };
+      owner.hooks[index] = slot;
+      if (live) effects.push(() => {
+        if (typeof slot.cleanup === 'function') slot.cleanup();
+        slot.cleanup = undefined;
+        if (owner.mounted) slot.cleanup = callback();
+      });
+    },
+    useMemo(callback, deps) {
+      const index = current.cursor++;
+      const previous = current.hooks[index];
+      if (!previous || !sameDeps(previous.deps, deps)) current.hooks[index] = { deps, value: callback() };
+      return current.hooks[index].value;
+    },
+    useCallback(callback, deps) { return React.useMemo(() => callback, deps); },
+    useRef(value) {
+      const index = current.cursor++;
+      if (!current.hooks[index]) current.hooks[index] = { current: value };
+      return current.hooks[index];
+    },
   };
 
-  const SVG = { svg: 1, circle: 1, path: 1 };
-  function mount(node) {
-    if (node === null || node === undefined) return null;
-    if (typeof node === 'string' || typeof node === 'number') return document.createTextNode(String(node));
-    if (Array.isArray(node)) {
-      const frag = document.createDocumentFragment();
-      node.forEach((child) => { const el = mount(child); if (el) frag.appendChild(el); });
-      return frag;
+  const keyOf = (node) => node && typeof node === 'object' ? node.props?.key ?? null : null;
+  const typeOf = (node) => node === null || node === undefined || typeof node === 'boolean' ? null : typeof node === 'object' ? node.type : '#text';
+  const setRef = (ref, value) => { if (typeof ref === 'function') ref(value); else if (ref) ref.current = value; };
+  const unitless = new Set(['opacity', 'zIndex', 'fontWeight', 'lineHeight', 'flex', 'flexGrow', 'flexShrink', 'order', 'scale']);
+  function patchStyle(el, previous, next) {
+    previous = previous || {};
+    next = next || {};
+    for (const key of new Set([...Object.keys(previous), ...Object.keys(next)])) {
+      if (Object.is(previous[key], next[key])) continue;
+      let value = next[key] ?? '';
+      if (typeof value === 'number' && value !== 0 && !key.startsWith('--') && !unitless.has(key)) value = `${value}px`;
+      if (key.includes('-')) el.style.setProperty(key, String(value));
+      else el.style[key] = value;
     }
-    if (typeof node.type === 'function') {
-      beginComponent();
-      return mount(node.type(Object.assign({}, node.props, { children: node.children })));
+  }
+  function patchProps(el, previous, next, svg) {
+    for (const key of new Set([...Object.keys(previous), ...Object.keys(next)])) {
+      const before = previous[key];
+      const value = next[key];
+      if (Object.is(before, value) || key === 'key' || key === 'children') continue;
+      if (key === 'style') { patchStyle(el, before, value); continue; }
+      if (key === 'ref') { setRef(before, null); setRef(value, el); continue; }
+      if (key === 'autoFocus') continue; // Live component effects handle focus.
+      if (/^on[A-Z]/.test(key)) {
+        const event = key.slice(2).toLowerCase();
+        if (typeof before === 'function') el.removeEventListener(event, before);
+        if (live && typeof value === 'function') el.addEventListener(event, value);
+        continue;
+      }
+      const name = key === 'className' ? 'class' : key === 'tabIndex' ? 'tabindex'
+        : svg && key !== 'viewBox' && key !== 'preserveAspectRatio' ? key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`) : key;
+      const stringBoolean = key.startsWith('aria-') || key.startsWith('data-');
+      if (value === undefined || value === null || (value === false && !stringBoolean)) el.removeAttribute(name);
+      else el.setAttribute(name, value === true && !stringBoolean ? '' : String(value));
     }
-    const el = SVG[node.type]
-      ? document.createElementNS('http://www.w3.org/2000/svg', node.type)
-      : document.createElement(node.type);
-    Object.keys(node.props).forEach((key) => {
-      const value = node.props[key];
-      if (value === undefined || value === null || key === 'key') return;
-      if (key === 'className') el.setAttribute('class', value);
-      else if (key === 'style' && typeof value === 'object') Object.assign(el.style, value);
-      else if (key === 'ref') { if (value && typeof value === 'object') value.current = el; }
-      else if (key === 'autoFocus') { /* no focus ring in a static preview */ }
-      else if (key.slice(0, 2) === 'on' && typeof value === 'function') el.addEventListener(key.slice(2).toLowerCase(), value);
-      // React renders aria-*/data-* booleans as "true"/"false" strings, which is
-      // what attribute selectors such as [aria-pressed=true] match against.
-      else if (key.slice(0, 5) === 'aria-' || key.slice(0, 5) === 'data-') el.setAttribute(key, String(value));
-      else if (value === false) return;
-      else el.setAttribute(key, value === true ? '' : String(value));
+  }
+  function dispose(record) {
+    if (!record) return;
+    record.mounted = false;
+    if (record.hooks) for (const slot of record.hooks) {
+      if (typeof slot?.cleanup === 'function') {
+        const cleanup = slot.cleanup;
+        slot.cleanup = undefined;
+        effects.push(cleanup);
+      }
+    }
+    if (record.child) dispose(record.child);
+    if (record.children) record.children.forEach(dispose);
+    if (record.props?.ref) setRef(record.props.ref, null);
+  }
+  function renderComponent(parent, record, node, svg) {
+    const previous = current;
+    current = record;
+    record.cursor = 0;
+    let output;
+    try { output = node.type({ ...node.props, children: node.children }); }
+    finally { current = previous; }
+    record.child = patch(parent, record.child, output, svg);
+    record.dom = record.child.dom;
+  }
+  function patchChildren(el, record, nodes, svg) {
+    const previous = record.children || [];
+    const keyed = new Map(previous.filter((child) => child.key !== null).map((child) => [child.key, child]));
+    const used = new Set();
+    record.children = nodes.map((node, index) => {
+      const key = keyOf(node);
+      const candidate = key !== null ? keyed.get(key) : previous[index]?.key === null ? previous[index] : null;
+      const old = candidate && !used.has(candidate) ? candidate : null;
+      if (old) used.add(old);
+      const child = patch(el, old, node, svg);
+      const position = el.childNodes[index] || null;
+      if (child.dom !== position) el.insertBefore(child.dom, position);
+      return child;
     });
-    node.children.forEach((child) => { const el2 = mount(child); if (el2) el.appendChild(el2); });
-    return el;
+    for (const old of previous) if (!used.has(old)) { dispose(old); old.dom.remove(); }
+  }
+  function patch(parent, record, node, svg) {
+    const type = typeOf(node);
+    const key = keyOf(node);
+    if (!record || record.type !== type || record.key !== key) {
+      const old = record;
+      if (old) dispose(old);
+      record = { type, key, mounted: true, props: {}, hooks: [], child: null };
+      if (type === null) record.dom = document.createComment('preview');
+      else if (type === '#text') record.dom = document.createTextNode(String(node));
+      else if (typeof type === 'function') renderComponent(parent, record, node, svg);
+      else {
+        const isSvg = svg || type === 'svg';
+        record.dom = isSvg ? document.createElementNS('http://www.w3.org/2000/svg', type) : document.createElement(type);
+        patchProps(record.dom, {}, node.props, isSvg);
+        record.props = node.props;
+        patchChildren(record.dom, record, node.children, isSvg && type !== 'foreignObject');
+      }
+      if (old) parent.replaceChild(record.dom, old.dom);
+      return record;
+    }
+    if (type === '#text') {
+      if (record.dom.nodeValue !== String(node)) record.dom.nodeValue = String(node);
+    } else if (typeof type === 'function') renderComponent(parent, record, node, svg);
+    else if (type !== null) {
+      const isSvg = svg || type === 'svg';
+      patchProps(record.dom, record.props, node.props, isSvg);
+      record.props = node.props;
+      patchChildren(record.dom, record, node.children, isSvg && type !== 'foreignObject');
+    }
+    return record;
+  }
+  function flushEffects() {
+    const pending = effects;
+    effects = [];
+    pending.forEach((effect) => effect());
   }
 
-  const zh = {
-    'countdown.title': '所有任务已完成',
-    'countdown.hibernate': '将进入休眠',
-    'countdown.shutdown': '将关机',
-    'countdown.suffix': '秒',
-    'countdown.cancel': '取消',
-    'countdown.cancelling': '正在取消…',
-    'countdown.hint': '有任何新任务开始，倒计时会自动作废。',
-    'countdown.quietDone': '已通过 %s 秒持续空闲',
-    'countdown.scheduledAt': '预计 %s 执行（本机时间）',
-    'countdown.window': '倒计时窗口 %s 秒',
-    'countdown.remaining': '剩余 %s 秒',
-    'countdown.progress': '倒计时进度',
-    'countdown.scopeTag': '仅覆盖当前 Harness 窗口',
-    'countdown.multiNote': '检测到多块屏幕：倒计时只会出现在 Harness 窗口所在的屏幕。若窗口跨了两块屏，可把计时器固定在其中一侧。',
-    'countdown.alignLabel': '计时器位置',
-    'countdown.alignLeft': '靠左',
-    'countdown.alignCenter': '居中',
-    'countdown.alignRight': '靠右',
-    'countdown.mirrors': '在其它屏幕也显示',
-    'countdown.mirrorRetry': '重新显示',
-    'countdown.mirrorWorking': '正在打开…',
-    'countdown.mirrorsOn': '已在 %s 个附加窗口显示',
-    'countdown.mirrorBlocked': '当前 Harness 窗口不允许弹出附加窗口，倒计时只在它所在的屏幕可见。',
-    'countdown.mirrorPlain': '已打开一个镜像窗口，请把它拖到另一块屏幕。',
-    'countdown.beaconTitle': '关机倒计时 · 镜像窗口',
-    'countdown.beaconHint': '在任意窗口取消，都会停止本次电源操作。',
-    'countdown.offline': '连接已断开，预约可能仍在执行。取消尚未确认，请重试。',
-    'status.failed': '执行失败',
-    'panel.scope': '关闭页面不会取消预约；不监测其他应用或其他 Host。',
-    'panel.shutdownNote': '会强制关闭应用，未保存的内容可能丢失。请先保存其他应用的工作。',
-    'panel.title': '空闲后休眠或关机',
-    'panel.subtitle': '等待当前 DSH Host 的任务结束，再执行一次电源操作。',
-    'panel.mode': '电源操作',
-    'panel.background': '倒计时背景',
-    'panel.hibernate': '休眠',
-    'panel.hibernateDesc': '内存快照落盘，等于断电；下次开机原样恢复窗口和未保存的内容。',
-    'panel.hibernateNote': '休眠后按电源键会把整机内存读回来，开着的窗口都还在。',
-    'panel.shutdown': '关机',
-    'panel.shutdownDesc': '倒计时结束后关闭 Windows，DSH 对话记录仍然保留。',
-    'panel.flow': '执行流程',
-    'panel.quiet': '秒持续空闲',
-    'panel.countdown': '秒可取消倒计时',
-    'panel.close': '关闭',
-    'panel.arm': '预约',
-    'status.idle': '未预约',
-    'status.saving': '正在提交…',
-    'background.solid': '纯色',
-    'background.solidDesc': '不透明底色，文字对比度最高。',
-    'background.glass': '毛玻璃',
-    'background.glassDesc': '半透明 + 模糊，隐约透出背后的窗口。',
-    'background.blur': '高斯模糊',
-    'background.blurDesc': '重度模糊 + 暗底，沉浸式深色提示。',
+  function initialState() {
+    return {
+      data: {
+        supported: true, platform: 'win32', phase: panelMode ? 'idle' : 'counting', mode: initialMode,
+        backgroundStyle: initialBackground, countdownSeconds: 60, quietSeconds: 20,
+        remainingSeconds: initialSeconds, quietRemainingSeconds: 0, deadline: null,
+        busy: { available: true, agentsRunning: 0, inboxPending: 0, jobsRunning: 0, total: 0 },
+        error: null, lastExecution: null,
+      },
+      ready: true, offline: false, busy: false, note: null, noteCode: null, notePhase: null,
+      panelOpen: panelMode, anchor: null,
+    };
+  }
+  let state = initialState();
+  const usePower = (selector) => selector ? selector(state) : state;
+  const update = (fields, data) => {
+    state = { ...state, ...fields, data: { ...state.data, ...data } };
+    scheduleRender();
   };
-  const t = (key) => (key in zh ? zh[key] : key);
 
-  const params = new URLSearchParams(location.search);
-  const remaining = Number(params.get('s') || 47);
-  const mode = params.get('mode') || 'hibernate';
-  const backgroundStyle = params.get('bg') || 'solid';
-  const panelMode = params.has('panel');
-  const state = {
-    data: {
-      supported: true, platform: 'win32', phase: panelMode ? 'idle' : 'counting', mode: mode,
-      backgroundStyle: backgroundStyle,
-      countdownSeconds: 60, quietSeconds: 20,
-      remainingSeconds: remaining, quietRemainingSeconds: 0, deadline: null,
-      busy: { available: true, agentsRunning: 0, inboxPending: 0, jobsRunning: 0, total: 0 },
-      error: null, lastExecution: null,
-    },
-    ready: true, offline: false, busy: false, note: null, noteCode: null, notePhase: null,
-    panelOpen: panelMode, anchor: null,
-  };
-  const usePower = (selector) => (selector ? selector(state) : state);
-
-  const registered = [];
+  // Register real components/CSS/locales, but NEVER start the Host runtime or
+  // use its injected actions. In particular, the poller effect is not executed.
+  const registered = new Map();
+  const hostCleanups = [];
+  let messages = {};
+  const t = (key) => messages[key] ?? key;
   const ctx = {
-    effect(fn) { fn(); return () => {}; },
+    effect(callback, label) {
+      if (label !== 'dsh-idle-power: stylesheet' && label !== 'dsh-idle-power: dictionaries') return () => {};
+      const cleanup = callback();
+      if (typeof cleanup === 'function') hostCleanups.push(cleanup);
+      return cleanup;
+    },
     get: () => undefined,
-    locale: { register: () => () => {}, bind: () => t },
+    locale: { register(namespace, dictionaries) { messages = dictionaries.zh; return () => {}; }, bind: () => t },
     slots: {
       inject(name, callback) { callback(); return () => {}; },
-      register(options, component) { registered.push({ id: options.id, component: component }); return () => {}; },
+      register(options, component) { registered.set(options.id, component); return () => {}; },
     },
   };
+  captured((spec) => spec === 'react' ? React : null).apply(ctx);
 
-  const moduleObj = captured((spec) => spec === 'react' ? React : null);
-  moduleObj.apply(ctx);
-  const noop = async () => true;
-  const entry = registered.find((r) => r.id === (panelMode ? 'dsh-idle-power.panel' : 'dsh-idle-power.countdown'));
-  const root = panelMode
-    ? entry.component({ usePower: usePower, t: t, arm: noop, cancel: noop, setMode: noop, setBackground: noop, close: () => {} })
-    : entry.component({ usePower: usePower, t: t, cancel: noop });
-  const el = mount(root);
-  if (panelMode) {
-    // Pin the popover to the top-left for a still screenshot; the live panel is
-    // anchored above its sidebar trigger instead.
-    const fake = document.querySelector('.fake-app');
-    if (fake) fake.style.display = 'none';
-    document.body.style.background = '#eef0f4';
-    if (el) {
-      el.style.left = '12px';
-      el.style.top = '12px';
-      el.style.bottom = 'auto';
-      el.style.maxHeight = 'none';
+  const controls = document.getElementById('preview-controls');
+  const openButton = document.getElementById('preview-open');
+  const status = document.getElementById('preview-status');
+  let timer = null;
+  let resetGeneration = 0;
+  let demoStatus = '安全演示：所有操作仅修改本页，不执行电源命令。';
+  function stopTimer() { if (timer !== null) clearInterval(timer); timer = null; }
+  function driveCountdown() {
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((state.data.deadline - Date.now()) / 1000));
+      if (remaining !== state.data.remainingSeconds) update({}, { remainingSeconds: remaining });
+      if (remaining === 0) {
+        stopTimer();
+        // Keep the REAL countdown at zero; never enter an executing phase.
+        demoStatus = '演示已结束，停留在 0 秒。未执行任何电源操作。';
+        scheduleRender();
+      }
+    };
+    timer = setInterval(tick, 250);
+    tick();
+  }
+  const start = async (mode = state.data.mode) => {
+    if (!live) return true;
+    stopTimer();
+    demoStatus = '安全倒计时演示中；到 0 秒自动停止，不执行电源命令。';
+    update({ panelOpen: false }, { phase: 'counting', mode, remainingSeconds: initialSeconds, deadline: Date.now() + initialSeconds * 1000 });
+    driveCountdown();
+    return true;
+  };
+  const cancel = async () => {
+    if (!live) return true;
+    stopTimer();
+    demoStatus = '演示已取消。可重新打开设置或再次演示倒计时。';
+    update({}, { phase: 'idle', remainingSeconds: 0, deadline: null });
+    openButton.focus();
+    return true;
+  };
+  const close = () => {
+    if (!live) return;
+    update({ panelOpen: false });
+    openButton.focus();
+  };
+  const setMode = async (mode) => { if (live) update({}, { mode }); return true; };
+  const setBackground = async (backgroundStyle) => { if (live) update({}, { backgroundStyle }); return true; };
+  const panelProps = { usePower, t, arm: start, cancel, setMode, setBackground, close };
+  const Panel = registered.get('dsh-idle-power.panel');
+  const Countdown = registered.get('dsh-idle-power.countdown');
+  const root = document.getElementById('overlay-root');
+  function render() {
+    const node = React.createElement('div', { key: resetGeneration },
+      React.createElement(Panel, { ...panelProps, key: 'panel' }),
+      React.createElement(Countdown, { usePower, t, cancel, key: 'countdown' }),
+    );
+    const previous = tree;
+    tree = patch(root, tree, node, false);
+    if (!previous) root.appendChild(tree.dom);
+    if (!live && panelMode) {
+      // Preserve the original top-left panel screenshot framing.
+      document.querySelector('.fake-app').style.display = 'none';
+      document.body.style.background = '#eef0f4';
+      Object.assign(root.querySelector('.ipa-panel').style, { left: '12px', top: '12px', bottom: 'auto', maxHeight: 'none' });
+    }
+    openButton.setAttribute('aria-expanded', String(state.panelOpen));
+    if (status.textContent !== demoStatus) status.textContent = demoStatus;
+    flushEffects();
+  }
+
+  if (live) {
+    controls.hidden = false;
+    openButton.addEventListener('click', () => {
+      stopTimer();
+      const rect = openButton.getBoundingClientRect();
+      demoStatus = '安全演示：可切换操作和背景；预约按钮也只启动本页倒计时。';
+      update({ panelOpen: true, anchor: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right } }, { phase: 'idle', remainingSeconds: 0, deadline: null });
+    });
+    document.getElementById('preview-start').addEventListener('click', () => { void start(); });
+    document.getElementById('preview-reset').addEventListener('click', () => {
+      stopTimer();
+      state = initialState();
+      resetGeneration += 1; // Explicit reset also clears component-local choices.
+      demoStatus = '已恢复 URL 中的初始设置。安全演示，不执行电源命令。';
+      if (state.data.phase === 'counting') { state.data.deadline = Date.now() + initialSeconds * 1000; driveCountdown(); }
+      scheduleRender();
+    });
+    window.addEventListener('resize', scheduleRender);
+    if (state.data.phase === 'counting') {
+      state.data.deadline = Date.now() + initialSeconds * 1000;
+      demoStatus = '安全倒计时演示中；到 0 秒自动停止，不执行电源命令。';
+      driveCountdown();
     }
   }
-  document.getElementById('overlay-root').appendChild(el);
+  window.addEventListener('pagehide', (event) => {
+    if (event.persisted) return;
+    alive = false;
+    stopTimer();
+    dispose(tree);
+    flushEffects();
+    hostCleanups.forEach((cleanup) => cleanup());
+    window.removeEventListener('resize', scheduleRender);
+  });
+  render();
 })();
 </script>
 </body>
