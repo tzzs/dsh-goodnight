@@ -1,7 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Idle power actions">
-  <g fill="none" stroke="#2e9d8f" stroke-linecap="round" stroke-width="4">
-    <path d="M32 13v17"/>
-    <path d="M21.2 20.6a17 17 0 1 0 21.6 0"/>
-  </g>
-  <circle cx="32" cy="8" r="3.2" fill="#2e9d8f"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none" role="img" aria-label="Idle power actions">
+  <defs>
+    <linearGradient id="idle-power-back" x1="29" y1="8" x2="52" y2="37" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7ce1ef"/>
+      <stop offset="1" stop-color="#2cc5b6"/>
+    </linearGradient>
+    <linearGradient id="idle-power-front" x1="12" y1="18" x2="43" y2="57" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#87baff"/>
+      <stop offset=".48" stop-color="#6494fc"/>
+      <stop offset="1" stop-color="#4e6bed"/>
+    </linearGradient>
+  </defs>
+  <rect x="27" y="8" width="28" height="28" rx="8" fill="url(#idle-power-back)"/>
+  <rect x="10" y="18" width="38" height="38" rx="10" fill="url(#idle-power-front)"/>
+  <path d="M21.575 29.575a10.5 10.5 0 1 0 14.85 0M29 25v11" stroke="#fff" stroke-width="3.8" stroke-linecap="round"/>
 </svg>
