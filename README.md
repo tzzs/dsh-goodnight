@@ -182,6 +182,15 @@ Two dependency-free harnesses drive the real code with stand-ins, so the suite c
 - `test/host.test.mjs` — the state machine against fake agents, fake jobs and a subprocess that records `argv` instead of executing. Covers the busy predicate, a missing registry, quiet behaviour, countdown voiding, both command lines, cancellation, failure reporting, the mode and background routes, background config fallback for unknown values, and the races: mutations refused once execution is committed, a background change that must not disturb a pending arm, a cancel beating a slow arm upload, a stale lookup unable to overwrite a cancellation, and a suspend that overshoots the deadline re-arming instead of firing.
 - `test/client.test.cjs` — renders the real `client.js` components with a minimal React stand-in and asserts on the produced tree: both entry layouts, every panel state (loading / offline / registry unavailable / executing / failed), the per-kind task breakdown, the three background presets and their disabled states, the full-screen countdown's information hierarchy and progressbar semantics, the emitted `data-background` with fallback for unknown values, the progress ring's geometry and edge cases, multi-screen detection and mirror degradation, dismissal, cancel-failure feedback, expanded-state ARIA, and `prefers-reduced-motion` coverage.
 
+### Cross-platform testing
+
+The plugin **only takes effect on Windows**, but the state machine and the browser half are platform independent, so the suite runs on **Windows, Ubuntu and macOS** runners (`.github/workflows/test.yml`). To make that possible the Host half takes the platform as an injectable parameter instead of reading the global:
+
+- `apply(ctx, config, environment)` takes a third argument used only by the tests; passing `{ platform: 'linux' }` exercises the unsupported-platform branch on any machine.
+- The user-facing configuration (`cordis.patch.yml`) **cannot reach that switch**: a `platform: linux` key in the config is ignored, so a mis-copied config cannot disable the plugin on Windows. That is pinned by an assertion.
+
+The host suite used to carry an `if (process.platform !== 'win32')` skip, which meant the whole suite **only passed on Windows**. Linux and macOS runners now execute the same assertions for real instead of skipping them.
+
 `docs/preview.html` is a dependency-free static preview: it renders the real `client.js` components and real stylesheet in a browser without triggering a power action. Query parameters switch states, e.g. `?s=6&mode=shutdown&multi=1` for the urgent state and the multi-screen controls, `?bg=glass` / `?bg=blur` for the backgrounds, `?panel=1` for the panel, `?dark=1` for the dark theme; `docs/backgrounds.html` puts frosted glass and gaussian blur side by side on one page.
 
 Neither suite replaces looking at the page, and neither proves that `shutdown` really powers the machine off — that needs a human clicking the button.

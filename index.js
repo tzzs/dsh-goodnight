@@ -105,7 +105,21 @@ function parseModeBody(text, currentMode) {
 	return { mode: body.mode }
 }
 
-export function apply(ctx, config) {
+/**
+ * Host half entry point.
+ *
+ * `config` is the user-facing plugin configuration from `cordis.patch.yml`, so
+ * it must stay free of knobs that only exist for testing. The platform is
+ * therefore injected separately: Cordis calls `apply(ctx, config)` and the
+ * real platform is read from `process.platform`; a test passes
+ * `{ platform: 'linux' }` to exercise the unsupported-platform branch on any
+ * machine.
+ *
+ * @param ctx - The plugin context.
+ * @param config - User configuration from the plugin row.
+ * @param environment - Optional overrides, currently only `platform`.
+ */
+export function apply(ctx, config, environment = {}) {
 	const options = {
 		countdownSeconds: boundedInteger(config?.countdownSeconds, DEFAULT_COUNTDOWN_SECONDS, 5, 3600),
 		quietSeconds: boundedInteger(config?.quietSeconds, DEFAULT_QUIET_SECONDS, 3, 3600),
@@ -118,8 +132,11 @@ export function apply(ctx, config) {
 			typeof config?.shutdownCommand === 'string' && config.shutdownCommand.length > 0
 				? config.shutdownCommand
 				: 'shutdown',
+		// The platform decides whether a power backend exists at all.
+		platform:
+			typeof environment?.platform === 'string' ? environment.platform : process.platform,
 	}
-	const supported = process.platform === 'win32'
+	const supported = options.platform === 'win32'
 
 	let phase = PHASE_IDLE
 	let mode = options.defaultMode
@@ -178,7 +195,7 @@ export function apply(ctx, config) {
 		const now = Date.now()
 		return {
 			supported,
-			platform: process.platform,
+			platform: options.platform,
 			phase,
 			mode,
 			backgroundStyle,
@@ -312,7 +329,7 @@ export function apply(ctx, config) {
 		if (phase === PHASE_EXECUTING) return executionConflict()
 		if (disposed) return superseded()
 		if (!supported) {
-			return { ok: false, code: 'unsupported-platform', message: `unsupported platform: ${process.platform}` }
+			return { ok: false, code: 'unsupported-platform', message: `unsupported platform: ${options.platform}` }
 		}
 		if (ctx.get('agents') === undefined) {
 			return { ok: false, code: 'agents-unavailable', message: 'the agent registry is unavailable' }
