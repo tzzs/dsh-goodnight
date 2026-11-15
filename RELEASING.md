@@ -81,21 +81,34 @@ npm trust github dsh-idle-power --file release.yml --repo tzzs/dsh-idle-power --
 
 ## 5. 可选：让 CI 也跑在发布 PR 上
 
-内置 `GITHUB_TOKEN` 创建的 PR 不会触发其它 workflow，所以发布 PR 上没有 CI 勾选框。这不影响发布（发布 PR 只改版本号）。如果希望它也有 CI：
+内置 `GITHUB_TOKEN` 创建的 PR 不会自动触发其它 workflow，GitHub 会把那次 CI 挂成 **`action_required`**（等你点批准才跑），所以发布 PR 上不会自己出现绿色勾。这不影响发布 —— 发布 PR 只改 `package.json` / `CHANGELOG.md` / manifest 三处，而合并后的那次 `ci.yml`（push 到 main）仍会跑全量测试。
 
-1. 建一个 classic PAT（`repo` scope）或 fine-grained PAT（Contents RW + Pull requests RW）；
-2. `gh secret set RELEASE_PLEASE_TOKEN -R tzzs/dsh-idle-power`。
+想要发布 PR 自己也带 CI，二选一：
 
-`release.yml` 会自动优先使用它，不需要改代码。仓库设置里的 "Allow GitHub Actions to create and approve pull requests" 已经打开。
+1. 在这个 PR 的 Checks 里手动点 **Approve and run workflows**（一次性，最省事）；
+2. 配一个 PAT 让 release-please 用它建 PR，就再也不会卡审批：
+   ```powershell
+   gh secret set RELEASE_PLEASE_TOKEN -R tzzs/dsh-idle-power
+   ```
+   PAT 用 classic（`repo` scope）或 fine-grained（Contents RW + Pull requests RW）。`release.yml` 已经写成优先读它、缺失时回退 `GITHUB_TOKEN`，不需要改代码。
+
+仓库设置里的 "Allow GitHub Actions to create and approve pull requests" 已经打开。
 
 ## 关键文件
 
 | 文件 | 作用 |
 |---|---|
 | `release-please-config.json` | 版本策略、CHANGELOG 分节、tag 格式 |
-| `.release-please-manifest.json` | 当前已发布版本（起始 `0.2.0`） |
+| `.release-please-manifest.json` | 当前已发布版本 |
 | `.github/workflows/ci.yml` | 测试 + 提交规范 |
 | `.github/workflows/release.yml` | 发布 PR → tag / Release → npm |
 | `.github/scripts/lint-commit-subjects.mjs` | 无依赖的提交标题校验 |
 
-`bootstrap-sha` 指向接入前的 `main` 顶点，用来把历史里 4 个非规范提交排除在 CHANGELOG 之外；第一个正式 Release 生成后这个字段就会被忽略。
+`bootstrap-sha` 指向接入前的 `main` 顶点，用来把历史里 4 个非规范提交排除在 CHANGELOG 之外；`v0.2.0` 这个 Release 存在之后，它就不再被使用了。
+
+## 实际跑通记录
+
+| 版本 | tag / Release | npm | 谁发布的 |
+|---|---|---|---|
+| `0.2.0` | `v0.2.0` | ✅ `latest`（后由 0.2.1 接替） | 手动（当时还没有 trusted publisher） |
+| `0.2.1` | `v0.2.1` | ✅ `latest` + SLSA provenance | GitHub Actions（OIDC，无密钥） |
