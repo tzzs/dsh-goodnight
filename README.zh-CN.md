@@ -183,6 +183,15 @@ npm test
 - `test/host.test.mjs` —— 用假 agents、假 jobs 和一个只记录 `argv` 不执行的 subprocess 驱动状态机。覆盖忙碌判定、注册表缺失、安静期行为、倒计时作废、两种命令行、取消、失败上报、模式与背景路由、背景配置的非法值回退，以及并发竞争：执行提交后的修改请求被拒绝、改背景不会让在途预约过期、取消压过正在上传的预约、过期查表结果不能覆盖取消、睡眠跨过倒计时终点后重新等待。
 - `test/client.test.cjs` —— 用最小 React 替身渲染真实的 `client.js` 组件并对产出的树做断言：入口两种形态、面板各状态（读取中 / 断线 / 注册表不可用 / 执行中 / 失败）、分项任务数、三档背景的选择与禁用态、整屏倒计时的信息分层与进度条语义、`data-background` 的输出与未知值回退、进度环的几何与边界、多屏检测与镜像窗口的降级、关闭方式、倒计时取消失败反馈、`prefers-reduced-motion` 覆盖。
 
+### 跨平台测试
+
+插件**只在 Windows 上真正生效**，但状态机和浏览器半与平台无关，所以测试套件在 **Windows / Ubuntu / macOS** 三种 runner 上都跑（`.github/workflows/ci.yml`，三系统 × Node 20 / 24）。为此宿主半把平台从 `process.platform` 改成了**可注入的参数**：
+
+- `apply(ctx, config, environment)` 的第三个参数只用于测试，传 `{ platform: 'linux' }` 就能在任意机器上跑「非 Windows 拒绝预约」这条分支。
+- 用户配置（`cordis.patch.yml`）**碰不到这个开关**：在配置里写 `platform: linux` 会被忽略，Windows 上的插件不会被一份误抄的配置搞坏——这条专门写了断言。
+
+在此之前，宿主测试里有 `if (process.platform !== 'win32')` 的跳过分支，也就是说整套测试**只有 Windows 能过**；现在 Linux/macOS runner 上跑的是同一批断言的真实执行，而不是跳过。
+
 `docs/preview.html` 是零依赖的静态预览页：用真实的 `client.js` 组件和真实样式表在浏览器里渲染倒计时与面板，不会触发电源操作。查询串可切换状态，例如 `?s=6&mode=shutdown&multi=1` 查看紧急态与多屏控件，`?bg=glass` / `?bg=blur` 对比背景，`?panel=1` 看面板，`?dark=1` 看暗色主题；`docs/backgrounds.html` 把毛玻璃与高斯模糊并排放在一页里。
 
 两套测试都不能替代肉眼看页面，也**不能证明 `shutdown` 真的把机器关掉**——那一步需要人按一次。
