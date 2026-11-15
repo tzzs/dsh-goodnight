@@ -19,6 +19,7 @@ const STATE_PATH = '/idle-power/state'
 const ARM_PATH = '/idle-power/arm'
 const CANCEL_PATH = '/idle-power/cancel'
 const MODE_PATH = '/idle-power/mode'
+const BACKGROUND_PATH = '/idle-power/background'
 
 const PHASE_IDLE = 'idle'
 const PHASE_ARMED = 'armed'
@@ -28,6 +29,11 @@ const PHASE_FAILED = 'failed'
 
 const MODE_HIBERNATE = 'hibernate'
 const MODE_SHUTDOWN = 'shutdown'
+
+const BACKGROUND_SOLID = 'solid'
+const BACKGROUND_GLASS = 'glass'
+const BACKGROUND_BLUR = 'blur'
+const BACKGROUND_STYLES = [BACKGROUND_SOLID, BACKGROUND_GLASS, BACKGROUND_BLUR]
 
 const DEFAULT_COUNTDOWN_SECONDS = 60
 const DEFAULT_QUIET_SECONDS = 20
@@ -44,6 +50,14 @@ const RESUME_GAP_MS = 5 * 1000
 function boundedInteger(value, fallback, min, max) {
 	if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
 	return Math.min(max, Math.max(min, Math.round(value)))
+}
+
+/**
+ * Only known background presets are accepted. A typo must not produce a blank
+ * or unreadable overlay, so anything else falls back to the opaque surface.
+ */
+function normalizedBackground(value, fallback) {
+	return BACKGROUND_STYLES.includes(value) ? value : fallback
 }
 
 /** One plain-JSON reply. Live state is never cached. */
@@ -91,21 +105,42 @@ function parseModeBody(text, currentMode) {
 	return { mode: body.mode }
 }
 
-export function apply(ctx, config) {
+/**
+ * Host half entry point.
+ *
+ * `config` is the user-facing plugin configuration from `cordis.patch.yml`, so
+ * it must stay free of knobs that only exist for testing. The platform is
+ * therefore injected separately: Cordis calls `apply(ctx, config)` and the
+ * real platform is read from `process.platform`; a test passes
+ * `{ platform: 'linux' }` to exercise the unsupported-platform branch on any
+ * machine.
+ *
+ * @param ctx - The plugin context.
+ * @param config - User configuration from the plugin row.
+ * @param environment - Optional overrides, currently only `platform`.
+ */
+export function apply(ctx, config, environment = {}) {
 	const options = {
 		countdownSeconds: boundedInteger(config?.countdownSeconds, DEFAULT_COUNTDOWN_SECONDS, 5, 3600),
 		quietSeconds: boundedInteger(config?.quietSeconds, DEFAULT_QUIET_SECONDS, 3, 3600),
 		// Default is a real power-off: 关机 unless hibernate is asked for.
 		defaultMode: config?.defaultMode === MODE_HIBERNATE ? MODE_HIBERNATE : MODE_SHUTDOWN,
+		// Default is the opaque surface: its contrast never depends on what is
+		// behind the window. The panel can override it for this Host's lifetime.
+		backgroundStyle: normalizedBackground(config?.backgroundStyle, BACKGROUND_SOLID),
 		shutdownCommand:
 			typeof config?.shutdownCommand === 'string' && config.shutdownCommand.length > 0
 				? config.shutdownCommand
 				: 'shutdown',
+		// The platform decides whether a power backend exists at all.
+		platform:
+			typeof environment?.platform === 'string' ? environment.platform : process.platform,
 	}
-	const supported = process.platform === 'win32'
+	const supported = options.platform === 'win32'
 
 	let phase = PHASE_IDLE
 	let mode = options.defaultMode
+	let backgroundStyle = options.backgroundStyle
 	let quietSince = null
 	let deadline = null
 	let error = null
@@ -160,9 +195,10 @@ export function apply(ctx, config) {
 		const now = Date.now()
 		return {
 			supported,
-			platform: process.platform,
+			platform: options.platform,
 			phase,
 			mode,
+			backgroundStyle,
 			countdownSeconds: options.countdownSeconds,
 			quietSeconds: options.quietSeconds,
 			remainingSeconds: deadline === null ? 0 : Math.max(0, Math.ceil((deadline - now) / 1000)),
@@ -293,7 +329,7 @@ export function apply(ctx, config) {
 		if (phase === PHASE_EXECUTING) return executionConflict()
 		if (disposed) return superseded()
 		if (!supported) {
-			return { ok: false, code: 'unsupported-platform', message: `unsupported platform: ${process.platform}` }
+			return { ok: false, code: 'unsupported-platform', message: `unsupported platform: ${options.platform}` }
 		}
 		if (ctx.get('agents') === undefined) {
 			return { ok: false, code: 'agents-unavailable', message: 'the agent registry is unavailable' }
@@ -428,6 +464,50 @@ export function apply(ctx, config) {
 			sendJson(res, 200, stateSnapshot())
 		},
 	}), `dsh-idle-power: POST ${MODE_PATH}`)
+
+	/**
+	 * A cosmetic preference, kept on the Host like `mode`, so the choice is
+	 * shared by every window looking at this Host and survives a page reload.
+	 * It deliberately does NOT bump `revision`: an appearance change must never
+	 * make a concurrent arm upload look superseded.
+	 */
+	ctx.effect(() => ctx.webServer.register({
+		kind: 'exact',
+		path: BACKGROUND_PATH,
+		handler: async (req, res) => {
+			if (rejected(req, res)) return
+			if (req.method !== 'POST') {
+				sendMethodNotAllowed(res, 'POST')
+				return
+			}
+			const essence = String(req.headers['content-type'] ?? '').split(';', 1)[0]?.trim().toLowerCase()
+			if (essence !== 'application/json') {
+				sendJson(res, 415, { code: 'unsupported-media-type', message: 'content-type must be application/json' })
+				return
+			}
+			const text = await readBoundedBody(req)
+			if (text === null) {
+				sendJson(res, 413, { code: 'payload-too-large', message: 'request body is too large' })
+				return
+			}
+			let parsed
+			try {
+				parsed = JSON.parse(text)
+			} catch {
+				parsed = undefined
+			}
+			if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || !BACKGROUND_STYLES.includes(parsed.backgroundStyle)) {
+				sendJson(res, 400, { code: 'bad-request', message: 'backgroundStyle must be "solid"|"glass"|"blur"' })
+				return
+			}
+			if (phase === PHASE_EXECUTING) {
+				sendJson(res, 409, executionConflict())
+				return
+			}
+			backgroundStyle = parsed.backgroundStyle
+			sendJson(res, 200, stateSnapshot())
+		},
+	}), `dsh-idle-power: POST ${BACKGROUND_PATH}`)
 
 	ctx.effect(() => ctx.webServer.register({
 		kind: 'exact',

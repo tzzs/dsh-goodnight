@@ -30,7 +30,7 @@ CI 会在 PR 上校验**每一个 commit 的标题**和 **PR 标题**（squash �
 
 ## 2. 合并到 main
 
-`ci.yml` 跑测试（Windows / Ubuntu / macOS × Node 20 / 24）和提交规范检查。因为 `index.js` 用 `process.platform === 'win32'` 判断平台，而 `host.test.mjs` 断言可以正常 arm 并倒计时，**Host 套件只在 Windows runner 上跑**；浏览器半的 `client.test.cjs` 与平台无关，在全部 6 个组合上跑。等 Host 半把平台改成可注入的，这两个 step 就能合并回一个 `npm test`。
+`ci.yml` 跑测试（Windows / Ubuntu / macOS × Node 20 / 24）和提交规范检查。三平台跑的是同一个 `npm test`：`apply()` 把平台作为可注入参数，默认仍取 `process.platform`，测试用 `{ platform: 'win32' }` 让 Windows 行为在所有 runner 上都能验证，用 `{ platform: 'linux' }` 验证「非 Windows 拒绝预约」这条分支。平台参数走独立的第三个参数，**不在 `cordis.patch.yml` 里**，所以一份误抄的配置不会让 Windows 上的插件变成不支持。
 
 合并后 `release.yml` 在 `main` 上触发：
 

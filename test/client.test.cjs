@@ -86,7 +86,7 @@ const ctx = {
   slots: {
     inject(name, callback) { callback(); return () => {} },
     register(options, component) {
-      registered.push({ name: options.name, id: options.id, component })
+      registered.push({ name: options.name, id: options.id, component, inject: options.inject })
       return () => {}
     },
   },
@@ -164,6 +164,7 @@ const baseState = {
   platform: 'win32',
   phase: 'idle',
   mode: 'hibernate',
+  backgroundStyle: 'solid',
   countdownSeconds: 60,
   quietSeconds: 20,
   remainingSeconds: 0,
@@ -192,6 +193,7 @@ function renderEntry(entry, storeValue, actions = {}, ownerProps = {}) {
     arm: async () => true,
     cancel: async () => true,
     setMode: async () => true,
+    setBackground: async () => true,
     ...ownerProps,
     ...actions,
   }
@@ -653,16 +655,16 @@ console.log('\n=== countdown: ring edge cases ===')
   check('a live deadline advances the ring fractionally', live > 0.01 && live < circumference, String(live))
 }
 
-console.log('\n=== countdown: motion hooks ===')
+console.log('\n=== countdown: stable digits ===')
 {
   const counting = { data: { ...baseState, phase: 'counting', remainingSeconds: 47, countdownSeconds: 60, deadline: null } }
   const { tree } = renderEntry(countdown, counting)
   const digit = findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className === 'ipa-count')
-  check('the digit carries a re-keying hook', digit?.props.key === 47, String(digit?.props.key))
-  const now = new Date().getTime()
+  check('the digit renders the current second', textsOf(digit).join('') === '47')
   const later = renderEntry(countdown, { data: { ...baseState, phase: 'counting', remainingSeconds: 46, countdownSeconds: 60, deadline: null } }).tree
   const digit2 = findElement(later, (n) => typeof n.props.className === 'string' && n.props.className === 'ipa-count')
-  check('the key changes when the second changes', digit2?.props.key === 46, String(digit2?.props.key))
+  check('the text updates when the second changes', textsOf(digit2).join('') === '46')
+  check('second changes do not force the digit to remount', digit?.props.key === undefined && digit2?.props.key === undefined)
   check('the countdown card still renders', findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-card')) !== undefined)
   check('ring still present', findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-ringValue')) !== undefined)
 }
@@ -677,7 +679,7 @@ console.log('\n=== motion: reduced-motion coverage in CSS ===')
   for (const sel of ['ipa-panel', 'ipa-count', 'ipa-ringValue', 'ipa-entry']) {
     check(`reduced motion disables ${sel}`, reduceBlock.includes(sel), sel)
   }
-  check('animations declare keyframes', css.includes('@keyframes ipa-pop') && css.includes('@keyframes ipa-tick'))
+  check('animations declare keyframes', css.includes('@keyframes ipa-pop') && css.includes('@keyframes ipa-dial-in'))
 }
 
 console.log('\n=== countdown: urgent near zero ===')
@@ -709,5 +711,230 @@ console.log('\n=== countdown: no deadline falls back to the server value ===')
   check('uses the server remainingSeconds', textsOf(tree).includes('42'), textsOf(tree).join('|'))
 }
 
-console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'}`)
-process.exit(failures === 0 ? 0 : 1)
+console.log('\n=== countdown: full-window layout and richer information ===')
+{
+  const counting = {
+    data: { ...baseState, phase: 'counting', mode: 'hibernate', remainingSeconds: 45, countdownSeconds: 60, quietSeconds: 20, deadline: null },
+    offline: false, busy: false, note: null,
+  }
+  const { tree } = renderEntry(countdown, counting)
+  const texts = textsOf(tree)
+  const joined = texts.join('|')
+  check('states how long the quiet period ran', joined.includes('countdown.quietDone'), joined)
+  check('states the cancellation window', joined.includes('countdown.window'), joined)
+  check('states the scheduled time', joined.includes('countdown.scheduledAt'), joined)
+  check('restates the monitoring scope', joined.includes('panel.scope'), joined)
+  check('labels which window is covered', joined.includes('countdown.scopeTag'), joined)
+
+  const rail = findElement(tree, (n) => n.props.role === 'progressbar')
+  check('renders an edge progressbar', rail !== undefined)
+  check('progressbar exposes remaining seconds', rail?.props['aria-valuenow'] === 45, String(rail?.props['aria-valuenow']))
+  check('progressbar exposes the window length', rail?.props['aria-valuemax'] === 60, String(rail?.props['aria-valuemax']))
+  check('progressbar has an accessible label', rail?.props['aria-label'] === 'countdown.progress', String(rail?.props['aria-label']))
+  const fill = findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-railFill'))
+  check('edge rail drains with the ring fraction', fill?.props.style?.transform === 'scaleX(0.75)', JSON.stringify(fill?.props.style))
+
+  const hasClass = (name) => findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes(name)) !== undefined
+  check('renders top / stage / bottom bands', hasClass('ipa-top') && hasClass('ipa-stage') && hasClass('ipa-bottom'))
+  check('digits are a timer, not a chatty live region', findElement(tree, (n) => n.props.role === 'timer')?.props['aria-live'] === 'off')
+  // The taskbar is the one cue that reaches a monitor the app window is not on.
+  check('mirrors the countdown into the tab title', typeof documentStub.title === 'string' && documentStub.title.includes('45'), String(documentStub.title))
+}
+
+console.log('\n=== countdown: scheduled clock time is real copy ===')
+{
+  const counting = { data: { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null } }
+  const t = (key) => (key === 'countdown.scheduledAt' ? '预计 %s 执行' : key)
+  const texts = textsOf(renderEntry(countdown, counting, { t }).tree)
+  check('renders a HH:MM:SS wall-clock time', texts.some((s) => /\d{2}:\d{2}:\d{2}/.test(s)), texts.join('|'))
+}
+
+console.log('\n=== CSS: full-viewport and multi-screen layout ===')
+{
+  const css = require('node:fs').readFileSync(process.argv[2] ?? require('node:path').join(__dirname, '..', 'client.js'), 'utf8')
+  check('card fills the viewport with dvh', css.includes('min-height:100dvh'))
+  check('hero scales with vmin', css.includes('52vmin'))
+  check('edge rail is pinned to the viewport', css.includes('.ipa-rail{position:fixed'))
+  check('short-viewport rules exist', css.includes('@media (max-height:620px)'))
+  check('narrow-viewport rules exist', css.includes('@media (max-width:720px)'))
+  check('left/right alignment rules exist', css.includes('[data-align=left]') && css.includes('[data-align=right]'))
+  check('reduced motion covers the rail and scrim', css.includes('.ipa-ringValue,.ipa-railFill{transition:none}') && css.includes('.ipa-scrim,.ipa-card'))
+}
+
+console.log('\n=== multi-screen: controls appear only with a second display ===')
+{
+  windowStub.screen = { isExtended: true }
+  const counting = { data: { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null } }
+  const { tree } = renderEntry(countdown, counting)
+  const texts = textsOf(tree)
+  check('offers the mirror button', texts.includes('countdown.mirrors'), texts.join('|'))
+  const group = findElement(tree, (n) => n.props.role === 'group' && n.props['aria-label'] === 'countdown.alignLabel')
+  check('offers the alignment control', group !== undefined)
+  const alignButtons = group.children.filter((c) => c && c.kind === 'element' && typeof c.props.className === 'string' && c.props.className.includes('ipa-alignBtn'))
+  check('offers three alignment choices', alignButtons.length === 3, String(alignButtons.length))
+  check('explains the single-window limitation', texts.includes('countdown.multiNote'), texts.join('|'))
+  alignButtons[0].props.onClick()
+  check('choosing an alignment does not throw', true)
+
+  windowStub.screen = { isExtended: false }
+  const single = renderEntry(countdown, counting).tree
+  check('no mirror button on a single screen', !textsOf(single).includes('countdown.mirrors'), textsOf(single).join('|'))
+  check('no alignment control on a single screen', findElement(single, (n) => n.props.role === 'group') === undefined)
+  delete windowStub.screen
+}
+
+console.log('\n=== multi-screen: pure placement helpers ===')
+{
+  const api = moduleObj.internals
+  check('formats a %s template', api.fmt('预计 %s 执行', '02:31:07') === '预计 02:31:07 执行')
+  check('a missing placeholder is harmless', api.fmt('countdown.window', '60') === 'countdown.window')
+  check('formats a wall-clock time', /^\d{2}:\d{2}:\d{2}$/.test(api.formatClock(Date.now())))
+  check('no screens detected when the API is absent', api.hasMultipleScreens() === false)
+
+  const primary = { availLeft: 0, availTop: 0, availWidth: 1920, availHeight: 1080 }
+  const secondary = { availLeft: -1920, availTop: -120, availWidth: 2560, availHeight: 1440 }
+  const geo = api.mirrorGeometry({ currentScreen: primary, screens: [primary, secondary] })
+  check('mirrors every screen except the current one', geo.length === 1, JSON.stringify(geo))
+  check('keeps negative coordinates for a left/upper monitor', geo[0].left === -1920 && geo[0].top === -120, JSON.stringify(geo[0]))
+  check('uses the other screen size', geo[0].width === 2560 && geo[0].height === 1440, JSON.stringify(geo[0]))
+  check('placement features carry the geometry', api.mirrorFeatures(geo[0]).includes('left=-1920,top=-120,width=2560,height=1440'))
+  const fallback = api.mirrorGeometry({ currentScreen: primary, screens: [primary] })
+  check('a single screen falls back to one draggable window', fallback.length === 1 && fallback[0] === null)
+  check('plain features still open a usable window', api.mirrorFeatures(null).includes('width=880'))
+  check('missing dimensions never produce NaN', Number.isFinite(api.mirrorGeometry({ screens: [{ left: -800 }] })[0].width))
+}
+
+function bgOptions(tree) {
+  const found = []
+  ;(function walk(node) {
+    if (node === null) return
+    if (Array.isArray(node)) { node.forEach(walk); return }
+    if (node.kind !== 'element') return
+    if (node.props.className === 'ipa-bgOption') found.push(node)
+    node.children.forEach(walk)
+  })(tree)
+  return found
+}
+
+console.log('\n=== background presets: panel control ===')
+{
+  const open = { data: baseState, ready: true, offline: false, busy: false, note: null, panelOpen: true }
+  const calls = []
+  const { tree } = renderEntry(panel, open, { setBackground: async (value) => { calls.push(value); return true } })
+  const texts = textsOf(tree)
+  const joined = texts.join('|')
+  check('names the appearance section', joined.includes('panel.background'), joined)
+  check('offers solid', texts.includes('background.solid'), joined)
+  check('offers frosted glass', texts.includes('background.glass'), joined)
+  check('offers gaussian blur', texts.includes('background.blur'), joined)
+  check('describes the active preset', texts.includes('background.solidDesc'), joined)
+  check('does not describe an inactive preset', !texts.includes('background.blurDesc'), joined)
+
+  const options = bgOptions(tree)
+  check('renders exactly three presets', options.length === 3, String(options.length))
+  check('solid is pressed by default', options[0]?.props['aria-pressed'] === true)
+  check('glass and blur are not pressed', options[1]?.props['aria-pressed'] === false && options[2]?.props['aria-pressed'] === false)
+  options[1].props.onClick()
+  options[2].props.onClick()
+  check('choosing a preset reaches the Host', calls.length === 2 && calls[0] === 'glass' && calls[1] === 'blur', JSON.stringify(calls))
+  check('presets are toggle buttons inside a group', findElement(tree, (n) => n.props.className === 'ipa-bgOptions')?.props.role === 'group')
+  let radios = 0
+  ;(function walk(node) {
+    if (node === null) return
+    if (Array.isArray(node)) { node.forEach(walk); return }
+    if (node.kind !== 'element') return
+    if (node.props.role === 'radio') radios += 1
+    node.children.forEach(walk)
+  })(tree)
+  check('the two mode radios are unchanged', radios === 2, String(radios))
+}
+
+console.log('\n=== background presets: active value and disabled states ===')
+{
+  const open = (data, extra = {}) => ({ data, ready: true, offline: false, busy: false, note: null, panelOpen: true, ...extra })
+  const glassTree = renderEntry(panel, open({ ...baseState, backgroundStyle: 'glass' })).tree
+  check('describes the configured preset', textsOf(glassTree).includes('background.glassDesc'), textsOf(glassTree).join('|'))
+  check('glass is the pressed option', bgOptions(glassTree).filter((n) => n.props['aria-pressed'] === true).map((n) => n.props['aria-label']).join() === 'background.glass')
+  const unknown = renderEntry(panel, open({ ...baseState, backgroundStyle: 'neon' })).tree
+  check('an unknown Host value falls back to solid', textsOf(unknown).includes('background.solidDesc'), textsOf(unknown).join('|'))
+
+  const offline = renderEntry(panel, open(baseState, { offline: true })).tree
+  check('cannot change appearance while offline', bgOptions(offline).length === 3 && bgOptions(offline).every((n) => n.props.disabled === true))
+  const locked = renderEntry(panel, open({ ...baseState, phase: 'executing' })).tree
+  check('cannot change appearance during execution', bgOptions(locked).every((n) => n.props.disabled === true))
+  const busy = renderEntry(panel, open(baseState, { busy: true })).tree
+  check('cannot stack appearance writes', bgOptions(busy).every((n) => n.props.disabled === true))
+}
+
+console.log('\n=== background presets: countdown carries the style ===')
+{
+  const counting = (style) => ({
+    data: { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null, backgroundStyle: style },
+    offline: false, busy: false, note: null,
+  })
+  const scrimFor = (style) => findElement(renderEntry(countdown, counting(style)).tree, (n) => n.props['aria-modal'] === true)
+  check('solid is applied', scrimFor('solid')?.props['data-background'] === 'solid')
+  check('glass is applied', scrimFor('glass')?.props['data-background'] === 'glass')
+  check('blur is applied', scrimFor('blur')?.props['data-background'] === 'blur')
+  check('a missing style falls back to solid', scrimFor(undefined)?.props['data-background'] === 'solid')
+  check('an unknown style falls back to solid', scrimFor('neon')?.props['data-background'] === 'solid')
+}
+
+console.log('\n=== background presets: CSS and runtime wiring ===')
+{
+  const css = require('node:fs').readFileSync(process.argv[2] ?? require('node:path').join(__dirname, '..', 'client.js'), 'utf8')
+  check('glass preset is defined', css.includes('[data-background=glass]'))
+  check('blur preset is defined', css.includes('[data-background=blur]'))
+  check('glass blurs the backdrop', css.includes('backdrop-filter:blur(22px)'))
+  check('blur uses a heavier gaussian radius', css.includes('backdrop-filter:blur(34px)'))
+  check('translucency uses color-mix with a solid fallback', css.includes('color-mix(in srgb,var(--dsw-alias-bg-overlay) 66%,transparent)'))
+  check('the active preset is visible without relying on layer token differences', css.includes('box-shadow:inset 0 0 0 1px var(--dsw-alias-brand-primary)'))
+  check('blur scopes its dark tokens to the overlay subtree', css.includes('--dsw-alias-label-primary:#f3f5f9'))
+  check('all three presets are recognized', JSON.stringify(moduleObj.internals.BACKGROUND_STYLES) === '["solid","glass","blur"]')
+  check('normalizeBackground rejects unknown values', moduleObj.internals.normalizeBackground('neon') === 'solid' && moduleObj.internals.normalizeBackground('blur') === 'blur')
+  const injected = byId('dsh-idle-power.panel').inject()
+  check('panel receives the setBackground action', typeof injected.setBackground === 'function')
+  check('panel still receives setMode', typeof injected.setMode === 'function')
+}
+
+;(async () => {
+  console.log('\n=== multi-screen: best-effort mirror windows ===')
+  const makeEl = () => ({
+    style: { cssText: '' }, children: [], textContent: '', type: '',
+    appendChild(child) { this.children.push(child) },
+    addEventListener() {},
+  })
+  const fakeWin = () => ({
+    document: { title: '', body: makeEl(), createElement: () => makeEl() },
+    moveTo() {}, resizeTo() {}, close() { this.closed = true }, addEventListener() {},
+  })
+  const text = { title: 'mirror', unit: 's', cancel: 'Cancel', hint: 'hint' }
+  const primary = { availLeft: 0, availTop: 0, availWidth: 1920, availHeight: 1080 }
+  const secondary = { availLeft: -1920, availTop: -120, availWidth: 2560, availHeight: 1440 }
+  windowStub.getScreenDetails = async () => ({ currentScreen: primary, screens: [primary, secondary] })
+
+  const seen = []
+  const opened = await moduleObj.internals.openMirrorWindows({
+    text,
+    open: (url, name, features) => { seen.push({ url, name, features }); return fakeWin() },
+  })
+  check('opens one mirror for the other screen', opened.handles.length === 1, String(opened.handles.length))
+  check('none were blocked', opened.blocked === 0, String(opened.blocked))
+  check('mirrors are about:blank, not a new Host route', seen[0]?.url === 'about:blank', seen[0]?.url)
+  check('places the mirror on the other screen', seen[0]?.features.includes('left=-1920'), seen[0]?.features)
+  const handle = opened.handles[0]
+  check('mirror has a cancel button', handle.button.textContent === 'Cancel', handle.button.textContent)
+  check('mirror body is built without an inline script', handle.win.document.body.children.length >= 6, String(handle.win.document.body.children.length))
+  handle.count.textContent = '0'
+  check('the opener can drive the mirror digits', handle.count.textContent === '0')
+
+  const denied = await moduleObj.internals.openMirrorWindows({ text, open: () => null })
+  check('a denied window.open degrades without throwing', denied.handles.length === 0 && denied.blocked >= 1, JSON.stringify({ handles: denied.handles.length, blocked: denied.blocked }))
+
+  delete windowStub.getScreenDetails
+  const plain = await moduleObj.internals.openMirrorWindows({ text, open: () => fakeWin() })
+  check('without screen details it still opens one draggable mirror', plain.handles.length === 1 && plain.plain === true, JSON.stringify({ n: plain.handles.length, plain: plain.plain }))
+
+  console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'}`)
+  process.exit(failures === 0 ? 0 : 1)
+})()

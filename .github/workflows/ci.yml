@@ -38,20 +38,14 @@ jobs:
       # that users install with npm should not need a build step to be
       # verified from a clean checkout.
       #
-      # The suites are split because index.js derives `supported` from
-      # `process.platform === 'win32'`. host.test.mjs asserts that arming and
-      # the full countdown work, which is only true on a Windows runner; on
-      # Linux/macOS the Host half correctly reports "unsupported" and the
-      # state machine never arms. client.test.cjs renders the browser half in
-      # a VM and is genuinely portable, so it runs on every runner. Once the
-      # Host half is made platform-hermetic (it needs an injectable platform),
-      # these two steps can collapse back into a single `npm test`.
-      - name: Browser half (all platforms)
-        run: npm run test:client
-
-      - name: Host half (Windows power backend)
-        if: runner.os == 'Windows'
-        run: npm run test:host
+      # One command for every runner. The Host half used to read
+      # `process.platform` directly, so host.test.mjs could only pass on
+      # Windows and the suite had to be split; `apply()` now takes the platform
+      # as an injectable argument, so the Windows behaviour is exercised on
+      # Linux and macOS too and the unsupported-platform branch is a real
+      # assertion everywhere rather than a skip.
+      - name: Test suite
+        run: npm test
 
   commit-messages:
     name: commit messages

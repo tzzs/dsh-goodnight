@@ -112,7 +112,6 @@ function makeContext(overrides = {}) {
     },
   }
 }
-
 /** Invoke a registered route handler with a fake request/response pair. */
 function call(routes, path, { method = 'GET', body = '', headers = {}, bodyReady } = {}) {
   const route = routes.get(path)
@@ -161,6 +160,15 @@ async function waitFor(routes, predicate, label, timeoutMs = 10000) {
   throw new Error(`timed out waiting for ${label}; last state=${JSON.stringify(last)}`)
 }
 
+/**
+ * Run one scenario against the real state machine.
+ *
+ * The plugin decides whether it is supported from the platform, so the suite
+ * pins it to 'win32' by default. That makes the Windows behaviour testable on
+ * Linux and macOS runners too, instead of the whole suite only passing on a
+ * Windows machine. The platform is injected through the separate environment
+ * argument, never through the user-facing config.
+ */
 async function scenario(name, config, body, overrides) {
   console.log(`\n=== ${name} ===`)
   state.agents = []
@@ -173,7 +181,34 @@ async function scenario(name, config, body, overrides) {
   globalThis.setInterval = (tick) => { clock.tick = tick; return 1 }
   globalThis.clearInterval = () => { clock.tick = null }
   try {
-    apply(runtime.ctx, config)
+    apply(runtime.ctx, config, { platform: 'win32' })
+    await body(runtime)
+  } finally {
+    runtime.dispose()
+    Date.now = original.now
+    globalThis.setInterval = original.setInterval
+    globalThis.clearInterval = original.clearInterval
+    clock = null
+  }
+}
+
+/**
+ * Run one scenario against a Host on a specific platform. Used for the
+ * unsupported-platform behaviour, which must be exercised on every runner.
+ */
+async function scenarioOnPlatform(name, platform, config, body) {
+  console.log(`\n=== ${name} ===`)
+  state.agents = []
+  state.jobs = []
+  state.spawned = []
+  const runtime = makeContext()
+  const original = { now: Date.now, setInterval: globalThis.setInterval, clearInterval: globalThis.clearInterval }
+  clock = { now: 0, next: 1000, tick: null }
+  Date.now = () => clock.now
+  globalThis.setInterval = (tick) => { clock.tick = tick; return 1 }
+  globalThis.clearInterval = () => { clock.tick = null }
+  try {
+    apply(runtime.ctx, config, { platform })
     await body(runtime)
   } finally {
     runtime.dispose()
@@ -196,6 +231,7 @@ await scenario('routes and initial state', { quietSeconds: 1, countdownSeconds: 
   // quietSeconds below the 3s floor is clamped up, so a typo cannot make the
   // watcher fire during a task handoff.
   check('quiet config clamped to the 3s floor', body?.quietSeconds === 3, body?.quietSeconds)
+  check('background defaults to solid', body?.backgroundStyle === 'solid', body?.backgroundStyle)
   check('no-store header set', res.headers['cache-control'] === 'no-store', res.headers['cache-control'])
 
   check('POST /cancel accepts', (await call(routes, '/idle-power/cancel', { method: 'POST', body: '{}' })).statusCode === 200)
@@ -215,6 +251,62 @@ await scenario('routes and initial state', { quietSeconds: 1, countdownSeconds: 
   check('mode rejects an unknown mode', (await call(routes, '/idle-power/mode', { method: 'POST', body: '{"mode":"explode"}' })).statusCode === 400)
   check('mode is 405 on GET', (await call(routes, '/idle-power/mode', { method: 'GET' })).statusCode === 405)
   check('mode rejects non-JSON', (await call(routes, '/idle-power/mode', { method: 'POST', body: '{}', headers: { 'content-type': 'text/plain' } })).statusCode === 415)
+})
+
+// 1b. The background preference is Host-owned, validated, and cosmetic only.
+await scenario('background style route', {}, async ({ routes }) => {
+  for (const style of ['glass', 'blur', 'solid']) {
+    const res = await call(routes, '/idle-power/background', { method: 'POST', body: JSON.stringify({ backgroundStyle: style }) })
+    check(`POST /background accepts ${style}`, res.statusCode === 200, res.statusCode)
+    check(`/background returns ${style}`, parse(res)?.backgroundStyle === style, parse(res)?.backgroundStyle)
+    check(`state persists ${style}`, (await readState(routes)).backgroundStyle === style)
+  }
+  check('rejects an unknown style', (await call(routes, '/idle-power/background', { method: 'POST', body: '{"backgroundStyle":"neon"}' })).statusCode === 400)
+  check('rejects an empty body', (await call(routes, '/idle-power/background', { method: 'POST', body: '' })).statusCode === 400)
+  check('rejects a non-object body', (await call(routes, '/idle-power/background', { method: 'POST', body: '"glass"' })).statusCode === 400)
+  check('is 405 on GET', (await call(routes, '/idle-power/background', { method: 'GET' })).statusCode === 405)
+  check('rejects non-JSON', (await call(routes, '/idle-power/background', { method: 'POST', body: '{}', headers: { 'content-type': 'text/plain' } })).statusCode === 415)
+  check('bad values leave the style unchanged', (await readState(routes)).backgroundStyle === 'solid')
+  // A cosmetic write must not disturb the reservation state machine.
+  check('still idle after appearance changes', (await readState(routes)).phase === 'idle')
+})
+
+await scenario('background config default and validation', { backgroundStyle: 'glass' }, async ({ routes }) => {
+  const body = await readState(routes)
+  check('configured style is the initial state', body?.backgroundStyle === 'glass', body?.backgroundStyle)
+  const res = await call(routes, '/idle-power/background', { method: 'POST', body: '{"backgroundStyle":"blur"}' })
+  check('panel can override the config default', parse(res)?.backgroundStyle === 'blur', parse(res)?.backgroundStyle)
+})
+
+await scenario('invalid background config falls back to solid', { backgroundStyle: 'transparent' }, async ({ routes }) => {
+  check('unknown config value is ignored', (await readState(routes)).backgroundStyle === 'solid')
+})
+
+await scenario('background change cannot disturb a pending arm', {}, async ({ routes }) => {
+  const body = deferred()
+  const pending = call(routes, '/idle-power/arm', { method: 'POST', body: '{}', bodyReady: body.promise })
+  await flush()
+  await call(routes, '/idle-power/background', { method: 'POST', body: '{"backgroundStyle":"glass"}' })
+  body.resolve()
+  check('arm still succeeds after an appearance change', (await pending).statusCode === 200)
+  check('reservation is armed', (await readState(routes)).phase === 'armed')
+  check('appearance change was kept', (await readState(routes)).backgroundStyle === 'glass')
+})
+
+await scenario('background change refuses committed execution', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes, ctx }) => {
+  const completion = deferred()
+  ctx.subprocess.spawn = (spec) => {
+    state.spawned.push(spec.argv)
+    return { done: completion.promise, collected: {} }
+  }
+  await call(routes, '/idle-power/arm', { method: 'POST', body: '{}' })
+  await sleep(9000)
+  check('command is executing', (await readState(routes)).phase === 'executing')
+  const res = await call(routes, '/idle-power/background', { method: 'POST', body: '{"backgroundStyle":"blur"}' })
+  check('appearance change returns 409', res.statusCode === 409, res.statusCode)
+  check('style is unchanged', (await readState(routes)).backgroundStyle === 'solid')
+  completion.resolve({ exitCode: 0 })
+  await flush()
 })
 
 // 2. Waits for running work, then counts down and executes /h.
@@ -363,11 +455,48 @@ await scenario('unresolvable command refuses to arm', { quietSeconds: 1, countdo
   },
 })
 
-// 11. Non-Windows refuses to arm rather than pretending to work.
-if (process.platform !== 'win32') {
-  console.log('\n=== non-Windows refusal ===')
-  check('skipped on this platform', true)
-}
+// 11. A non-Windows Host refuses to arm rather than pretending to work.
+await scenarioOnPlatform('non-Windows refuses to arm', 'linux', {}, async ({ routes }) => {
+  const snapshot = await readState(routes)
+  check('reports the platform as unsupported', snapshot?.supported === false, snapshot?.supported)
+  check('reports the running platform', snapshot?.platform === 'linux', snapshot?.platform)
+
+  const res = await call(routes, '/idle-power/arm', { method: 'POST', body: '{"mode":"shutdown"}' })
+  check('arm is refused with 409', res.statusCode === 409, res.statusCode)
+  check('refusal names the reason', parse(res)?.code === 'unsupported-platform', JSON.stringify(parse(res)))
+  check('the refusal names the platform', String(parse(res)?.message ?? '').includes('linux'), parse(res)?.message)
+
+  // Nothing may run on a platform with no power backend, however long the
+  // reservation is left alone.
+  await sleep(6000)
+  check('never spawned a power command', state.spawned.length === 0, state.spawned.length)
+  check('stays idle', (await readState(routes)).phase === 'idle')
+
+  // The read-only surface still works: an unsupported Host must be inspectable.
+  check('the mode route still answers', (await call(routes, '/idle-power/mode', { method: 'POST', body: '{"mode":"hibernate"}' })).statusCode === 200)
+  check('the background route still answers', (await call(routes, '/idle-power/background', { method: 'POST', body: '{"backgroundStyle":"glass"}' })).statusCode === 200)
+  check('cancel still answers', (await call(routes, '/idle-power/cancel', { method: 'POST', body: '{}' })).statusCode === 200)
+})
+
+await scenarioOnPlatform('every non-Windows platform is refused', 'darwin', {}, async ({ routes }) => {
+  const res = await call(routes, '/idle-power/arm', { method: 'POST', body: '{}' })
+  check('darwin is refused too', res.statusCode === 409 && parse(res)?.code === 'unsupported-platform', JSON.stringify(parse(res)))
+  check('reports darwin', (await readState(routes)).platform === 'darwin')
+  await sleep(3000)
+  check('nothing was spawned on darwin', state.spawned.length === 0)
+})
+
+await scenarioOnPlatform('the reported platform follows the Host', 'freebsd', {}, async ({ routes }) => {
+  check('the platform is echoed verbatim', (await readState(routes)).platform === 'freebsd')
+})
+
+// The platform must not be reachable from the user-facing configuration: a
+// stray `platform:` key in cordis.patch.yml must not disable the plugin.
+await scenario('the user config cannot override the platform', { platform: 'linux' }, async ({ routes }) => {
+  const snapshot = await readState(routes)
+  check('a config platform key is ignored', snapshot?.platform === 'win32', snapshot?.platform)
+  check('the Host stays supported', snapshot?.supported === true, snapshot?.supported)
+})
 
 await scenario('cancel wins while arm request body is still arriving', {}, async ({ routes }) => {
   const body = deferred()
