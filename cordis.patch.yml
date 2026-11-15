@@ -5,3 +5,4 @@
         countdownSeconds: 60
         quietSeconds: 20
         defaultMode: shutdown
+        backgroundStyle: solid

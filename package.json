@@ -1,6 +1,6 @@
 {
   "name": "dsh-idle-power",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Hibernate or shut down Windows once every task in the DSH Host has finished, with a visible 60-second countdown you can cancel.",
   "type": "module",
   "exports": {

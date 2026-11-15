@@ -196,6 +196,7 @@ await scenario('routes and initial state', { quietSeconds: 1, countdownSeconds: 
   // quietSeconds below the 3s floor is clamped up, so a typo cannot make the
   // watcher fire during a task handoff.
   check('quiet config clamped to the 3s floor', body?.quietSeconds === 3, body?.quietSeconds)
+  check('background defaults to solid', body?.backgroundStyle === 'solid', body?.backgroundStyle)
   check('no-store header set', res.headers['cache-control'] === 'no-store', res.headers['cache-control'])
 
   check('POST /cancel accepts', (await call(routes, '/idle-power/cancel', { method: 'POST', body: '{}' })).statusCode === 200)
@@ -215,6 +216,62 @@ await scenario('routes and initial state', { quietSeconds: 1, countdownSeconds: 
   check('mode rejects an unknown mode', (await call(routes, '/idle-power/mode', { method: 'POST', body: '{"mode":"explode"}' })).statusCode === 400)
   check('mode is 405 on GET', (await call(routes, '/idle-power/mode', { method: 'GET' })).statusCode === 405)
   check('mode rejects non-JSON', (await call(routes, '/idle-power/mode', { method: 'POST', body: '{}', headers: { 'content-type': 'text/plain' } })).statusCode === 415)
+})
+
+// 1b. The background preference is Host-owned, validated, and cosmetic only.
+await scenario('background style route', {}, async ({ routes }) => {
+  for (const style of ['glass', 'blur', 'solid']) {
+    const res = await call(routes, '/idle-power/background', { method: 'POST', body: JSON.stringify({ backgroundStyle: style }) })
+    check(`POST /background accepts ${style}`, res.statusCode === 200, res.statusCode)
+    check(`/background returns ${style}`, parse(res)?.backgroundStyle === style, parse(res)?.backgroundStyle)
+    check(`state persists ${style}`, (await readState(routes)).backgroundStyle === style)
+  }
+  check('rejects an unknown style', (await call(routes, '/idle-power/background', { method: 'POST', body: '{"backgroundStyle":"neon"}' })).statusCode === 400)
+  check('rejects an empty body', (await call(routes, '/idle-power/background', { method: 'POST', body: '' })).statusCode === 400)
+  check('rejects a non-object body', (await call(routes, '/idle-power/background', { method: 'POST', body: '"glass"' })).statusCode === 400)
+  check('is 405 on GET', (await call(routes, '/idle-power/background', { method: 'GET' })).statusCode === 405)
+  check('rejects non-JSON', (await call(routes, '/idle-power/background', { method: 'POST', body: '{}', headers: { 'content-type': 'text/plain' } })).statusCode === 415)
+  check('bad values leave the style unchanged', (await readState(routes)).backgroundStyle === 'solid')
+  // A cosmetic write must not disturb the reservation state machine.
+  check('still idle after appearance changes', (await readState(routes)).phase === 'idle')
+})
+
+await scenario('background config default and validation', { backgroundStyle: 'glass' }, async ({ routes }) => {
+  const body = await readState(routes)
+  check('configured style is the initial state', body?.backgroundStyle === 'glass', body?.backgroundStyle)
+  const res = await call(routes, '/idle-power/background', { method: 'POST', body: '{"backgroundStyle":"blur"}' })
+  check('panel can override the config default', parse(res)?.backgroundStyle === 'blur', parse(res)?.backgroundStyle)
+})
+
+await scenario('invalid background config falls back to solid', { backgroundStyle: 'transparent' }, async ({ routes }) => {
+  check('unknown config value is ignored', (await readState(routes)).backgroundStyle === 'solid')
+})
+
+await scenario('background change cannot disturb a pending arm', {}, async ({ routes }) => {
+  const body = deferred()
+  const pending = call(routes, '/idle-power/arm', { method: 'POST', body: '{}', bodyReady: body.promise })
+  await flush()
+  await call(routes, '/idle-power/background', { method: 'POST', body: '{"backgroundStyle":"glass"}' })
+  body.resolve()
+  check('arm still succeeds after an appearance change', (await pending).statusCode === 200)
+  check('reservation is armed', (await readState(routes)).phase === 'armed')
+  check('appearance change was kept', (await readState(routes)).backgroundStyle === 'glass')
+})
+
+await scenario('background change refuses committed execution', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes, ctx }) => {
+  const completion = deferred()
+  ctx.subprocess.spawn = (spec) => {
+    state.spawned.push(spec.argv)
+    return { done: completion.promise, collected: {} }
+  }
+  await call(routes, '/idle-power/arm', { method: 'POST', body: '{}' })
+  await sleep(9000)
+  check('command is executing', (await readState(routes)).phase === 'executing')
+  const res = await call(routes, '/idle-power/background', { method: 'POST', body: '{"backgroundStyle":"blur"}' })
+  check('appearance change returns 409', res.statusCode === 409, res.statusCode)
+  check('style is unchanged', (await readState(routes)).backgroundStyle === 'solid')
+  completion.resolve({ exitCode: 0 })
+  await flush()
 })
 
 // 2. Waits for running work, then counts down and executes /h.
