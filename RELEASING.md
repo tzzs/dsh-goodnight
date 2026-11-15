@@ -30,7 +30,9 @@ CI 会在 PR 上校验**每一个 commit 的标题**和 **PR 标题**（squash �
 
 ## 2. 合并到 main
 
-`ci.yml` 跑测试（Windows / Ubuntu / macOS × Node 20 / 24）和提交规范检查。合并后 `release.yml` 在 `main` 上触发：
+`ci.yml` 跑测试（Windows / Ubuntu / macOS × Node 20 / 24）和提交规范检查。因为 `index.js` 用 `process.platform === 'win32'` 判断平台，而 `host.test.mjs` 断言可以正常 arm 并倒计时，**Host 套件只在 Windows runner 上跑**；浏览器半的 `client.test.cjs` 与平台无关，在全部 6 个组合上跑。等 Host 半把平台改成可注入的，这两个 step 就能合并回一个 `npm test`。
+
+合并后 `release.yml` 在 `main` 上触发：
 
 - 有 `feat` / `fix` 等用户可见的提交 → 自动打开或更新一个名为 `chore(main): release X.Y.Z` 的发布 PR。这个 PR 只改三处：`package.json` 的版本、`CHANGELOG.md`、`.release-please-manifest.json`。
 - 只有 `ci:` / `chore:` 等隐藏类型的提交 → **不会**打开发布 PR，这是预期行为，不是故障。
@@ -50,13 +52,13 @@ CI 会在 PR 上校验**每一个 commit 的标题**和 **PR 标题**（squash �
 
 `dsh-idle-power` 的首次发布必须有人类凭证，二选一：
 
-**A. NPM_TOKEN（简单）** — 在 npmjs.com 生成一个 granular access token（只给 `dsh-idle-power` 的读写权限，别用全账户的 automation token），然后：
+**A. NPM_TOKEN（最省事，首次发布一定能用）** — 在 npmjs.com 生成一个 granular access token，权限选 **Read and write (publish and stage)**、勾选 Bypass 2FA、范围只给 `dsh-idle-power`，然后：
 
 ```powershell
 gh secret set NPM_TOKEN -R tzzs/dsh-idle-power
 ```
 
-**B. npm Trusted Publishing（推荐，无长期密钥）** — 在 npmjs.com 的包设置里加一个 trusted publisher：
+**B. npm Trusted Publishing（推荐，无长期密钥）** — 在 npmjs.com 的包设置里加 trusted publisher：
 
 | 字段 | 值 |
 |---|---|
@@ -65,7 +67,9 @@ gh secret set NPM_TOKEN -R tzzs/dsh-idle-power
 | Workflow filename | `release.yml` |
 | Allowed actions | 勾选 `npm publish` |
 
-workflow 已经带上了 `id-token: write` 和 `--provenance`，配置好就能用。注意 npm 要求新配置的 trusted publisher 在 **2 天内**完成首次发布，否则会过期需要重建。
+workflow 已经带上了 `id-token: write`、`--provenance` 和 `--access public`，配置好就能用；trusted publishing 还会自动生成 provenance。
+
+⚠️ 两个坑：`npm trust` CLI 要求包**已经存在**于 registry，`dsh-idle-power` 目前还没有；npmjs.com 网页端对新包提供的是 "pending" 配置，必须在 **2 天内完成首次发布**来把它激活，否则过期要删掉重建。所以最稳的顺序是：**用 A 的 token 完成第一次发布 → 在 npmjs.com 配 B → 删掉 NPM_TOKEN secret**，之后就完全没有长期密钥了。另外 npm 已宣布 2027 年 1 月起废弃 token 的直接发布能力，长期看 B 是唯一路径。
 
 两种都没配时，发布 job 会以 `ENEEDAUTH` 失败，但 tag 和 GitHub Release 已经建好；补上认证后重跑该 workflow 即可。
 
