@@ -253,6 +253,53 @@ await scenario('routes and initial state', { quietSeconds: 1, countdownSeconds: 
   check('mode rejects non-JSON', (await call(routes, '/idle-power/mode', { method: 'POST', body: '{}', headers: { 'content-type': 'text/plain' } })).statusCode === 415)
 })
 
+await scenario('all routes require the connection trust check', {}, async ({ routes, services }) => {
+  const paths = ['state', 'arm', 'cancel', 'mode', 'background']
+  for (const status of [401, 403]) {
+    services.connection = { requestRejection: () => status }
+    for (const path of paths) {
+      const response = await call(routes, `/idle-power/${path}`, { method: path === 'state' ? 'GET' : 'POST', body: '{}' })
+      check(`${path} returns ${status} when the request is rejected`, response.statusCode === status)
+    }
+  }
+  services.connection = undefined
+  for (const path of paths) {
+    const response = await call(routes, `/idle-power/${path}`, { method: path === 'state' ? 'GET' : 'POST', body: '{}' })
+    check(`${path} is unavailable without the connection service`, response.statusCode === 503)
+  }
+})
+
+await scenario('a stale mode change cannot modify a reservation', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes }) => {
+  const body = deferred()
+  const pending = call(routes, '/idle-power/mode', { method: 'POST', body: '{"mode":"shutdown"}', bodyReady: body.promise })
+  await flush()
+  await call(routes, '/idle-power/arm', { method: 'POST', body: '{"mode":"hibernate"}' })
+  body.resolve()
+  const stale = await pending
+  check('a mode request started before arming is rejected', stale.statusCode === 409 && parse(stale)?.code === 'reservation-changed')
+  check('the armed action remains hibernate', (await readState(routes)).mode === 'hibernate')
+  await sleep(4000)
+  const counting = await call(routes, '/idle-power/mode', { method: 'POST', body: '{"mode":"shutdown"}' })
+  check('a mode request during countdown is rejected', counting.statusCode === 409 && parse(counting)?.code === 'reservation-changed')
+  check('the countdown action remains hibernate', (await readState(routes)).mode === 'hibernate')
+  await sleep(5000)
+  check('the original hibernate action executes', state.spawned.length === 1 && state.spawned[0].includes('/h'))
+})
+
+await scenario('changing an active mode restarts the quiet window', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes }) => {
+  await call(routes, '/idle-power/arm', { method: 'POST', body: '{"mode":"hibernate"}' })
+  await sleep(8000)
+  check('the original countdown is in progress', (await readState(routes)).phase === 'counting')
+  const response = await call(routes, '/idle-power/arm', { method: 'POST', body: '{"mode":"shutdown"}' })
+  check('re-arming accepts the new mode', response.statusCode === 200)
+  await sleep(3000)
+  check('the new mode has not skipped the quiet window', (await readState(routes)).phase === 'armed' && state.spawned.length === 0)
+  await sleep(1000)
+  check('a full new countdown starts for the new mode', (await readState(routes)).phase === 'counting')
+  await sleep(5000)
+  check('the new shutdown action executes', state.spawned.length === 1 && state.spawned[0].includes('/s'))
+})
+
 // 1b. The background preference is Host-owned, validated, and cosmetic only.
 await scenario('background style route', {}, async ({ routes }) => {
   for (const style of ['glass', 'blur', 'solid']) {
@@ -652,6 +699,34 @@ await scenario('waking long past the deadline re-arms instead of shutting down',
   check('the watch is re-armed after a suspend', (await readState(routes)).phase === 'armed')
   await sleep(4000)
   check('the full quiet window must happen again', (await readState(routes)).phase === 'counting')
+})
+
+await scenario('a timely execution lookup still runs the reserved action', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes, ctx }) => {
+  await call(routes, '/idle-power/arm', { method: 'POST', body: '{"mode":"hibernate"}' })
+  const lookup = deferred()
+  ctx.subprocess.resolveExecutable = () => lookup.promise
+  await sleep(9000)
+  clock.now += 4999
+  lookup.resolve('C:\\fake\\shutdown.exe')
+  await flush()
+  check('a lookup within the resume gap executes once', state.spawned.length === 1 && state.spawned[0].includes('/h'))
+})
+
+await scenario('waking during the execution lookup restarts the quiet window', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes, ctx }) => {
+  await call(routes, '/idle-power/arm', { method: 'POST', body: '{}' })
+  const lookup = deferred()
+  ctx.subprocess.resolveExecutable = () => lookup.promise
+  await sleep(9000)
+  clock.now += 15000
+  clock.next = clock.now + 1000
+  lookup.resolve('C:\\fake\\shutdown.exe')
+  await flush()
+  check('resolving a stale lookup cannot spawn the power command', state.spawned.length === 0)
+  check('the watch returns to the quiet window', (await readState(routes)).phase === 'armed')
+  await sleep(2000)
+  check('the watch does not skip the quiet window', (await readState(routes)).phase === 'armed')
+  await sleep(1000)
+  check('a new countdown follows the complete quiet window', (await readState(routes)).phase === 'counting')
 })
 
 console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'}`)

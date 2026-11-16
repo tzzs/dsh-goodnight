@@ -150,17 +150,17 @@ A mode or background you pick in the UI is remembered by the Host (it survives a
 
 ## HTTP routes
 
-The browser half talks to the Host over five authenticated routes. Every one runs a trust check first (Host/Origin, `sec-fetch-site`, then the auth cookie) and answers `403` / `401` without it.
+The browser half talks to the Host over five authenticated routes. Each route checks Host and Origin, `sec-fetch-site`, and the auth cookie. Rejected requests receive `403` or `401`. If the connection service is unavailable, the routes return `503`.
 
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/idle-power/state` | mode, phase, remaining seconds, background style, live task counts |
 | `POST` | `/idle-power/arm` | reserve; body `{ "mode": "hibernate" \| "shutdown" }` |
 | `POST` | `/idle-power/cancel` | cancel a reservation or a running countdown |
-| `POST` | `/idle-power/mode` | change the mode without reserving |
+| `POST` | `/idle-power/mode` | change the mode while no reservation is active |
 | `POST` | `/idle-power/background` | change the background only; body `{ "backgroundStyle": "solid" \| "glass" \| "blur" }` |
 
-Once the power command is committed, `/arm`, `/cancel`, `/mode` and `/background` all answer `409 execution-in-progress`. An arm whose upload was overtaken by a cancel, or whose executable check resolved out of order, answers `409 reservation-changed` instead of re-arming a reservation the user already cancelled.
+Once the power command is committed, `/arm`, `/cancel`, `/mode` and `/background` all answer `409 execution-in-progress`. A stale arm or a `/mode` request while a reservation is active returns `409 reservation-changed`. To change the mode of an active reservation, use `/arm` to start a new quiet period.
 
 `/background` is a pure appearance preference and **deliberately does not touch the reservation state machine**: it never bumps the internal revision, so changing the background can never make an in-flight arm look superseded.
 
@@ -181,6 +181,8 @@ Two dependency-free harnesses drive the real code with stand-ins, so the suite c
 
 - `test/host.test.mjs` — the state machine against fake agents, fake jobs and a subprocess that records `argv` instead of executing. Covers the busy predicate, a missing registry, quiet behaviour, countdown voiding, both command lines, cancellation, failure reporting, the mode and background routes, background config fallback for unknown values, and the races: mutations refused once execution is committed, a background change that must not disturb a pending arm, a cancel beating a slow arm upload, a stale lookup unable to overwrite a cancellation, and a suspend that overshoots the deadline re-arming instead of firing.
 - `test/client.test.cjs` — renders the real `client.js` components with a minimal React stand-in and asserts on the produced tree: both entry layouts, every panel state (loading / offline / registry unavailable / executing / failed), the per-kind task breakdown, the three background presets and their disabled states, the full-screen countdown's information hierarchy and progressbar semantics, the emitted `data-background` with fallback for unknown values, the progress ring's geometry and edge cases, multi-screen detection and mirror degradation, dismissal, cancel-failure feedback, expanded-state ARIA, and `prefers-reduced-motion` coverage.
+
+The Host tests also cover trust-check failures, unavailable connection services, stale mode changes, and a suspend while the executable lookup is in flight. The client tests cover keyboard access to all countdown controls.
 
 ### Cross-platform testing
 
