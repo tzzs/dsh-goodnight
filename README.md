@@ -126,7 +126,7 @@ From top to bottom the page shows the current state (not scheduled / waiting · 
 - **Connection state** — "Loading status…" before the first answer, "Cannot reach the plugin Host" with controls disabled when the connection drops, "Submitting…" while a request is in flight so a button cannot be pressed twice.
 - **Failure state** — if cancelling the countdown fails, the dialog stays and says cancellation is unconfirmed instead of pretending it worked.
 
-Keyboard: `Esc` cancels the countdown; the mode cards and the background presets move with the arrow keys / `Home` / `End`; `Tab` cycles between the cancel and multi-screen buttons inside the countdown instead of escaping the dialog.
+Keyboard: `Esc` cancels the countdown; modes and backgrounds are native radio groups (a radio inside a `<label>` card), so the arrow keys move and select; `Tab` cycles between the cancel and multi-screen buttons inside the countdown instead of escaping the dialog.
 
 ## Configuration
 

@@ -251,6 +251,17 @@ const bgOptions = (tree) => {
   walkElements(tree, (node) => { if (node.props.className === 'ipa-bgOption') found.push(node) })
   return found
 }
+/** Every native radio input in the tree, in source order. */
+const radiosOf = (tree) => {
+  const found = []
+  walkElements(tree, (node) => { if (node.tag === 'input' && node.props.type === 'radio') found.push(node) })
+  return found
+}
+/** The native control inside a choice card / preset label. */
+const inputOf = (label) => (label === undefined ? undefined : label.children.find((child) => child !== null && child !== undefined && child.kind === 'element' && child.tag === 'input'))
+/** Mode radios only: the page also has one radio per background preset. */
+const modeRadiosOf = (tree) => radiosOf(tree).filter((node) => node.props.name === 'ipa-mode')
+const presetDisabled = (tree) => bgOptions(tree).map((label) => inputOf(label)?.props.disabled)
 
 console.log('\n=== rail glyph: the only always-visible signal ===')
 {
@@ -306,17 +317,28 @@ console.log('\n=== page: idle ===')
   check('names background jobs', texts.includes('metric.jobs'), joined)
   check('shows zero counts while idle', texts.filter((s) => s === '0').length >= 4, joined)
 
-  const radios = rolesOf(tree, 'radio')
-  check('renders two mode radios', radios.length === 2, String(radios.length))
-  check('hibernate is checked by default', radios[0]?.props['aria-checked'] === true)
-  check('shutdown is not checked by default', radios[1]?.props['aria-checked'] === false)
+  const radios = modeRadiosOf(tree)
+  check('renders two native mode radios', radios.length === 2, String(radios.length))
+  check('hibernate is checked by default', radios[0]?.props.checked === true)
+  check('shutdown is not checked by default', radios[1]?.props.checked === false)
+  check('mode radios share one group name', radios[0]?.props.name === 'ipa-mode' && radios[1]?.props.name === 'ipa-mode')
   check('mode radios live in a radiogroup', findElement(tree, (n) => n.props.role === 'radiogroup') !== undefined)
+  // The visible card is the label, so the whole card is the hit area and the
+  // description reaches the control as a description, not as part of its name.
+  const modeLabels = []
+  walkElements(tree, (node) => { if (node.props.className === 'ipa-modeCard') modeLabels.push(node) })
+  check('each mode card is a label wrapping its control', modeLabels.length === 2 && modeLabels.every((label) => inputOf(label) !== undefined))
+  check('mode controls name themselves by their title', radios[0]?.props['aria-label'] === 'mode.hibernate', String(radios[0]?.props['aria-label']))
+  check('mode controls point at their description', typeof radios[0]?.props['aria-describedby'] === 'string' && radios[0].props['aria-describedby'].length > 0)
+  check('the description element exists', findElement(tree, (n) => n.props.id === radios[0]?.props['aria-describedby']) !== undefined)
   check('describes both modes', texts.includes('mode.hibernateDesc') && texts.includes('mode.shutdownDesc'), joined)
   check('shows the hibernate note for the selected mode', texts.includes('note.hibernate'), joined)
 
   const options = bgOptions(tree)
   check('renders exactly three background presets', options.length === 3, String(options.length))
-  check('solid is pressed by default', options[0]?.props['aria-pressed'] === true)
+  check('solid is checked by default', inputOf(options[0])?.props.checked === true)
+  check('the other presets are unchecked', inputOf(options[1])?.props.checked === false && inputOf(options[2])?.props.checked === false)
+  check('presets are a native radio group', findElement(tree, (n) => n.props.role === 'radiogroup' && n.props['aria-label'] === 'section.background') !== undefined)
   check('describes the active preset', texts.includes('background.solidDesc'), joined)
   check('does not describe an inactive preset', !texts.includes('background.blurDesc'), joined)
 
@@ -378,6 +400,31 @@ console.log('\n=== page: counting down ===')
   check('marks the last seconds as urgent', byClass(urgent.tree, 'ipa-heroDial')?.props['data-urgent'] === true)
 }
 
+console.log('\n=== page: announcements and progress semantics ===')
+{
+  const idle = renderEntry(page, pageState(baseState))
+  const status = findElement(idle.tree, (n) => n.props.role === 'status')
+  check('exposes one polite status region', status !== undefined)
+  check('the status region is visually hidden', typeof status?.props.className === 'string' && status.props.className.includes('ipa-srOnly'), String(status?.props.className))
+  check('idle announces the idle phase', textsOf(status).join('') === 'status.idle', textsOf(status).join(''))
+  check('the visible phase text is not itself a live region', findElement(idle.tree, (n) => n.props.className === 'ipa-heroPhase')?.props.role === undefined)
+
+  const counting = renderEntry(page, pageState({ ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null }))
+  const countingStatus = findElement(counting.tree, (n) => n.props.role === 'status')
+  check('counting announces the phase without the seconds', textsOf(countingStatus).join('') === 'status.counting', textsOf(countingStatus).join(''))
+  const bar = findElement(counting.tree, (n) => n.props.role === 'progressbar')
+  check('the ring is a progressbar', bar !== undefined)
+  check('progressbar reports the remaining value', bar?.props['aria-valuenow'] === 45, String(bar?.props['aria-valuenow']))
+  check('progressbar reports the window as its max', bar?.props['aria-valuemax'] === 60, String(bar?.props['aria-valuemax']))
+  check('progressbar has a label', bar?.props['aria-label'] === 'hero.progress', String(bar?.props['aria-label']))
+  check('progressbar has a value text', typeof bar?.props['aria-valuetext'] === 'string' && bar.props['aria-valuetext'].length > 0)
+  check('no progressbar while idle', findElement(idle.tree, (n) => n.props.role === 'progressbar') === undefined)
+
+  // Counters are a description list, so each label/value pairing is real.
+  check('metrics are a description list', findElement(idle.tree, (n) => n.tag === 'dl' && typeof n.props.className === 'string' && n.props.className.includes('ipa-metrics')) !== undefined)
+  check('each metric pairs a term with a value', countClass(idle.tree, 'ipa-metricLabel') === 4 && countClass(idle.tree, 'ipa-metricValue') === 4)
+}
+
 console.log('\n=== page: mode and appearance reach the Host ===')
 {
   const calls = { setMode: [], arm: [] }
@@ -385,29 +432,29 @@ console.log('\n=== page: mode and appearance reach the Host ===')
     setMode: async (value) => { calls.setMode.push(value); return true },
     arm: async (value) => { calls.arm.push(value); return true },
   })
-  const radios = rolesOf(idle.tree, 'radio')
-  radios[1].props.onClick()
+  const radios = modeRadiosOf(idle.tree)
+  radios[1].props.onChange()
   check('selecting shutdown stores it on the Host', calls.setMode.length === 1 && calls.setMode[0] === 'shutdown', JSON.stringify(calls.setMode))
   check('selecting a mode while idle does not arm', calls.arm.length === 0, JSON.stringify(calls.arm))
-  radios[0].props.onClick()
-  check('clicking the already-selected mode is a no-op', calls.setMode.length === 1, JSON.stringify(calls.setMode))
+  radios[0].props.onChange()
+  check('choosing the already-selected mode is a no-op', calls.setMode.length === 1, JSON.stringify(calls.setMode))
 
   const armedCalls = { setMode: [], arm: [] }
   const armed = renderEntry(page, pageState({ ...baseState, phase: 'armed' }), {
     setMode: async (value) => { armedCalls.setMode.push(value); return true },
     arm: async (value) => { armedCalls.arm.push(value); return true },
   })
-  rolesOf(armed.tree, 'radio')[1].props.onClick()
+  modeRadiosOf(armed.tree)[1].props.onChange()
   check('changing mode while armed re-arms', armedCalls.arm.length === 1 && armedCalls.arm[0] === 'shutdown', JSON.stringify(armedCalls.arm))
   check('the armed path does not use the idle write', armedCalls.setMode.length === 0, JSON.stringify(armedCalls.setMode))
 
   const bgCalls = []
   const appearance = renderEntry(page, pageState(baseState), { setBackground: async (value) => { bgCalls.push(value); return true } })
   const presets = bgOptions(appearance.tree)
-  presets[1].props.onClick()
-  presets[2].props.onClick()
+  inputOf(presets[1]).props.onChange()
+  inputOf(presets[2]).props.onChange()
   check('choosing a preset reaches the Host', bgCalls.length === 2 && bgCalls[0] === 'glass' && bgCalls[1] === 'blur', JSON.stringify(bgCalls))
-  check('presets are a toggle group', byClass(appearance.tree, 'ipa-bgOptions')?.props.role === 'group')
+  check('presets are a native radio group', byClass(appearance.tree, 'ipa-bgOptions')?.props.role === 'radiogroup')
 
   const refreshed = []
   const refreshable = renderEntry(page, pageState(baseState), { refresh: async () => { refreshed.push(1); return true } })
@@ -437,8 +484,8 @@ console.log('\n=== page: states that must not look idle ===')
   const executing = renderEntry(page, pageState({ ...baseState, phase: 'executing' }))
   check('reports the running power action', textsOf(executing.tree).includes('status.executing'), textsOf(executing.tree).join('|'))
   check('cannot stack another action', findElement(executing.tree, (n) => n.props['data-variant'] === 'primary')?.props.disabled === true)
-  check('locks the mode cards while executing', rolesOf(executing.tree, 'radio').every((node) => node.props.disabled === true))
-  check('locks the appearance presets while executing', bgOptions(executing.tree).every((node) => node.props.disabled === true))
+  check('locks the mode cards while executing', radiosOf(executing.tree).every((node) => node.props.disabled === true))
+  check('locks the appearance presets while executing', presetDisabled(executing.tree).every((disabled) => disabled === true))
 
   const failed = renderEntry(page, pageState({ ...baseState, phase: 'failed', error: 'shutdown exited 1' }))
   check('shows the failure', textsOf(failed.tree).includes('status.failed'), textsOf(failed.tree).join('|'))
@@ -692,17 +739,17 @@ console.log('\n=== background presets: page control ===')
 
   const glass = renderEntry(page, pageState({ ...baseState, backgroundStyle: 'glass' }))
   check('describes the configured preset', textsOf(glass.tree).includes('background.glassDesc'), textsOf(glass.tree).join('|'))
-  check('glass is the pressed option', bgOptions(glass.tree).filter((n) => n.props['aria-pressed'] === true).map((n) => n.props['aria-label']).join() === 'background.glass')
+  check('glass is the checked option', bgOptions(glass.tree).filter((label) => inputOf(label)?.props.checked === true).map((label) => inputOf(label).props.value).join() === 'glass')
   const unknown = renderEntry(page, pageState({ ...baseState, backgroundStyle: 'neon' }))
   check('an unknown Host value falls back to solid', textsOf(unknown.tree).includes('background.solidDesc'), textsOf(unknown.tree).join('|'))
 
   const offline = renderEntry(page, pageState(baseState, { offline: true }))
-  check('cannot change appearance while offline', bgOptions(offline.tree).length === 3 && bgOptions(offline.tree).every((n) => n.props.disabled === true))
+  check('cannot change appearance while offline', presetDisabled(offline.tree).length === 3 && presetDisabled(offline.tree).every((disabled) => disabled === true))
   const locked = renderEntry(page, pageState({ ...baseState, phase: 'executing' }))
-  check('cannot change appearance during execution', bgOptions(locked.tree).every((n) => n.props.disabled === true))
+  check('cannot change appearance during execution', presetDisabled(locked.tree).every((disabled) => disabled === true))
   const busy = renderEntry(page, pageState(baseState, { busy: true }))
-  check('cannot stack appearance writes', bgOptions(busy.tree).every((n) => n.props.disabled === true))
-  check('the two mode radios are unchanged', rolesOf(appearance.tree, 'radio').length === 2)
+  check('cannot stack appearance writes', presetDisabled(busy.tree).every((disabled) => disabled === true))
+  check('the two mode radios are unchanged', modeRadiosOf(appearance.tree).length === 2)
 }
 
 console.log('\n=== background presets: countdown carries the style ===')

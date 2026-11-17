@@ -66,6 +66,7 @@ window.__ModuleLoader__.load({
       'metric.inbox': '排队消息',
       'metric.jobs': '后台任务',
       'metric.total': '任务合计',
+      'hero.progress': '剩余时间',
       'note.scope': '关闭页面不会取消预约；只监测当前 Host，不监测其他应用或其他 Host。',
       'note.autoVoid': '倒计时期间任何新任务都会让本次预约自动作废。',
       'note.platform': '只有 Windows 提供休眠和关机命令。',
@@ -164,6 +165,7 @@ window.__ModuleLoader__.load({
       'metric.inbox': 'Queued messages',
       'metric.jobs': 'Background jobs',
       'metric.total': 'Tasks total',
+      'hero.progress': 'Time remaining',
       'note.scope': 'Closing this page does not cancel. Only this Host is monitored; other apps and Hosts are not.',
       'note.autoVoid': 'Any new task during the countdown voids this reservation.',
       'note.platform': 'Only Windows provides the hibernate and shutdown commands.',
@@ -242,6 +244,13 @@ window.__ModuleLoader__.load({
 .ipa-statusDot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-brand-primary)}
 .ipa-statusDot[data-tone=error]{background:var(--dsw-alias-state-error-primary)}
 .ipa-footTag{flex:none;white-space:nowrap}
+/* Native radios carry every choice; the card is only their visible label.
+   The input stays focusable and in the accessibility tree, so keyboard users
+   get a real radio group (arrow keys move and select) and screen readers get
+   "n of m" instead of a row of styled buttons. */
+.ipa-choiceInput{position:absolute;inline-size:1px;block-size:1px;margin:0;padding:0;border:0;opacity:0;overflow:hidden;clip-path:inset(50%);pointer-events:none}
+/* Screen-reader-only text: never visible, never focusable. */
+.ipa-srOnly{position:absolute;inline-size:1px;block-size:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 /* ---- controls ----------------------------------------------------------- */
 .ipa-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;min-height:36px;padding:7px 14px;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;font-weight:600;line-height:20px;cursor:pointer;transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
 @media (hover:hover){.ipa-button:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}}
@@ -271,11 +280,11 @@ window.__ModuleLoader__.load({
 .ipa-heroBody{margin:0;max-width:64ch;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:21px}
 .ipa-heroMeta{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
 /* Four equal cells read as one instrument, not four cards. */
-.ipa-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:10px;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);overflow:hidden}
+.ipa-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:10px 0 0;padding:0;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);overflow:hidden}
 .ipa-metric{display:flex;flex-direction:column;gap:2px;padding:12px 16px;border-inline-end:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}
 .ipa-metric:last-child{border-inline-end:0}
 .ipa-metricLabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:18px}
-.ipa-metricValue{font-size:20px;line-height:26px;font-weight:600;letter-spacing:-.02em}
+.ipa-metricValue{margin:0;font-size:20px;line-height:26px;font-weight:600;letter-spacing:-.02em}
 /* ---- sections ----------------------------------------------------------- */
 .ipa-section{display:flex;flex-direction:column;gap:12px;min-width:0}
 .ipa-sectionHead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
@@ -283,17 +292,20 @@ window.__ModuleLoader__.load({
 .ipa-sectionBody{margin:0;color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:19px}
 /* ---- mode cards --------------------------------------------------------- */
 .ipa-modeGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.ipa-modeCard{display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px;border-radius:var(--dsw-radius-md);border:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:inherit;font:inherit;font-size:13px;text-align:left;cursor:pointer;transition:border-color var(--ipa-fast) var(--ipa-ease),background-color var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
-@media (hover:hover){.ipa-modeCard:hover:not(:disabled):not([data-active]){background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-modeCard[data-active]{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2)}
-.ipa-modeCard:disabled{opacity:.55;cursor:default}
-.ipa-modeCard:active:not(:disabled){transform:scale(.995)}
+.ipa-modeCard{position:relative;display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px;border-radius:var(--dsw-radius-md);border:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:inherit;font:inherit;font-size:13px;text-align:left;cursor:pointer;transition:border-color var(--ipa-fast) var(--ipa-ease),background-color var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
+@media (hover:hover){.ipa-modeCard:hover:not(:has(> :disabled)):not(:has(> :checked)){background:var(--dsw-alias-interactive-bg-hover)}}
+/* Selection is colour plus the check mark, never a property that changes
+   layout: picking a mode must not move the cards or the text around them. */
+.ipa-modeCard:has(> :checked){border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2)}
+.ipa-modeCard:has(> :disabled){opacity:.55;cursor:default}
+.ipa-modeCard:active:not(:has(> :disabled)){transform:scale(.995)}
+.ipa-modeCard:has(> :focus-visible){outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:2px}
 .ipa-modeCardHead{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .ipa-modeCardTitle{font-size:14px;font-weight:600;line-height:22px}
 .ipa-modeMark{display:grid;place-items:center;flex:none;width:18px;height:18px;border:1px solid var(--dsw-alias-border-l2);border-radius:50%;color:var(--dsw-alias-label-primary-foreground);transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease)}
-.ipa-modeCard[data-active] .ipa-modeMark{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-brand-primary)}
+.ipa-modeCard:has(> :checked) .ipa-modeMark{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-brand-primary)}
 .ipa-modeMark path{stroke-dasharray:16;stroke-dashoffset:16;transition:stroke-dashoffset 180ms var(--ipa-ease)}
-.ipa-modeCard[data-active] .ipa-modeMark path{stroke-dashoffset:0}
+.ipa-modeCard:has(> :checked) .ipa-modeMark path{stroke-dashoffset:0}
 .ipa-modeCardDesc{color:var(--dsw-alias-label-secondary);font-size:12.5px;line-height:20px}
 /* Both notes occupy one grid cell so the section keeps its height when the
    selected mode changes; nothing below it jumps. */
@@ -306,10 +318,11 @@ window.__ModuleLoader__.load({
 .ipa-bgThumb{position:absolute;pointer-events:none;z-index:0;left:4px;top:4px;bottom:4px;width:calc((100% - 16px)/3);border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-layer-2);box-shadow:inset 0 0 0 1px var(--dsw-alias-brand-primary);transition:transform var(--ipa-move) var(--ipa-settle)}
 .ipa-bgOptions[data-background=glass] .ipa-bgThumb{transform:translateX(calc(100% + 4px))}
 .ipa-bgOptions[data-background=blur] .ipa-bgThumb{transform:translateX(calc(200% + 8px))}
-.ipa-bgOption{position:relative;z-index:1;min-width:0;min-height:36px;padding:6px 8px;border:none;border-radius:var(--dsw-radius-xs);background:0 0;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12.5px;font-weight:500;cursor:pointer}
-@media (hover:hover){.ipa-bgOption:hover:not(:disabled):not([aria-pressed=true]){background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-bgOption[aria-pressed=true]{color:var(--dsw-alias-brand-primary);font-weight:600}
-.ipa-bgOption:disabled{opacity:.5;cursor:default}
+.ipa-bgOption{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;min-width:0;min-height:36px;padding:6px 8px;border-radius:var(--dsw-radius-xs);color:var(--dsw-alias-label-secondary);font-size:12.5px;font-weight:500;cursor:pointer}
+@media (hover:hover){.ipa-bgOption:hover:not(:has(> :disabled)):not(:has(> :checked)){background:var(--dsw-alias-interactive-bg-hover)}}
+.ipa-bgOption:has(> :checked){color:var(--dsw-alias-brand-primary)}
+.ipa-bgOption:has(> :disabled){opacity:.5;cursor:default}
+.ipa-bgOption:has(> :focus-visible){outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:-2px}
 .ipa-bgDesc{margin:0;font-size:12px;line-height:19px;color:var(--dsw-alias-label-tertiary)}
 /* ---- flow and notes ----------------------------------------------------- */
 .ipa-flowList{display:flex;flex-direction:column;margin:0;padding:0;list-style:none;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);overflow:hidden;background:var(--dsw-alias-bg-layer-1)}
@@ -460,6 +473,11 @@ background-color:rgba(9,11,16,.42);
 .ipa-footTag{display:none}
 .ipa-bg{max-width:none}
 .ipa-flowStep{padding:12px}
+}
+/* A coarse pointer (touch, pen) needs a bigger target than a mouse does. */
+@media (pointer:coarse){
+.ipa-button,.ipa-iconButton,.ipa-bgOption{min-height:44px}
+.ipa-modeCard{padding:16px}
 }
 /* Keep this last so every decorative transition has an immediate readable
    counterpart. Progress still updates from the Host; only interpolation stops. */
@@ -905,11 +923,15 @@ background-color:rgba(9,11,16,.42);
       );
     }
 
-    /** One titled block; the hint sits beside the title, not above the content. */
-    function Section({ id, title, hint, children }) {
-      return h('section', { className: 'ipa-section', 'aria-labelledby': id },
+    /**
+     * One titled block. The section stays unnamed on purpose: a named <section>
+     * becomes a `region` landmark, and four of those around one page dilute the
+     * real landmarks. The heading alone gives the outline.
+     */
+    function Section({ title, hint, children }) {
+      return h('section', { className: 'ipa-section' },
         h('div', { className: 'ipa-sectionHead' },
-          h('h2', { className: 'ipa-sectionTitle', id }, title),
+          h('h2', { className: 'ipa-sectionTitle' }, title),
           hint === undefined ? null : h('p', { className: 'ipa-sectionBody' }, hint),
         ),
         children,
@@ -999,6 +1021,21 @@ background-color:rgba(9,11,16,.42);
         bodyText = t('body.idle');
       }
 
+      // One short sentence for assistive tech, derived from the phase alone. It
+      // must not carry the per-second number: a polite live region that changes
+      // every tick is a speech spammer, and the countdown digits are already a
+      // non-live timer.
+      let announcement = '';
+      if (!supported) announcement = t('status.unsupported');
+      else if (offline) announcement = t('status.offline');
+      else if (registryDown) announcement = t('status.registryUnavailable');
+      else if (!ready) announcement = '';
+      else if (data.phase === 'failed') announcement = t('status.failed');
+      else if (counting) announcement = t('status.counting');
+      else if (armed) announcement = t('status.waiting');
+      else if (locked) announcement = t('status.executing');
+      else announcement = t('status.idle');
+
       const canArm = supported && ready && !offline && !busy && !locked && !registryDown;
       const RADIUS = 42;
       const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -1008,33 +1045,46 @@ background-color:rgba(9,11,16,.42);
       if (scheduledAt !== null) metaItems.unshift(fmt(t('status.scheduledAt'), scheduledAt));
 
       const metric = (labelKey, value) => h('div', { className: 'ipa-metric', key: labelKey },
-        h('span', { className: 'ipa-metricLabel' }, t(labelKey)),
-        h('span', { className: 'ipa-metricValue' }, String(value)),
+        h('dt', { className: 'ipa-metricLabel' }, t(labelKey)),
+        h('dd', { className: 'ipa-metricValue' }, String(value)),
       );
 
       const modeDisabled = !supported || !ready || offline || busy || locked || registryDown;
-      const modeCard = (value, titleKey, descKey) => h('button', {
-        type: 'button',
-        key: value,
-        className: 'ipa-modeCard',
-        role: 'radio',
-        'aria-checked': mode === value,
-        'data-active': mode === value || undefined,
-        disabled: modeDisabled,
-        onClick: () => {
-          if (value === mode) return;
-          // While reserved, changing the mode re-arms with it; while idle it
-          // just records what 预约 would do.
-          if (armed) void arm(value);
-          else void setMode(value);
+      // A choice card is a label wrapping the native radio, so the browser owns
+      // the selection, the arrow keys and the "2 of 2" announcement. The card
+      // only draws it: the description is exposed as the control's description
+      // instead of being folded into its name.
+      const modeCard = (value, titleKey, descKey) => {
+        const descId = `ipa-mode-${value}`;
+        return h('label', {
+          key: value,
+          className: 'ipa-modeCard',
+          'data-active': mode === value || undefined,
         },
-      },
-        h('span', { className: 'ipa-modeCardHead' },
-          h('span', { className: 'ipa-modeCardTitle' }, t(titleKey)),
-          h('span', { className: 'ipa-modeMark', 'aria-hidden': true }, h(CheckGlyph)),
-        ),
-        h('span', { className: 'ipa-modeCardDesc' }, t(descKey)),
-      );
+          h('input', {
+            type: 'radio',
+            className: 'ipa-choiceInput',
+            name: 'ipa-mode',
+            value,
+            checked: mode === value,
+            disabled: modeDisabled,
+            'aria-label': t(titleKey),
+            'aria-describedby': descId,
+            onChange: () => {
+              if (value === mode) return;
+              // While reserved, changing the mode re-arms with it; while idle it
+              // just records what 预约 would do.
+              if (armed) void arm(value);
+              else void setMode(value);
+            },
+          }),
+          h('span', { className: 'ipa-modeCardHead' },
+            h('span', { className: 'ipa-modeCardTitle' }, t(titleKey)),
+            h('span', { className: 'ipa-modeMark', 'aria-hidden': true }, h(CheckGlyph)),
+          ),
+          h('span', { className: 'ipa-modeCardDesc', id: descId }, t(descKey)),
+        );
+      };
 
       const styleChoices = [
         ['solid', 'background.solid', 'background.solidDesc'],
@@ -1048,7 +1098,7 @@ background-color:rgba(9,11,16,.42);
         ['flow.act', 'flow.actDesc', mode === 'shutdown' ? t('mode.shutdown') : t('mode.hibernate')],
       ];
 
-      return h('section', { className: 'ipa-page', 'aria-label': t('page.title') },
+      return h('div', { className: 'ipa-page' },
         h('header', { className: 'ipa-pageTop' },
           h('div', { className: 'ipa-pageWrap' },
             h('div', { className: 'ipa-pageHeader' },
@@ -1087,11 +1137,25 @@ background-color:rgba(9,11,16,.42);
         ),
         h('div', { className: 'ipa-scroll' },
           h('div', { className: 'ipa-pageWrap ipa-pageBody' },
+            // The only live region on the page: phase changes are announced,
+            // counters and seconds are not.
+            h('p', { className: 'ipa-srOnly', role: 'status' }, announcement),
             note !== null && note !== undefined && h('div', { className: 'ipa-banner', role: 'alert' },
               h('span', { className: 'ipa-bannerText' }, describeFailure(noteCode, note, t)),
             ),
             h('div', { className: 'ipa-hero', 'data-tone': tone === 'error' ? 'error' : undefined },
-              h('div', { className: 'ipa-heroDial', 'data-urgent': urgent || undefined },
+              h('div', {
+                className: 'ipa-heroDial',
+                'data-urgent': urgent || undefined,
+                // The ring is real progress, so it exposes a value instead of
+                // being decoration the reader has to infer from the digits.
+                role: dialValue === null ? undefined : 'progressbar',
+                'aria-label': dialValue === null ? undefined : t('hero.progress'),
+                'aria-valuemin': dialValue === null ? undefined : 0,
+                'aria-valuemax': dialValue === null ? undefined : Math.max(1, dialTotal),
+                'aria-valuenow': dialValue === null ? undefined : dialValue,
+                'aria-valuetext': dialValue === null ? undefined : fmt(t('countdown.remaining'), String(dialValue)),
+              },
                 dialValue === null
                   ? h('span', { className: 'ipa-heroGlyph' }, h(PowerGlyph, { size: 34 }))
                   : h('svg', { className: 'ipa-heroRing', viewBox: '0 0 100 100', 'aria-hidden': true },
@@ -1111,20 +1175,20 @@ background-color:rgba(9,11,16,.42);
                 ),
               ),
               h('div', { className: 'ipa-heroText' },
-                h('span', { className: 'ipa-heroPhase', role: 'status' }, phaseText),
+                h('span', { className: 'ipa-heroPhase' }, phaseText),
                 bodyText === '' ? null : h('p', { className: 'ipa-heroBody' }, bodyText),
                 h('div', { className: 'ipa-heroMeta' },
                   ...metaItems.map((text) => h('span', { key: text }, text)),
                 ),
               ),
             ),
-            h('div', { className: 'ipa-metrics' },
+            h('dl', { className: 'ipa-metrics' },
               metric('metric.agents', data.busy?.agentsRunning ?? 0),
               metric('metric.inbox', data.busy?.inboxPending ?? 0),
               metric('metric.jobs', data.busy?.jobsRunning ?? 0),
               metric('metric.total', total),
             ),
-            h(Section, { id: 'ipa-section-mode', title: t('section.mode'), hint: t('section.modeHint') },
+            h(Section, { title: t('section.mode'), hint: t('section.modeHint') },
               h('div', { className: 'ipa-modeGrid', role: 'radiogroup', 'aria-label': t('section.mode') },
                 modeCard('hibernate', 'mode.hibernate', 'mode.hibernateDesc'),
                 modeCard('shutdown', 'mode.shutdown', 'mode.shutdownDesc'),
@@ -1140,43 +1204,36 @@ background-color:rgba(9,11,16,.42);
                 }, t(value === 'shutdown' ? 'note.shutdown' : 'note.hibernate'))),
               ),
             ),
-            h(Section, { id: 'ipa-section-background', title: t('section.background'), hint: t('section.backgroundHint') },
+            h(Section, { title: t('section.background'), hint: t('section.backgroundHint') },
               h('div', { className: 'ipa-bg' },
                 h('div', {
                   className: 'ipa-bgOptions',
                   'data-background': background,
-                  role: 'group',
+                  role: 'radiogroup',
                   'aria-label': t('section.background'),
                 },
                   h('span', { className: 'ipa-bgThumb', 'aria-hidden': true }),
-                  ...styleChoices.map(([value, labelKey]) => h('button', {
-                    type: 'button',
+                  ...styleChoices.map(([value, labelKey]) => h('label', {
                     key: value,
                     className: 'ipa-bgOption',
-                    'aria-pressed': background === value,
-                    'aria-label': t(labelKey),
-                    disabled: locked || busy || !ready || offline || !supported,
-                    onClick: () => { if (value !== background) void setBackground(value); },
-                    onKeyDown: (event) => {
-                      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
-                      const parent = event.currentTarget?.parentElement;
-                      if (parent === null || parent === undefined || typeof parent.querySelectorAll !== 'function') return;
-                      event.preventDefault?.();
-                      const choices = Array.from(parent.querySelectorAll('.ipa-bgOption'));
-                      const index = choices.indexOf(event.currentTarget);
-                      const step = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1;
-                      const target = event.key === 'Home' ? choices[0]
-                        : event.key === 'End' ? choices[choices.length - 1]
-                          : choices[(index + step + choices.length) % choices.length];
-                      target?.focus?.();
-                      target?.click?.();
-                    },
-                  }, t(labelKey))),
+                    'data-active': background === value || undefined,
+                  },
+                    h('input', {
+                      type: 'radio',
+                      className: 'ipa-choiceInput',
+                      name: 'ipa-background',
+                      value,
+                      checked: background === value,
+                      disabled: locked || busy || !ready || offline || !supported,
+                      onChange: () => { if (value !== background) void setBackground(value); },
+                    }),
+                    h('span', null, t(labelKey)),
+                  )),
                 ),
                 h('p', { className: 'ipa-bgDesc' }, t(`background.${background}Desc`)),
               ),
             ),
-            h(Section, { id: 'ipa-section-flow', title: t('section.flow'), hint: t('section.flowHint') },
+            h(Section, { title: t('section.flow'), hint: t('section.flowHint') },
               h('ol', { className: 'ipa-flowList' },
                 ...flowSteps.map(([titleKey, descKey, title], index) => h('li', { className: 'ipa-flowStep', key: titleKey },
                   h('span', { className: 'ipa-flowNum', 'aria-hidden': true }, String(index + 1)),
@@ -1185,7 +1242,7 @@ background-color:rgba(9,11,16,.42);
                 )),
               ),
             ),
-            h(Section, { id: 'ipa-section-notes', title: t('section.notes') },
+            h(Section, { title: t('section.notes') },
               h('ul', { className: 'ipa-noteList' },
                 ...['note.scope', 'note.autoVoid', 'note.hostRestart', 'note.platform'].map((key) => h('li', { className: 'ipa-noteItem', key }, t(key))),
               ),
