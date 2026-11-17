@@ -679,6 +679,8 @@ console.log('\n=== CSS: page shell and full-viewport countdown layout ===')
   check('short-viewport rules exist', css.includes('@media (max-height:620px)'))
   check('narrow-viewport rules exist', css.includes('@media (max-width:720px)'))
   check('left/right alignment rules exist', css.includes('[data-align=left]') && css.includes('[data-align=right]'))
+  check('page type scale is rem, not px', !/font-size:\s*[0-9.]+px/.test(css.slice(css.indexOf('/* ---- page shell'), css.indexOf('/* ---- countdown'))))
+  check('high contrast mode keeps borders and selection visible', css.includes('@media (forced-colors:active)') && css.includes('border-color:CanvasText') && css.includes('outline:2px solid Highlight'))
 }
 
 
@@ -774,7 +776,7 @@ console.log('\n=== background presets: CSS and runtime wiring ===')
   check('glass blurs the backdrop', css.includes('backdrop-filter:blur(22px)'))
   check('blur uses a heavier gaussian radius', css.includes('backdrop-filter:blur(34px)'))
   check('translucency uses color-mix with a solid fallback', css.includes('color-mix(in srgb,var(--dsw-alias-bg-overlay) 66%,transparent)'))
-  check('the active preset is visible without relying on layer token differences', css.includes('box-shadow:inset 0 0 0 1px var(--dsw-alias-brand-primary)'))
+  check('the active preset is visible without relying on layer token differences', css.includes('box-shadow:inset 0 0 0 1px var(--ipa-accent)'))
   check('blur scopes its dark tokens to the overlay subtree', css.includes('--dsw-alias-label-primary:#f3f5f9'))
   check('all three presets are recognized', JSON.stringify(moduleObj.internals.BACKGROUND_STYLES) === '["solid","glass","blur"]')
   check('normalizeBackground rejects unknown values', moduleObj.internals.normalizeBackground('neon') === 'solid' && moduleObj.internals.normalizeBackground('blur') === 'blur')

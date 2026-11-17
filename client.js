@@ -225,24 +225,46 @@ window.__ModuleLoader__.load({
 .ipa-railGlyph[data-phase=counting] .ipa-railDot{fill:var(--dsw-alias-state-error-primary);animation:ipa-blink 1.6s ease-in-out infinite}
 @keyframes ipa-blink{0%,100%{opacity:1}50%{opacity:.45}}
 /* ---- page shell --------------------------------------------------------- */
-.ipa-page{box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-direction:column;width:100%;height:100%;min-height:0;overflow:hidden;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-size:14px;line-height:1.6;font-variant-numeric:tabular-nums}
+/* One semantic layer over the Host palette: components ask for a role
+   (surface, muted text, control border, accent) instead of a raw palette
+   entry, so the page survives a Host theme change and reads like the rest of
+   the app. Muted text is mixed from the foreground rather than taken from the
+   Host's caption colour, whose contrast sits below body-text level. */
+.ipa-page{
+--ipa-surface:var(--dsw-alias-bg-base,#fff);
+--ipa-card:var(--dsw-alias-bg-layer-1,#fff);
+--ipa-sunken:var(--dsw-alias-bg-layer-2,#f4f5f7);
+--ipa-fg:var(--dsw-alias-label-primary,#191c22);
+--ipa-fg-muted:color-mix(in srgb,var(--ipa-fg) 78%,var(--ipa-surface));
+--ipa-fg-subtle:color-mix(in srgb,var(--ipa-fg) 66%,var(--ipa-surface));
+--ipa-border:var(--dsw-alias-border-l1,rgba(18,21,28,.10));
+--ipa-border-strong:var(--dsw-alias-border-l2,rgba(18,21,28,.17));
+--ipa-accent:var(--dsw-alias-brand-primary,#2f66f5);
+--ipa-accent-fg:var(--dsw-alias-label-primary-foreground,#fff);
+--ipa-danger:var(--dsw-alias-state-error-primary,#d93a40);
+--ipa-hover:var(--dsw-alias-interactive-bg-hover,rgba(18,21,28,.06));
+--ipa-ring:var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary,#2f66f5));
+--ipa-radius:var(--dsw-radius-md,12px);
+--ipa-radius-sm:var(--dsw-radius-sm,8px);
+--ipa-radius-xs:var(--dsw-radius-xs,4px);
+box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-direction:column;width:100%;height:100%;min-height:0;overflow:hidden;background:var(--ipa-surface);color:var(--ipa-fg);font-size:.875rem;line-height:1.6;font-variant-numeric:tabular-nums}
 .ipa-page *{box-sizing:border-box}
 .ipa-pageWrap{width:100%;max-width:1120px;margin:0 auto;padding-inline:clamp(18px,3.6cqw,48px)}
-.ipa-pageTop{flex:none;border-bottom:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}
+.ipa-pageTop{flex:none;border-bottom:.5px solid var(--ipa-border);background:var(--ipa-surface)}
 .ipa-pageHeader{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-top:clamp(20px,3cqw,32px);padding-bottom:clamp(14px,2cqw,20px)}
 [data-platform=darwin] .ipa-pageHeader{padding-top:calc(32px + var(--dsh-frame-top-clearance,0px))}
 .ipa-pageHead{min-width:0;flex:1}
-.ipa-pageEyebrow{display:block;margin-bottom:6px;font-size:11px;line-height:18px;font-weight:600;letter-spacing:.12em;color:var(--dsw-alias-label-tertiary)}
-.ipa-pageTitle{margin:0;font-size:clamp(22px,3.4cqw,28px);line-height:1.25;font-weight:650;letter-spacing:-.03em;text-wrap:balance}
-.ipa-pageSub{margin:6px 0 0;max-width:62ch;color:var(--dsw-alias-label-secondary);font-size:13.5px;line-height:21px;text-wrap:pretty}
+.ipa-pageEyebrow{display:block;margin-bottom:6px;color:var(--ipa-fg-subtle);font-size:.6875rem;font-weight:600;line-height:1.6;letter-spacing:.12em}
+.ipa-pageTitle{margin:0;font-size:clamp(1.375rem,3.4cqw,1.75rem);font-weight:650;line-height:1.25;letter-spacing:-.03em;text-wrap:balance}
+.ipa-pageSub{margin:6px 0 0;max-width:62ch;color:var(--ipa-fg-muted);font-size:.84375rem;line-height:1.55;text-wrap:pretty}
 .ipa-pageTools{display:flex;align-items:center;gap:8px;flex:none}
 .ipa-scroll{flex:1;min-height:0;overflow:auto;scrollbar-gutter:stable}
 .ipa-pageBody{display:flex;flex-direction:column;gap:clamp(20px,2.6cqw,28px);padding-top:clamp(18px,2.6cqw,26px);padding-bottom:clamp(28px,4cqw,48px)}
-.ipa-pageFoot{flex:none;border-top:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}
-.ipa-footInner{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:38px;font-size:11.5px;line-height:18px;color:var(--dsw-alias-label-tertiary)}
+.ipa-pageFoot{flex:none;border-top:.5px solid var(--ipa-border);background:var(--ipa-surface)}
+.ipa-footInner{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:38px;color:var(--ipa-fg-subtle);font-size:.71875rem;line-height:1.55}
 .ipa-footState{display:flex;align-items:center;gap:8px;min-width:0}
-.ipa-statusDot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-brand-primary)}
-.ipa-statusDot[data-tone=error]{background:var(--dsw-alias-state-error-primary)}
+.ipa-statusDot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--ipa-accent)}
+.ipa-statusDot[data-tone=error]{background:var(--ipa-danger)}
 .ipa-footTag{flex:none;white-space:nowrap}
 /* Native radios carry every choice; the card is only their visible label.
    The input stays focusable and in the accessibility tree, so keyboard users
@@ -252,92 +274,94 @@ window.__ModuleLoader__.load({
 /* Screen-reader-only text: never visible, never focusable. */
 .ipa-srOnly{position:absolute;inline-size:1px;block-size:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 /* ---- controls ----------------------------------------------------------- */
-.ipa-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;min-height:36px;padding:7px 14px;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;font-weight:600;line-height:20px;cursor:pointer;transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
-@media (hover:hover){.ipa-button:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-button[data-variant=primary]{border-color:transparent;background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary-foreground)}
+/* 36px controls, 8px radius, a real control border and a 2px ring: the same
+   shape language the Host uses for its own buttons. */
+.ipa-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;min-height:36px;padding:7px 14px;border-radius:var(--ipa-radius-sm);border:.5px solid var(--ipa-border-strong);background:var(--ipa-card);color:var(--ipa-fg);font:inherit;font-size:.8125rem;font-weight:500;line-height:1.5;cursor:pointer;transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
+@media (hover:hover){.ipa-button:hover:not(:disabled){background:var(--ipa-hover)}}
+.ipa-button[data-variant=primary]{border-color:transparent;background:var(--ipa-accent);color:var(--ipa-accent-fg);font-weight:600}
 @media (hover:hover){.ipa-button[data-variant=primary]:hover:not(:disabled){filter:brightness(1.06)}}
-.ipa-button[data-variant=danger]{border-color:var(--dsw-alias-state-error-primary);background:0 0;color:var(--dsw-alias-state-error-primary)}
+.ipa-button[data-variant=danger]{border-color:var(--ipa-danger);background:0 0;color:var(--ipa-danger);font-weight:600}
 .ipa-button:disabled{opacity:.5;cursor:default}
 .ipa-button:active:not(:disabled){transform:scale(.985)}
-.ipa-iconButton{display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;padding:0;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:0 0;color:var(--dsw-alias-label-secondary);cursor:pointer}
-@media (hover:hover){.ipa-iconButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}}
+.ipa-iconButton{display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;padding:0;border-radius:var(--ipa-radius-sm);border:.5px solid var(--ipa-border-strong);background:0 0;color:var(--ipa-fg-muted);cursor:pointer}
+@media (hover:hover){.ipa-iconButton:hover:not(:disabled){background:var(--ipa-hover);color:var(--ipa-fg)}}
 .ipa-iconButton:disabled{opacity:.45;cursor:default}
-.ipa-page :focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:2px}
+.ipa-page :focus-visible{outline:2px solid var(--ipa-ring);outline-offset:2px}
 /* ---- status hero -------------------------------------------------------- */
-.ipa-hero{display:flex;align-items:center;gap:clamp(18px,3cqw,34px);flex-wrap:wrap;padding:clamp(18px,2.6cqw,26px);border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1)}
+.ipa-hero{display:flex;align-items:center;gap:clamp(18px,3cqw,34px);flex-wrap:wrap;padding:clamp(18px,2.6cqw,26px);border:.5px solid var(--ipa-border);border-radius:var(--ipa-radius);background:var(--ipa-card)}
 .ipa-heroDial{position:relative;display:grid;place-items:center;flex:none;width:clamp(96px,14cqw,124px);height:clamp(96px,14cqw,124px)}
 .ipa-heroRing{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
-.ipa-heroRingTrack{fill:none;stroke:var(--dsw-alias-border-l2);stroke-width:3}
-.ipa-heroRingValue{fill:none;stroke:var(--dsw-alias-brand-primary);stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset .26s linear}
-.ipa-heroDial[data-urgent] .ipa-heroRingValue{stroke:var(--dsw-alias-state-error-primary)}
-.ipa-heroValue{display:flex;align-items:baseline;gap:3px;color:var(--dsw-alias-label-primary)}
-.ipa-heroNum{font-size:clamp(26px,4.4cqw,36px);font-weight:650;line-height:1;letter-spacing:-.04em}
-.ipa-heroUnit{font-size:12px;color:var(--dsw-alias-label-secondary)}
-.ipa-heroGlyph{display:grid;place-items:center;color:var(--dsw-alias-label-secondary)}
+.ipa-heroRingTrack{fill:none;stroke:var(--ipa-border-strong);stroke-width:3}
+.ipa-heroRingValue{fill:none;stroke:var(--ipa-accent);stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset .26s linear}
+.ipa-heroDial[data-urgent] .ipa-heroRingValue{stroke:var(--ipa-danger)}
+.ipa-heroValue{display:flex;align-items:baseline;gap:3px;color:var(--ipa-fg)}
+.ipa-heroNum{font-size:clamp(1.625rem,4.4cqw,2.25rem);font-weight:650;line-height:1;letter-spacing:-.04em}
+.ipa-heroUnit{color:var(--ipa-fg-muted);font-size:.75rem}
+.ipa-heroGlyph{display:grid;place-items:center;color:var(--ipa-fg-muted)}
 .ipa-heroText{display:flex;flex-direction:column;gap:6px;min-width:min(240px,60%);flex:1}
-.ipa-heroPhase{font-size:clamp(16px,2.2cqw,19px);font-weight:600;line-height:1.35}
-.ipa-hero[data-tone=error] .ipa-heroPhase{color:var(--dsw-alias-state-error-primary)}
-.ipa-heroBody{margin:0;max-width:64ch;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:21px}
-.ipa-heroMeta{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
+.ipa-heroPhase{font-size:clamp(1rem,2.2cqw,1.1875rem);font-weight:600;line-height:1.35}
+.ipa-hero[data-tone=error] .ipa-heroPhase{color:var(--ipa-danger)}
+.ipa-heroBody{margin:0;max-width:64ch;color:var(--ipa-fg-muted);font-size:.8125rem;line-height:1.6}
+.ipa-heroMeta{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap;color:var(--ipa-fg-subtle);font-size:.75rem;line-height:1.5}
 /* Four equal cells read as one instrument, not four cards. */
-.ipa-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:10px 0 0;padding:0;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);overflow:hidden}
-.ipa-metric{display:flex;flex-direction:column;gap:2px;padding:12px 16px;border-inline-end:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}
+.ipa-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:10px 0 0;padding:0;border:.5px solid var(--ipa-border);border-radius:var(--ipa-radius);overflow:hidden}
+.ipa-metric{display:flex;flex-direction:column;gap:2px;padding:12px 16px;border-inline-end:.5px solid var(--ipa-border);background:var(--ipa-card)}
 .ipa-metric:last-child{border-inline-end:0}
-.ipa-metricLabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:18px}
-.ipa-metricValue{margin:0;font-size:20px;line-height:26px;font-weight:600;letter-spacing:-.02em}
+.ipa-metricLabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ipa-fg-subtle);font-size:.71875rem;line-height:1.55}
+.ipa-metricValue{margin:0;font-size:1.25rem;font-weight:600;line-height:1.3;letter-spacing:-.02em}
 /* ---- sections ----------------------------------------------------------- */
 .ipa-section{display:flex;flex-direction:column;gap:12px;min-width:0}
 .ipa-sectionHead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
-.ipa-sectionTitle{margin:0;font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.01em}
-.ipa-sectionBody{margin:0;color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:19px}
+.ipa-sectionTitle{margin:0;font-size:1rem;font-weight:600;line-height:1.5;letter-spacing:-.01em}
+.ipa-sectionBody{margin:0;color:var(--ipa-fg-subtle);font-size:.78125rem;line-height:1.5}
 /* ---- mode cards --------------------------------------------------------- */
 .ipa-modeGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.ipa-modeCard{position:relative;display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px;border-radius:var(--dsw-radius-md);border:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:inherit;font:inherit;font-size:13px;text-align:left;cursor:pointer;transition:border-color var(--ipa-fast) var(--ipa-ease),background-color var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
-@media (hover:hover){.ipa-modeCard:hover:not(:has(> :disabled)):not(:has(> :checked)){background:var(--dsw-alias-interactive-bg-hover)}}
+.ipa-modeCard{position:relative;display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px;border-radius:var(--ipa-radius);border:.5px solid var(--ipa-border);background:var(--ipa-card);color:inherit;font:inherit;font-size:.8125rem;text-align:left;cursor:pointer;transition:border-color var(--ipa-fast) var(--ipa-ease),background-color var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
+@media (hover:hover){.ipa-modeCard:hover:not(:has(> :disabled)):not(:has(> :checked)){background:var(--ipa-hover)}}
 /* Selection is colour plus the check mark, never a property that changes
    layout: picking a mode must not move the cards or the text around them. */
-.ipa-modeCard:has(> :checked){border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2)}
+.ipa-modeCard:has(> :checked){border-color:var(--ipa-accent);background:var(--ipa-sunken)}
 .ipa-modeCard:has(> :disabled){opacity:.55;cursor:default}
 .ipa-modeCard:active:not(:has(> :disabled)){transform:scale(.995)}
-.ipa-modeCard:has(> :focus-visible){outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:2px}
+.ipa-modeCard:has(> :focus-visible){outline:2px solid var(--ipa-ring);outline-offset:2px}
 .ipa-modeCardHead{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.ipa-modeCardTitle{font-size:14px;font-weight:600;line-height:22px}
-.ipa-modeMark{display:grid;place-items:center;flex:none;width:18px;height:18px;border:1px solid var(--dsw-alias-border-l2);border-radius:50%;color:var(--dsw-alias-label-primary-foreground);transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease)}
-.ipa-modeCard:has(> :checked) .ipa-modeMark{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-brand-primary)}
+.ipa-modeCardTitle{font-size:.875rem;font-weight:600;line-height:1.55}
+.ipa-modeMark{display:grid;place-items:center;flex:none;width:18px;height:18px;border:1px solid var(--ipa-border-strong);border-radius:50%;color:var(--ipa-accent-fg);transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease)}
+.ipa-modeCard:has(> :checked) .ipa-modeMark{border-color:var(--ipa-accent);background:var(--ipa-accent)}
 .ipa-modeMark path{stroke-dasharray:16;stroke-dashoffset:16;transition:stroke-dashoffset 180ms var(--ipa-ease)}
 .ipa-modeCard:has(> :checked) .ipa-modeMark path{stroke-dashoffset:0}
-.ipa-modeCardDesc{color:var(--dsw-alias-label-secondary);font-size:12.5px;line-height:20px}
+.ipa-modeCardDesc{color:var(--ipa-fg-muted);font-size:.78125rem;line-height:1.6}
 /* Both notes occupy one grid cell so the section keeps its height when the
    selected mode changes; nothing below it jumps. */
 .ipa-modeNotes{display:grid;margin-top:-4px}
-.ipa-modeNote{grid-area:1/1;margin:0;visibility:hidden;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:19px}
+.ipa-modeNote{grid-area:1/1;margin:0;visibility:hidden;color:var(--ipa-fg-subtle);font-size:.75rem;line-height:1.55}
 .ipa-modeNote[data-active]{visibility:visible}
 /* ---- appearance --------------------------------------------------------- */
 .ipa-bg{display:flex;flex-direction:column;gap:8px;max-width:420px}
-.ipa-bgOptions{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border-radius:var(--dsw-radius-sm);box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}
-.ipa-bgThumb{position:absolute;pointer-events:none;z-index:0;left:4px;top:4px;bottom:4px;width:calc((100% - 16px)/3);border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-layer-2);box-shadow:inset 0 0 0 1px var(--dsw-alias-brand-primary);transition:transform var(--ipa-move) var(--ipa-settle)}
+.ipa-bgOptions{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border-radius:var(--ipa-radius-sm);box-shadow:inset 0 0 0 1px var(--ipa-border);background:var(--ipa-card)}
+.ipa-bgThumb{position:absolute;pointer-events:none;z-index:0;left:4px;top:4px;bottom:4px;width:calc((100% - 16px)/3);border-radius:var(--ipa-radius-xs);background:var(--ipa-sunken);box-shadow:inset 0 0 0 1px var(--ipa-accent);transition:transform var(--ipa-move) var(--ipa-settle)}
 .ipa-bgOptions[data-background=glass] .ipa-bgThumb{transform:translateX(calc(100% + 4px))}
 .ipa-bgOptions[data-background=blur] .ipa-bgThumb{transform:translateX(calc(200% + 8px))}
-.ipa-bgOption{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;min-width:0;min-height:36px;padding:6px 8px;border-radius:var(--dsw-radius-xs);color:var(--dsw-alias-label-secondary);font-size:12.5px;font-weight:500;cursor:pointer}
-@media (hover:hover){.ipa-bgOption:hover:not(:has(> :disabled)):not(:has(> :checked)){background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-bgOption:has(> :checked){color:var(--dsw-alias-brand-primary)}
+.ipa-bgOption{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;min-width:0;min-height:36px;padding:6px 8px;border-radius:var(--ipa-radius-xs);color:var(--ipa-fg-muted);font-size:.78125rem;font-weight:500;cursor:pointer}
+@media (hover:hover){.ipa-bgOption:hover:not(:has(> :disabled)):not(:has(> :checked)){background:var(--ipa-hover)}}
+.ipa-bgOption:has(> :checked){color:var(--ipa-accent)}
 .ipa-bgOption:has(> :disabled){opacity:.5;cursor:default}
-.ipa-bgOption:has(> :focus-visible){outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:-2px}
-.ipa-bgDesc{margin:0;font-size:12px;line-height:19px;color:var(--dsw-alias-label-tertiary)}
+.ipa-bgOption:has(> :focus-visible){outline:2px solid var(--ipa-ring);outline-offset:-2px}
+.ipa-bgDesc{margin:0;color:var(--ipa-fg-subtle);font-size:.75rem;line-height:1.55}
 /* ---- flow and notes ----------------------------------------------------- */
-.ipa-flowList{display:flex;flex-direction:column;margin:0;padding:0;list-style:none;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);overflow:hidden;background:var(--dsw-alias-bg-layer-1)}
-.ipa-flowStep{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 14px;padding:14px 16px;border-bottom:.5px solid var(--dsw-alias-border-l1)}
+.ipa-flowList{display:flex;flex-direction:column;margin:0;padding:0;list-style:none;border:.5px solid var(--ipa-border);border-radius:var(--ipa-radius);overflow:hidden;background:var(--ipa-card)}
+.ipa-flowStep{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 14px;padding:14px 16px;border-bottom:.5px solid var(--ipa-border)}
 .ipa-flowStep:last-child{border-bottom:0}
-.ipa-flowNum{grid-row:span 2;display:grid;place-items:center;width:24px;height:24px;margin-top:2px;border-radius:50%;background:var(--dsw-alias-bg-layer-2);box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);font-size:11.5px;font-weight:600}
-.ipa-flowTitle{margin:0;font-size:13.5px;font-weight:600;line-height:22px}
-.ipa-flowBody{margin:0;max-width:72ch;color:var(--dsw-alias-label-secondary);font-size:12.5px;line-height:20px}
+.ipa-flowNum{grid-row:span 2;display:grid;place-items:center;width:24px;height:24px;margin-top:2px;border-radius:50%;background:var(--ipa-sunken);box-shadow:inset 0 0 0 1px var(--ipa-border);color:var(--ipa-fg-muted);font-size:.71875rem;font-weight:600}
+.ipa-flowTitle{margin:0;font-size:.84375rem;font-weight:600;line-height:1.6}
+.ipa-flowBody{margin:0;max-width:72ch;color:var(--ipa-fg-muted);font-size:.78125rem;line-height:1.6}
 .ipa-noteList{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
-.ipa-noteItem{position:relative;max-width:86ch;padding-left:14px;color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px;overflow-wrap:anywhere}
-.ipa-noteItem:before{content:'';position:absolute;left:2px;top:9px;width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.6}
+.ipa-noteItem{position:relative;max-width:86ch;padding-left:14px;color:var(--ipa-fg-subtle);font-size:.78125rem;line-height:1.6;overflow-wrap:anywhere}
+.ipa-noteItem:before{content:'';position:absolute;left:2px;top:.6em;width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.6}
 /* ---- banners ------------------------------------------------------------ */
-.ipa-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;border-radius:var(--dsw-radius-sm);border:.5px solid color-mix(in srgb,var(--dsw-alias-state-error-primary) 34%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 8%,transparent);color:var(--dsw-alias-state-error-primary);font-size:12.5px;line-height:20px}
+.ipa-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;border-radius:var(--ipa-radius-sm);border:.5px solid color-mix(in srgb,var(--ipa-danger) 34%,transparent);background:color-mix(in srgb,var(--ipa-danger) 8%,transparent);color:var(--ipa-danger);font-size:.78125rem;line-height:1.6}
 .ipa-bannerText{min-width:0;flex:1}
-.ipa-banner .ipa-button{border-color:currentColor;background:0 0;color:inherit;min-height:30px;padding:3px 10px;font-size:12px}
+.ipa-banner .ipa-button{border-color:currentColor;background:0 0;color:inherit;min-height:30px;padding:3px 10px;font-size:.75rem}
 /* ---- countdown: the whole window is the warning, not a card in the middle ---- */
 /* The scrim is the dialog's positioning and stacking context. The card below is
    opaque and always fills the viewport, so the mask only ever shows in the
@@ -464,7 +488,7 @@ background-color:rgba(9,11,16,.42);
 .ipa-pageTools{width:100%;justify-content:flex-end}
 .ipa-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
 .ipa-metric:nth-child(2){border-inline-end:0}
-.ipa-metric:nth-child(-n+2){border-bottom:.5px solid var(--dsw-alias-border-l1)}
+.ipa-metric:nth-child(-n+2){border-bottom:.5px solid var(--ipa-border)}
 .ipa-modeGrid{grid-template-columns:minmax(0,1fr)}
 .ipa-heroDial{width:88px;height:88px}
 }
@@ -478,6 +502,21 @@ background-color:rgba(9,11,16,.42);
 @media (pointer:coarse){
 .ipa-button,.ipa-iconButton,.ipa-bgOption{min-height:44px}
 .ipa-modeCard{padding:16px}
+}
+/* Windows High Contrast replaces our palette with system colours, so the
+   forced colours are declared explicitly: a real border on every control and a
+   visible outline on the selected choice, whose tick is a stroke not a fill. */
+@media (forced-colors:active){
+.ipa-button,.ipa-iconButton,.ipa-modeCard,.ipa-hero,.ipa-metrics,.ipa-metric,.ipa-flowList,.ipa-flowStep,.ipa-bgOptions,.ipa-banner{border-color:CanvasText}
+.ipa-button[data-variant=primary],.ipa-button[data-variant=danger]{forced-color-adjust:none;border:1px solid ButtonText;background:ButtonFace;color:ButtonText}
+.ipa-modeCard:has(> :checked),.ipa-bgOption:has(> :checked){outline:2px solid Highlight;outline-offset:-2px}
+.ipa-modeMark{forced-color-adjust:none;border-color:CanvasText}
+.ipa-modeCard:has(> :checked) .ipa-modeMark{background:Highlight;border-color:Highlight;color:HighlightText}
+.ipa-bgThumb{forced-color-adjust:none;background:Canvas;box-shadow:inset 0 0 0 2px Highlight}
+.ipa-heroRingTrack{stroke:CanvasText}
+.ipa-heroRingValue{stroke:Highlight}
+.ipa-statusDot{background:Highlight}
+.ipa-statusDot[data-tone=error]{background:Mark}
 }
 /* Keep this last so every decorative transition has an immediate readable
    counterpart. Progress still updates from the Host; only interpolation stops. */
