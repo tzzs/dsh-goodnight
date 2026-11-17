@@ -627,6 +627,8 @@ console.log('\n=== countdown: whole-screen fullscreen ===')
   const inFullscreen = renderEntry(countdown, counting)
   check('no request while the screen is already ours', calls.length === 0, String(calls.length))
   check('the button disappears in fullscreen', fullscreenButtons(inFullscreen.tree).length === 0)
+  check('a fullscreen countdown says it covers the screen', textsOf(inFullscreen.tree).includes('countdown.scopeTagFull'), textsOf(inFullscreen.tree).join('|'))
+  check('a windowed countdown is honest about its scope', textsOf(attempt.tree).includes('countdown.scopeTag'))
 
   delete documentStub.documentElement
   delete documentStub.fullscreenElement
