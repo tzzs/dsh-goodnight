@@ -110,6 +110,8 @@ window.__ModuleLoader__.load({
       'countdown.alignLeft': '靠左',
       'countdown.alignCenter': '居中',
       'countdown.alignRight': '靠右',
+      'countdown.fullscreen': '全屏显示',
+      'countdown.fullscreenHint': '让倒计时覆盖整个屏幕，而不只是 Harness 窗口。',
       'countdown.mirrors': '在其它屏幕也显示',
       'countdown.mirrorRetry': '重新显示',
       'countdown.mirrorWorking': '正在打开…',
@@ -222,6 +224,8 @@ window.__ModuleLoader__.load({
       'countdown.alignLeft': 'Left',
       'countdown.alignCenter': 'Center',
       'countdown.alignRight': 'Right',
+      'countdown.fullscreen': 'Full screen',
+      'countdown.fullscreenHint': 'Cover the whole screen, not just the Harness window.',
       'countdown.mirrors': 'Show on other screens',
       'countdown.mirrorRetry': 'Show again',
       'countdown.mirrorWorking': 'Opening…',
@@ -1610,6 +1614,13 @@ background-color:rgba(9,11,16,.42);
       const cancelRef = useRef(null);
       const mirrorRef = useRef(null);
       const mirrorsRef = useRef([]);
+      // Whether this countdown is the thing that put the window into fullscreen:
+      // closing it must give the screen back, but an unrelated fullscreen must
+      // not be cancelled on the user's behalf.
+      const fullscreenWanted = useRef(false);
+      const [fullscreen, setFullscreen] = useState(
+        () => typeof document !== 'undefined' && Boolean(document.fullscreenElement),
+      );
       const [now, setNow] = useState(() => Date.now());
       const [align, setAlign] = useState('center');
       const [mirrorStatus, setMirrorStatus] = useState({ kind: 'idle', count: 0 });
@@ -1645,11 +1656,57 @@ background-color:rgba(9,11,16,.42);
         return () => { if (previous?.isConnected) previous.focus?.(); };
       }, []);
 
+      // The overlay can only paint inside the Harness window. Asking the engine
+      // for fullscreen is the one way a client plugin can take the whole display;
+      // Chromium refuses a request made without a gesture, so the mount attempt
+      // is best-effort and the corner button repeats the same call from a click.
+      const hasFullscreenApi = typeof document !== 'undefined'
+        && typeof document.documentElement === 'object'
+        && document.documentElement !== null
+        && typeof document.documentElement.requestFullscreen === 'function';
+
+      const requestFullscreen = () => {
+        if (!hasFullscreenApi || document.fullscreenElement) return;
+        fullscreenWanted.current = true;
+        try {
+          const attempt = document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+          if (attempt !== undefined && typeof attempt.catch === 'function') {
+            attempt.catch(() => { fullscreenWanted.current = false; });
+          }
+        } catch {
+          fullscreenWanted.current = false;
+        }
+      };
+
+      useEffect(() => {
+        if (!hasFullscreenApi) return undefined;
+        const sync = () => setFullscreen(document.fullscreenElement !== null);
+        document.addEventListener('fullscreenchange', sync);
+        requestFullscreen();
+        return () => {
+          document.removeEventListener('fullscreenchange', sync);
+          if (fullscreenWanted.current && document.fullscreenElement !== null && typeof document.exitFullscreen === 'function') {
+            try {
+              const attempt = document.exitFullscreen();
+              if (attempt !== undefined && typeof attempt.catch === 'function') attempt.catch(() => {});
+            } catch { /* the window is already gone */ }
+          }
+          fullscreenWanted.current = false;
+        };
+      }, []);
+
       // Escape cancels from anywhere. Tab cycles inside the dialog so the mirror
       // button stays keyboard-reachable instead of stealing focus from Cancel.
       useEffect(() => {
         const onKey = (event) => {
-          if (event.key === 'Escape') { event.preventDefault?.(); cancelCountdown(); return; }
+          if (event.key === 'Escape') {
+            // In fullscreen the same key is the browser's way out; cancelling a
+            // reservation because someone wanted their desktop back is a trap.
+            if (typeof document !== 'undefined' && document.fullscreenElement) return;
+            event.preventDefault?.();
+            cancelCountdown();
+            return;
+          }
           if (event.key !== 'Tab') return;
           const controls = [cancelRef.current, mirrorRef.current].filter(
             (el) => el !== null && el !== undefined && typeof el.focus === 'function' && el.isConnected !== false,
@@ -1784,6 +1841,12 @@ background-color:rgba(9,11,16,.42);
               ),
             ),
             h('div', { className: 'ipa-topRight' },
+              hasFullscreenApi && !fullscreen && h('button', {
+                type: 'button',
+                className: 'ipa-mirrors',
+                title: t('countdown.fullscreenHint'),
+                onClick: () => requestFullscreen(),
+              }, t('countdown.fullscreen')),
               h('div', { className: 'ipa-meta' },
                 fmt(t('countdown.window'), String(windowSeconds)),
               ),

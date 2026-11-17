@@ -583,6 +583,58 @@ console.log('\n=== countdown: pinned colour and ink ===')
   check('a pinned colour cannot leak onto the other presets', glass?.props['data-ink'] === undefined && glass?.props.style === undefined)
 }
 
+console.log('\n=== countdown: whole-screen fullscreen ===')
+{
+  // The fake document has no fullscreen API, so this block lends it one and
+  // takes it back: the same component has to work with and without the API.
+  const counting = { data: { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null } }
+  const fullscreenButtons = (tree) => {
+    const found = []
+    walkElements(tree, (node) => {
+      if (node.tag === 'button' && textsOf(node).join('').includes('countdown.fullscreen')) found.push(node)
+    })
+    return found
+  }
+
+  check('no fullscreen button without the API', fullscreenButtons(renderEntry(countdown, counting).tree).length === 0)
+
+  const calls = []
+  const listeners = new Set()
+  let fullscreenElement = null
+  documentStub.documentElement = {
+    requestFullscreen: (options) => { calls.push(options ?? {}); return Promise.resolve() },
+  }
+  Object.defineProperty(documentStub, 'fullscreenElement', { configurable: true, get: () => fullscreenElement })
+  documentStub.addEventListener = (type, fn) => { if (type === 'fullscreenchange') listeners.add(fn) }
+  documentStub.removeEventListener = (type, fn) => { if (type === 'fullscreenchange') listeners.delete(fn) }
+  documentStub.exitFullscreen = () => Promise.resolve()
+
+  const attempt = renderEntry(countdown, counting)
+  check('asks for the whole screen as soon as the countdown opens', calls.length === 1, String(calls.length))
+  check('hides the window chrome while entering', calls[0]?.navigationUI === 'hide', JSON.stringify(calls[0]))
+  check('listens for the engine reporting back', listeners.size === 1, String(listeners.size))
+  const button = fullscreenButtons(attempt.tree)[0]
+  check('offers a manual fullscreen button', button !== undefined)
+  check('the button explains what it does', button?.props.title === 'countdown.fullscreenHint', String(button?.props.title))
+  button?.props.onClick?.()
+  check('the button retries the same request', calls.length === 2, String(calls.length))
+  calls.length = 0
+  const already = renderEntry(countdown, counting)
+  check('a refused request leaves the button in place', fullscreenButtons(already.tree).length === 1)
+
+  fullscreenElement = { tagName: 'HTML' }
+  calls.length = 0
+  const inFullscreen = renderEntry(countdown, counting)
+  check('no request while the screen is already ours', calls.length === 0, String(calls.length))
+  check('the button disappears in fullscreen', fullscreenButtons(inFullscreen.tree).length === 0)
+
+  delete documentStub.documentElement
+  delete documentStub.fullscreenElement
+  delete documentStub.addEventListener
+  delete documentStub.removeEventListener
+  delete documentStub.exitFullscreen
+}
+
 console.log('\n=== preview: a rehearsal, not a countdown ===')
 {
   const previewEntry = byId('dsh-idle-power.preview')

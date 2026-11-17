@@ -36,7 +36,7 @@ It treats the whole Harness as busy if **any** of these is true:
 Then:
 
 1. **Quiet period — 20 s.** All of the above must stay empty continuously. A single tick with work resets the clock. A missing agent registry counts as unknown activity, never as idle.
-2. **Countdown — 60 s.** The whole Harness window becomes one countdown screen: a rail draining across the top edge, digits and a progress ring that scale with the display, status and warnings spread to the corners, and a high-contrast `Cancel` button (`Esc` works too).
+2. **Countdown — 60 s.** The screen becomes one countdown screen: it first asks the engine for real fullscreen (covering the taskbar), then paints a rail draining across the top edge, digits and a progress ring that scale with the display, status and warnings spread to the corners, and a high-contrast `Cancel` button (`Esc` works too). When the engine refuses the automatic request for lack of a user gesture, a `Full screen` button in the corner repeats it from a click.
 3. **Any new task voids the countdown** and drops back to waiting. You never have to race it.
 4. Only when the countdown genuinely reaches zero does it run the power command. **Once the command is committed, cancel and mode changes are refused with `409`**, so the UI can never imply a cancellation that did not happen.
 5. **Waking from sleep never fires immediately.** If one tick arrives far past the deadline — the Host was frozen or the machine was suspended — the plugin re-arms and replays the whole quiet window instead of powering off the moment you sit back down.
@@ -58,7 +58,7 @@ Switch modes on the page; the Host remembers the choice, so it survives a reload
 
 ## The countdown screen and multiple monitors
 
-The countdown is no longer a small centred card: the whole Harness window becomes one countdown screen, with information spread to its corners so it stays readable from across the room.
+The countdown is no longer a small centred card: the window — or the whole display once it is fullscreen — becomes one countdown screen, with information spread to its corners so it stays readable from across the room.
 
 - A **rail pinned to the top edge** drains continuously and turns red for the last 10 seconds, so time is visible even in peripheral vision.
 - **Giant digits** scale with `vmin` (readable on 4K, high-DPI and 200% zoom), wrapped by a ring driven by the fractional remainder so it sweeps instead of stepping once a second.
