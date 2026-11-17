@@ -223,7 +223,14 @@ check('rail entry exposes a label', rail?.label?.() === 't(rail.label)', String(
 check('rail entry can receive the live store', typeof rail?.inject?.()?.hooks?.power?.getSnapshot === 'function')
 check('page registered in main', page?.name === 'main', page?.name)
 check('page key matches the rail id', page?.key === 'idle-power', page?.key)
-check('page receives every action', ['arm', 'cancel', 'setMode', 'setBackground', 'refresh'].every((name) => typeof page?.inject?.()[name] === 'function'))
+// Drift guard: whatever the page destructures must be injected, so a new
+// action can never be rendered without the prop that makes it work.
+const pageActions = (/function PowerPage\(\{([\s\S]*?)\}\)/.exec(String(page?.component))?.[1] ?? '')
+  .split(',')
+  .map((part) => part.trim().split(':')[0].trim())
+  .filter((name) => name !== '' && name !== 'usePower' && name !== 't')
+check('the page destructures at least the known actions', pageActions.length >= 7, String(pageActions.length))
+check('page receives every action it destructures', pageActions.every((name) => typeof page?.inject?.()[name] === 'function'), pageActions.join(','))
 check('countdown registered in shell.overlay', countdown?.name === 'shell.overlay', countdown?.name)
 
 /** Depth-first visit of rendered elements. */
@@ -455,6 +462,13 @@ console.log('\n=== page: mode and appearance reach the Host ===')
   inputOf(presets[2]).props.onChange()
   check('choosing a preset reaches the Host', bgCalls.length === 2 && bgCalls[0] === 'glass' && bgCalls[1] === 'blur', JSON.stringify(bgCalls))
   check('presets are a native radio group', byClass(appearance.tree, 'ipa-bgOptions')?.props.role === 'radiogroup')
+
+  const opened = []
+  const previewable = renderEntry(page, pageState(baseState), { openPreview: () => { opened.push(1) } })
+  const previewButton = findElement(previewable.tree, (n) => n.tag === 'button' && textsOf(n).join('').includes('preview.button'))
+  check('the appearance section offers a preview button', previewButton !== undefined)
+  previewButton?.props.onClick?.()
+  check('the preview button opens the rehearsal', opened.length === 1, String(opened.length))
 
   const refreshed = []
   const refreshable = renderEntry(page, pageState(baseState), { refresh: async () => { refreshed.push(1); return true } })

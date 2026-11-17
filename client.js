@@ -1929,6 +1929,8 @@ background-color:rgba(9,11,16,.42);
             cancel: runtime.cancel,
             setMode: runtime.setMode,
             setBackground: runtime.setBackground,
+            setColor: runtime.setColor,
+            openPreview: runtime.openPreview,
             refresh: runtime.refresh,
           }),
         }, PowerPage));
