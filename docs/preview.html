@@ -416,11 +416,13 @@
       scheduleRender();
     });
     window.addEventListener('resize', scheduleRender);
-    if (state.data.phase === 'counting') {
-      state.data.deadline = Date.now() + initialSeconds * 1000;
-      demoStatus = '安全倒计时演示中；到 0 秒自动停止，不执行电源命令。';
-      driveCountdown();
-    }
+  }
+  // A plain URL renders the countdown itself (that is what the docs image needs),
+  // so the ticking must not depend on the demo controls being on screen.
+  if (state.data.phase === 'counting') {
+    state.data.deadline = Date.now() + initialSeconds * 1000;
+    demoStatus = '安全倒计时演示中；到 0 秒自动停止，不执行电源命令。';
+    driveCountdown();
   }
   window.addEventListener('pagehide', (event) => {
     if (event.persisted) return;
