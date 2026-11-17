@@ -775,6 +775,8 @@ console.log('\n=== CSS: page shell and full-viewport countdown layout ===')
   check('left/right alignment rules exist', css.includes('[data-align=left]') && css.includes('[data-align=right]'))
   check('page type scale is rem, not px', !/font-size:\s*[0-9.]+px/.test(css.slice(css.indexOf('/* ---- page shell'), css.indexOf('/* ---- countdown'))))
   check('high contrast mode keeps borders and selection visible', css.includes('@media (forced-colors:active)') && css.includes('border-color:CanvasText') && css.includes('outline:2px solid Highlight'))
+  check('the outline hover cannot repaint a filled button', css.includes('.ipa-button:not([data-variant]):hover:not(:disabled)'))
+  check('filled and danger buttons own their hover state', css.includes('.ipa-button[data-variant=primary]:hover:not(:disabled)') && css.includes('.ipa-button[data-variant=danger]:hover:not(:disabled)'))
 }
 
 

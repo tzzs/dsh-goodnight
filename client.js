@@ -312,10 +312,16 @@ box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-directi
 .ipa-srOnly{position:absolute;inline-size:1px;block-size:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 /* ---- controls ----------------------------------------------------------- */
 .ipa-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;min-height:36px;padding:7px 14px;border-radius:var(--ipa-radius-sm);border:1px solid var(--ipa-border-strong);background:var(--ipa-card);color:var(--ipa-fg);font:inherit;font-size:.8125rem;font-weight:500;line-height:1.5;cursor:pointer;transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
-@media (hover:hover){.ipa-button:hover:not(:disabled){background:var(--ipa-hover)}}
+/* Hover is scoped to the outline button on purpose: an unscoped .ipa-button:hover
+   outranks .ipa-button[data-variant=primary] (three class-level selectors against
+   two) and would repaint the filled button in the outline hover wash, leaving white
+   text on a near-white surface - it read as disabled. */
+@media (hover:hover){.ipa-button:not([data-variant]):hover:not(:disabled){background:var(--ipa-hover)}}
 .ipa-button[data-variant=primary]{border-color:transparent;background:var(--ipa-accent);color:var(--ipa-accent-fg);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.18)}
-@media (hover:hover){.ipa-button[data-variant=primary]:hover:not(:disabled){filter:brightness(1.06)}}
+@media (hover:hover){.ipa-button[data-variant=primary]:hover:not(:disabled){filter:brightness(1.08);box-shadow:0 2px 6px rgba(0,0,0,.24)}}
+.ipa-button[data-variant=primary]:active:not(:disabled){filter:brightness(.96)}
 .ipa-button[data-variant=danger]{border-color:var(--ipa-danger);background:0 0;color:var(--ipa-danger);font-weight:600}
+@media (hover:hover){.ipa-button[data-variant=danger]:hover:not(:disabled){background:color-mix(in srgb,var(--ipa-danger) 10%,transparent)}}
 .ipa-button:disabled{opacity:.45;cursor:default}
 .ipa-button:active:not(:disabled){transform:scale(.985)}
 .ipa-iconButton{display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;padding:0;border-radius:var(--ipa-radius-sm);border:1px solid var(--ipa-border);background:0 0;color:var(--ipa-fg-muted);cursor:pointer}
