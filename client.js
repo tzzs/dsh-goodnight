@@ -20,8 +20,10 @@ window.__ModuleLoader__.load({
       'page.subtitle': '等当前 DSH Host 的任务全部结束，再执行一次电源操作。',
       'page.refresh': '刷新状态',
       'page.retry': '重试',
-      'page.arm': '预约',
+      'page.armShutdown': '预约关机',
+      'page.armHibernate': '预约休眠',
       'page.cancel': '取消预约',
+      'foot.plan': '预约后：空闲 %s 秒 → 倒计时 %s 秒 → %s',
       'page.saving': '正在提交…',
       'page.loading': '正在读取状态…',
       'status.idle': '未预约',
@@ -119,8 +121,10 @@ window.__ModuleLoader__.load({
       'page.subtitle': 'Run one power action after every task in this DSH Host has finished.',
       'page.refresh': 'Refresh status',
       'page.retry': 'Retry',
-      'page.arm': 'Schedule',
+      'page.armShutdown': 'Schedule shutdown',
+      'page.armHibernate': 'Schedule hibernation',
       'page.cancel': 'Cancel schedule',
+      'foot.plan': 'When scheduled: %s s idle → %s s countdown → %s',
       'page.saving': 'Submitting…',
       'page.loading': 'Loading status…',
       'status.idle': 'Not scheduled',
@@ -228,8 +232,9 @@ window.__ModuleLoader__.load({
 /* One semantic layer over the Host palette: components ask for a role
    (surface, muted text, control border, accent) instead of a raw palette
    entry, so the page survives a Host theme change and reads like the rest of
-   the app. Muted text is mixed from the foreground rather than taken from the
-   Host's caption colour, whose contrast sits below body-text level. */
+   the app. Borders are mixed from the foreground, not taken from the Host's
+   hairline token: on a white surface a 10 %-alpha hairline is invisible, and
+   the surface/card distinction has to come from the outline. */
 .ipa-page{
 --ipa-surface:var(--dsw-alias-bg-base,#fff);
 --ipa-card:var(--dsw-alias-bg-layer-1,#fff);
@@ -237,8 +242,9 @@ window.__ModuleLoader__.load({
 --ipa-fg:var(--dsw-alias-label-primary,#191c22);
 --ipa-fg-muted:color-mix(in srgb,var(--ipa-fg) 78%,var(--ipa-surface));
 --ipa-fg-subtle:color-mix(in srgb,var(--ipa-fg) 66%,var(--ipa-surface));
---ipa-border:var(--dsw-alias-border-l1,rgba(18,21,28,.10));
---ipa-border-strong:var(--dsw-alias-border-l2,rgba(18,21,28,.17));
+--ipa-border:color-mix(in srgb,var(--ipa-fg) 16%,transparent);
+--ipa-border-strong:color-mix(in srgb,var(--ipa-fg) 30%,transparent);
+--ipa-divider:color-mix(in srgb,var(--ipa-fg) 9%,transparent);
 --ipa-accent:var(--dsw-alias-brand-primary,#2f66f5);
 --ipa-accent-fg:var(--dsw-alias-label-primary-foreground,#fff);
 --ipa-danger:var(--dsw-alias-state-error-primary,#d93a40);
@@ -250,8 +256,8 @@ window.__ModuleLoader__.load({
 box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-direction:column;width:100%;height:100%;min-height:0;overflow:hidden;background:var(--ipa-surface);color:var(--ipa-fg);font-size:.875rem;line-height:1.6;font-variant-numeric:tabular-nums}
 .ipa-page *{box-sizing:border-box}
 .ipa-pageWrap{width:100%;max-width:1120px;margin:0 auto;padding-inline:clamp(18px,3.6cqw,48px)}
-.ipa-pageTop{flex:none;border-bottom:.5px solid var(--ipa-border);background:var(--ipa-surface)}
-.ipa-pageHeader{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-top:clamp(20px,3cqw,32px);padding-bottom:clamp(14px,2cqw,20px)}
+.ipa-pageTop{flex:none;border-bottom:1px solid var(--ipa-divider);background:var(--ipa-surface)}
+.ipa-pageHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-top:clamp(20px,3cqw,32px);padding-bottom:clamp(14px,2cqw,20px)}
 [data-platform=darwin] .ipa-pageHeader{padding-top:calc(32px + var(--dsh-frame-top-clearance,0px))}
 .ipa-pageHead{min-width:0;flex:1}
 .ipa-pageEyebrow{display:block;margin-bottom:6px;color:var(--ipa-fg-subtle);font-size:.6875rem;font-weight:600;line-height:1.6;letter-spacing:.12em}
@@ -259,13 +265,21 @@ box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-directi
 .ipa-pageSub{margin:6px 0 0;max-width:62ch;color:var(--ipa-fg-muted);font-size:.84375rem;line-height:1.55;text-wrap:pretty}
 .ipa-pageTools{display:flex;align-items:center;gap:8px;flex:none}
 .ipa-scroll{flex:1;min-height:0;overflow:auto;scrollbar-gutter:stable}
-.ipa-pageBody{display:flex;flex-direction:column;gap:clamp(20px,2.6cqw,28px);padding-top:clamp(18px,2.6cqw,26px);padding-bottom:clamp(28px,4cqw,48px)}
-.ipa-pageFoot{flex:none;border-top:.5px solid var(--ipa-border);background:var(--ipa-surface)}
-.ipa-footInner{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:38px;color:var(--ipa-fg-subtle);font-size:.71875rem;line-height:1.55}
-.ipa-footState{display:flex;align-items:center;gap:8px;min-width:0}
-.ipa-statusDot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--ipa-accent)}
-.ipa-statusDot[data-tone=error]{background:var(--ipa-danger)}
-.ipa-footTag{flex:none;white-space:nowrap}
+.ipa-pageBody{display:flex;flex-direction:column;gap:clamp(20px,2.6cqw,28px);padding-top:clamp(18px,2.6cqw,26px);padding-bottom:clamp(24px,3cqw,36px)}
+/* ---- action bar --------------------------------------------------------- */
+/* The one primary action lives here, next to the choices that decide it, not
+   in the header: the reader picks a power action underneath and the button
+   that commits it stays in view. */
+.ipa-pageFoot{flex:none;border-top:1px solid var(--ipa-border);background:var(--ipa-card);box-shadow:0 -8px 24px -20px rgba(0,0,0,.45)}
+.ipa-footInner{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-block:12px}
+.ipa-footStatus{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.ipa-statusDot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--ipa-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--ipa-accent) 18%,transparent)}
+.ipa-statusDot[data-tone=error]{background:var(--ipa-danger);box-shadow:0 0 0 3px color-mix(in srgb,var(--ipa-danger) 18%,transparent)}
+.ipa-footText{display:flex;flex-direction:column;gap:1px;min-width:0}
+.ipa-footPhase{color:var(--ipa-fg);font-size:.8125rem;font-weight:600;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ipa-footMeta{color:var(--ipa-fg-subtle);font-size:.71875rem;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ipa-footActions{display:flex;align-items:center;gap:8px;flex:none}
+.ipa-footActions .ipa-button{min-width:140px;min-height:40px;padding-inline:20px;font-size:.84375rem}
 /* Native radios carry every choice; the card is only their visible label.
    The input stays focusable and in the accessibility tree, so keyboard users
    get a real radio group (arrow keys move and select) and screen readers get
@@ -274,38 +288,38 @@ box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-directi
 /* Screen-reader-only text: never visible, never focusable. */
 .ipa-srOnly{position:absolute;inline-size:1px;block-size:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 /* ---- controls ----------------------------------------------------------- */
-/* 36px controls, 8px radius, a real control border and a 2px ring: the same
-   shape language the Host uses for its own buttons. */
-.ipa-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;min-height:36px;padding:7px 14px;border-radius:var(--ipa-radius-sm);border:.5px solid var(--ipa-border-strong);background:var(--ipa-card);color:var(--ipa-fg);font:inherit;font-size:.8125rem;font-weight:500;line-height:1.5;cursor:pointer;transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
+.ipa-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;min-height:36px;padding:7px 14px;border-radius:var(--ipa-radius-sm);border:1px solid var(--ipa-border-strong);background:var(--ipa-card);color:var(--ipa-fg);font:inherit;font-size:.8125rem;font-weight:500;line-height:1.5;cursor:pointer;transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
 @media (hover:hover){.ipa-button:hover:not(:disabled){background:var(--ipa-hover)}}
-.ipa-button[data-variant=primary]{border-color:transparent;background:var(--ipa-accent);color:var(--ipa-accent-fg);font-weight:600}
+.ipa-button[data-variant=primary]{border-color:transparent;background:var(--ipa-accent);color:var(--ipa-accent-fg);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.18)}
 @media (hover:hover){.ipa-button[data-variant=primary]:hover:not(:disabled){filter:brightness(1.06)}}
 .ipa-button[data-variant=danger]{border-color:var(--ipa-danger);background:0 0;color:var(--ipa-danger);font-weight:600}
-.ipa-button:disabled{opacity:.5;cursor:default}
+.ipa-button:disabled{opacity:.45;cursor:default}
 .ipa-button:active:not(:disabled){transform:scale(.985)}
-.ipa-iconButton{display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;padding:0;border-radius:var(--ipa-radius-sm);border:.5px solid var(--ipa-border-strong);background:0 0;color:var(--ipa-fg-muted);cursor:pointer}
+.ipa-iconButton{display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;padding:0;border-radius:var(--ipa-radius-sm);border:1px solid var(--ipa-border);background:0 0;color:var(--ipa-fg-muted);cursor:pointer}
 @media (hover:hover){.ipa-iconButton:hover:not(:disabled){background:var(--ipa-hover);color:var(--ipa-fg)}}
 .ipa-iconButton:disabled{opacity:.45;cursor:default}
 .ipa-page :focus-visible{outline:2px solid var(--ipa-ring);outline-offset:2px}
 /* ---- status hero -------------------------------------------------------- */
-.ipa-hero{display:flex;align-items:center;gap:clamp(18px,3cqw,34px);flex-wrap:wrap;padding:clamp(18px,2.6cqw,26px);border:.5px solid var(--ipa-border);border-radius:var(--ipa-radius);background:var(--ipa-card)}
-.ipa-heroDial{position:relative;display:grid;place-items:center;flex:none;width:clamp(96px,14cqw,124px);height:clamp(96px,14cqw,124px)}
-.ipa-heroRing{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
-.ipa-heroRingTrack{fill:none;stroke:var(--ipa-border-strong);stroke-width:3}
+.ipa-hero{display:flex;align-items:center;gap:clamp(18px,3cqw,34px);flex-wrap:wrap;padding:clamp(18px,2.6cqw,26px);border:1px solid var(--ipa-border);border-radius:var(--ipa-radius);background:var(--ipa-card)}
+.ipa-heroDial{position:relative;display:grid;place-items:center;flex:none;width:clamp(88px,13cqw,112px);height:clamp(88px,13cqw,112px);border-radius:50%;background:var(--ipa-sunken);box-shadow:inset 0 0 0 1px var(--ipa-divider)}
+.ipa-heroRing{position:absolute;inset:-1px;width:calc(100% + 2px);height:calc(100% + 2px);transform:rotate(-90deg);overflow:visible}
+.ipa-heroRingTrack{fill:none;stroke:var(--ipa-divider);stroke-width:3}
 .ipa-heroRingValue{fill:none;stroke:var(--ipa-accent);stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset .26s linear}
 .ipa-heroDial[data-urgent] .ipa-heroRingValue{stroke:var(--ipa-danger)}
 .ipa-heroValue{display:flex;align-items:baseline;gap:3px;color:var(--ipa-fg)}
-.ipa-heroNum{font-size:clamp(1.625rem,4.4cqw,2.25rem);font-weight:650;line-height:1;letter-spacing:-.04em}
+.ipa-heroNum{font-size:clamp(1.5rem,4cqw,2rem);font-weight:650;line-height:1;letter-spacing:-.04em}
 .ipa-heroUnit{color:var(--ipa-fg-muted);font-size:.75rem}
 .ipa-heroGlyph{display:grid;place-items:center;color:var(--ipa-fg-muted)}
 .ipa-heroText{display:flex;flex-direction:column;gap:6px;min-width:min(240px,60%);flex:1}
 .ipa-heroPhase{font-size:clamp(1rem,2.2cqw,1.1875rem);font-weight:600;line-height:1.35}
 .ipa-hero[data-tone=error] .ipa-heroPhase{color:var(--ipa-danger)}
 .ipa-heroBody{margin:0;max-width:64ch;color:var(--ipa-fg-muted);font-size:.8125rem;line-height:1.6}
-.ipa-heroMeta{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap;color:var(--ipa-fg-subtle);font-size:.75rem;line-height:1.5}
+.ipa-heroMeta{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap;color:var(--ipa-fg-subtle);font-size:.75rem;line-height:1.5}
+.ipa-chip{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;border:1px solid var(--ipa-border);background:var(--ipa-sunken);color:var(--ipa-fg-muted);font-size:.71875rem;line-height:1.6;white-space:nowrap}
+.ipa-chip[data-tone=accent]{border-color:color-mix(in srgb,var(--ipa-accent) 40%,transparent);background:color-mix(in srgb,var(--ipa-accent) 10%,transparent);color:var(--ipa-accent)}
 /* Four equal cells read as one instrument, not four cards. */
-.ipa-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:10px 0 0;padding:0;border:.5px solid var(--ipa-border);border-radius:var(--ipa-radius);overflow:hidden}
-.ipa-metric{display:flex;flex-direction:column;gap:2px;padding:12px 16px;border-inline-end:.5px solid var(--ipa-border);background:var(--ipa-card)}
+.ipa-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:10px 0 0;padding:0;border:1px solid var(--ipa-border);border-radius:var(--ipa-radius);overflow:hidden;background:var(--ipa-card)}
+.ipa-metric{display:flex;flex-direction:column;gap:2px;padding:12px 16px;border-inline-end:1px solid var(--ipa-divider)}
 .ipa-metric:last-child{border-inline-end:0}
 .ipa-metricLabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ipa-fg-subtle);font-size:.71875rem;line-height:1.55}
 .ipa-metricValue{margin:0;font-size:1.25rem;font-weight:600;line-height:1.3;letter-spacing:-.02em}
@@ -316,41 +330,55 @@ box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-directi
 .ipa-sectionBody{margin:0;color:var(--ipa-fg-subtle);font-size:.78125rem;line-height:1.5}
 /* ---- mode cards --------------------------------------------------------- */
 .ipa-modeGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.ipa-modeCard{position:relative;display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px;border-radius:var(--ipa-radius);border:.5px solid var(--ipa-border);background:var(--ipa-card);color:inherit;font:inherit;font-size:.8125rem;text-align:left;cursor:pointer;transition:border-color var(--ipa-fast) var(--ipa-ease),background-color var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
-@media (hover:hover){.ipa-modeCard:hover:not(:has(> :disabled)):not(:has(> :checked)){background:var(--ipa-hover)}}
-/* Selection is colour plus the check mark, never a property that changes
-   layout: picking a mode must not move the cards or the text around them. */
-.ipa-modeCard:has(> :checked){border-color:var(--ipa-accent);background:var(--ipa-sunken)}
+/* A ring rather than a thicker border: emphasis without moving the cards. */
+.ipa-modeCard{position:relative;display:flex;flex-direction:column;gap:10px;min-width:0;padding:16px;border-radius:var(--ipa-radius);border:1px solid var(--ipa-border);background:var(--ipa-card);color:inherit;font:inherit;font-size:.8125rem;text-align:left;cursor:pointer;transition:border-color var(--ipa-fast) var(--ipa-ease),background-color var(--ipa-fast) var(--ipa-ease),box-shadow var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
+@media (hover:hover){.ipa-modeCard:hover:not(:has(> :disabled)):not(:has(> :checked)){border-color:var(--ipa-border-strong);background:var(--ipa-hover)}}
+.ipa-modeCard:has(> :checked){border-color:var(--ipa-accent);background:color-mix(in srgb,var(--ipa-accent) 6%,var(--ipa-card));box-shadow:0 0 0 1px var(--ipa-accent)}
 .ipa-modeCard:has(> :disabled){opacity:.55;cursor:default}
 .ipa-modeCard:active:not(:has(> :disabled)){transform:scale(.995)}
-.ipa-modeCard:has(> :focus-visible){outline:2px solid var(--ipa-ring);outline-offset:2px}
-.ipa-modeCardHead{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.ipa-modeCardTitle{font-size:.875rem;font-weight:600;line-height:1.55}
-.ipa-modeMark{display:grid;place-items:center;flex:none;width:18px;height:18px;border:1px solid var(--ipa-border-strong);border-radius:50%;color:var(--ipa-accent-fg);transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease)}
+.ipa-modeCard:has(> :focus-visible){outline:2px solid var(--ipa-ring);outline-offset:3px}
+.ipa-modeCardHead{display:flex;align-items:center;gap:12px}
+.ipa-modeIcon{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:var(--ipa-radius-sm);background:var(--ipa-sunken);box-shadow:inset 0 0 0 1px var(--ipa-divider);color:var(--ipa-fg-muted);transition:background-color var(--ipa-fast) var(--ipa-ease),color var(--ipa-fast) var(--ipa-ease),box-shadow var(--ipa-fast) var(--ipa-ease)}
+.ipa-modeCard:has(> :checked) .ipa-modeIcon{background:var(--ipa-accent);color:var(--ipa-accent-fg);box-shadow:none}
+.ipa-modeCardTitle{flex:1;min-width:0;font-size:.9375rem;font-weight:600;line-height:1.45}
+.ipa-modeMark{display:grid;place-items:center;flex:none;width:20px;height:20px;border:1.5px solid var(--ipa-border-strong);border-radius:50%;color:var(--ipa-accent-fg);transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease)}
 .ipa-modeCard:has(> :checked) .ipa-modeMark{border-color:var(--ipa-accent);background:var(--ipa-accent)}
 .ipa-modeMark path{stroke-dasharray:16;stroke-dashoffset:16;transition:stroke-dashoffset 180ms var(--ipa-ease)}
 .ipa-modeCard:has(> :checked) .ipa-modeMark path{stroke-dashoffset:0}
-.ipa-modeCardDesc{color:var(--ipa-fg-muted);font-size:.78125rem;line-height:1.6}
+.ipa-modeCardDesc{margin:0;color:var(--ipa-fg-muted);font-size:.78125rem;line-height:1.6}
 /* Both notes occupy one grid cell so the section keeps its height when the
    selected mode changes; nothing below it jumps. */
 .ipa-modeNotes{display:grid;margin-top:-4px}
 .ipa-modeNote{grid-area:1/1;margin:0;visibility:hidden;color:var(--ipa-fg-subtle);font-size:.75rem;line-height:1.55}
 .ipa-modeNote[data-active]{visibility:visible}
 /* ---- appearance --------------------------------------------------------- */
-.ipa-bg{display:flex;flex-direction:column;gap:8px;max-width:420px}
-.ipa-bgOptions{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border-radius:var(--ipa-radius-sm);box-shadow:inset 0 0 0 1px var(--ipa-border);background:var(--ipa-card)}
-.ipa-bgThumb{position:absolute;pointer-events:none;z-index:0;left:4px;top:4px;bottom:4px;width:calc((100% - 16px)/3);border-radius:var(--ipa-radius-xs);background:var(--ipa-sunken);box-shadow:inset 0 0 0 1px var(--ipa-accent);transition:transform var(--ipa-move) var(--ipa-settle)}
-.ipa-bgOptions[data-background=glass] .ipa-bgThumb{transform:translateX(calc(100% + 4px))}
-.ipa-bgOptions[data-background=blur] .ipa-bgThumb{transform:translateX(calc(200% + 8px))}
-.ipa-bgOption{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;min-width:0;min-height:36px;padding:6px 8px;border-radius:var(--ipa-radius-xs);color:var(--ipa-fg-muted);font-size:.78125rem;font-weight:500;cursor:pointer}
-@media (hover:hover){.ipa-bgOption:hover:not(:has(> :disabled)):not(:has(> :checked)){background:var(--ipa-hover)}}
-.ipa-bgOption:has(> :checked){color:var(--ipa-accent)}
-.ipa-bgOption:has(> :disabled){opacity:.5;cursor:default}
-.ipa-bgOption:has(> :focus-visible){outline:2px solid var(--ipa-ring);outline-offset:-2px}
+/* Each preset previews the countdown window it produces, because "frosted
+   glass" and "gaussian blur" are not words a reader can compare from labels
+   alone. The swatches are miniature overlays over a fixed colourful backdrop:
+   they describe the countdown, not the current theme, so their colours are
+   local to this preview. */
+.ipa-bg{display:flex;flex-direction:column;gap:10px}
+.ipa-bgOptions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0;padding:0;border:0}
+.ipa-preset{position:relative;display:flex;flex-direction:column;gap:8px;min-width:0;padding:8px;border-radius:var(--ipa-radius);border:1px solid var(--ipa-border);background:var(--ipa-card);color:var(--ipa-fg);font:inherit;font-size:.8125rem;cursor:pointer;transition:border-color var(--ipa-fast) var(--ipa-ease),box-shadow var(--ipa-fast) var(--ipa-ease),background-color var(--ipa-fast) var(--ipa-ease)}
+@media (hover:hover){.ipa-preset:hover:not(:has(> :disabled)):not(:has(> :checked)){border-color:var(--ipa-border-strong)}}
+.ipa-preset:has(> :checked){border-color:var(--ipa-accent);box-shadow:0 0 0 1px var(--ipa-accent)}
+.ipa-preset:has(> :disabled){opacity:.55;cursor:default}
+.ipa-preset:has(> :focus-visible){outline:2px solid var(--ipa-ring);outline-offset:3px}
+.ipa-presetStage{position:relative;place-items:center;display:grid;height:62px;border-radius:var(--ipa-radius-sm);overflow:hidden;background:#dfe3ea;isolation:isolate}
+.ipa-presetBackdrop{position:absolute;inset:0;background:linear-gradient(135deg,#4d7cf3 0 22%,#e8934a 22% 46%,#3fa88f 46% 70%,#8a6bd8 70% 100%)}
+.ipa-presetPanel{position:relative;display:grid;place-items:center;width:calc(100% - 16px);height:calc(100% - 16px);border-radius:6px;font-size:.8125rem;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.ipa-preset[data-preset=solid] .ipa-presetPanel{background:#14171d;color:#fff}
+.ipa-preset[data-preset=glass] .ipa-presetPanel{background:rgba(22,26,34,.26);color:#fff;-webkit-backdrop-filter:blur(3px) saturate(170%);backdrop-filter:blur(3px) saturate(170%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.26)}
+.ipa-preset[data-preset=blur] .ipa-presetPanel{background:rgba(9,11,16,.52);color:#f3f5f9;-webkit-backdrop-filter:blur(9px) saturate(110%);backdrop-filter:blur(9px) saturate(110%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.ipa-presetCheck{position:absolute;top:6px;right:6px;display:grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--ipa-accent);color:var(--ipa-accent-fg);opacity:0;transform:scale(.8);transition:opacity var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
+.ipa-preset:has(> :checked) .ipa-presetCheck{opacity:1;transform:none}
+.ipa-presetRail{position:absolute;left:8px;right:8px;top:7px;height:3px;border-radius:2px;background:var(--ipa-accent);opacity:.9}
+.ipa-presetLabel{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-inline:2px;color:var(--ipa-fg-muted);font-size:.78125rem;line-height:1.4}
+.ipa-preset:has(> :checked) .ipa-presetLabel{color:var(--ipa-fg);font-weight:600}
 .ipa-bgDesc{margin:0;color:var(--ipa-fg-subtle);font-size:.75rem;line-height:1.55}
 /* ---- flow and notes ----------------------------------------------------- */
-.ipa-flowList{display:flex;flex-direction:column;margin:0;padding:0;list-style:none;border:.5px solid var(--ipa-border);border-radius:var(--ipa-radius);overflow:hidden;background:var(--ipa-card)}
-.ipa-flowStep{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 14px;padding:14px 16px;border-bottom:.5px solid var(--ipa-border)}
+.ipa-flowList{display:flex;flex-direction:column;margin:0;padding:0;list-style:none;border:1px solid var(--ipa-border);border-radius:var(--ipa-radius);overflow:hidden;background:var(--ipa-card)}
+.ipa-flowStep{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 14px;padding:14px 16px;border-bottom:1px solid var(--ipa-divider)}
 .ipa-flowStep:last-child{border-bottom:0}
 .ipa-flowNum{grid-row:span 2;display:grid;place-items:center;width:24px;height:24px;margin-top:2px;border-radius:50%;background:var(--ipa-sunken);box-shadow:inset 0 0 0 1px var(--ipa-border);color:var(--ipa-fg-muted);font-size:.71875rem;font-weight:600}
 .ipa-flowTitle{margin:0;font-size:.84375rem;font-weight:600;line-height:1.6}
@@ -359,7 +387,7 @@ box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-directi
 .ipa-noteItem{position:relative;max-width:86ch;padding-left:14px;color:var(--ipa-fg-subtle);font-size:.78125rem;line-height:1.6;overflow-wrap:anywhere}
 .ipa-noteItem:before{content:'';position:absolute;left:2px;top:.6em;width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.6}
 /* ---- banners ------------------------------------------------------------ */
-.ipa-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;border-radius:var(--ipa-radius-sm);border:.5px solid color-mix(in srgb,var(--ipa-danger) 34%,transparent);background:color-mix(in srgb,var(--ipa-danger) 8%,transparent);color:var(--ipa-danger);font-size:.78125rem;line-height:1.6}
+.ipa-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;border-radius:var(--ipa-radius-sm);border:1px solid color-mix(in srgb,var(--ipa-danger) 45%,transparent);background:color-mix(in srgb,var(--ipa-danger) 8%,transparent);color:var(--ipa-danger);font-size:.78125rem;line-height:1.6}
 .ipa-bannerText{min-width:0;flex:1}
 .ipa-banner .ipa-button{border-color:currentColor;background:0 0;color:inherit;min-height:30px;padding:3px 10px;font-size:.75rem}
 /* ---- countdown: the whole window is the warning, not a card in the middle ---- */
@@ -488,20 +516,24 @@ background-color:rgba(9,11,16,.42);
 .ipa-pageTools{width:100%;justify-content:flex-end}
 .ipa-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
 .ipa-metric:nth-child(2){border-inline-end:0}
-.ipa-metric:nth-child(-n+2){border-bottom:.5px solid var(--ipa-border)}
+.ipa-metric:nth-child(-n+2){border-bottom:1px solid var(--ipa-divider)}
 .ipa-modeGrid{grid-template-columns:minmax(0,1fr)}
 .ipa-heroDial{width:88px;height:88px}
+.ipa-footActions{width:100%}
+.ipa-footActions .ipa-button{width:100%}
 }
 @container ipa-page (max-width:520px){
 .ipa-pageWrap{padding-inline:14px}
-.ipa-footTag{display:none}
-.ipa-bg{max-width:none}
+.ipa-footMeta{display:none}
+.ipa-presetStage{height:54px}
+.ipa-presetLabel{font-size:.71875rem}
 .ipa-flowStep{padding:12px}
 }
 /* A coarse pointer (touch, pen) needs a bigger target than a mouse does. */
 @media (pointer:coarse){
-.ipa-button,.ipa-iconButton,.ipa-bgOption{min-height:44px}
-.ipa-modeCard{padding:16px}
+.ipa-button,.ipa-iconButton{min-height:44px}
+.ipa-preset{padding:10px}
+.ipa-modeCard{padding:18px}
 }
 /* Windows High Contrast replaces our palette with system colours, so the
    forced colours are declared explicitly: a real border on every control and a
@@ -509,10 +541,11 @@ background-color:rgba(9,11,16,.42);
 @media (forced-colors:active){
 .ipa-button,.ipa-iconButton,.ipa-modeCard,.ipa-hero,.ipa-metrics,.ipa-metric,.ipa-flowList,.ipa-flowStep,.ipa-bgOptions,.ipa-banner{border-color:CanvasText}
 .ipa-button[data-variant=primary],.ipa-button[data-variant=danger]{forced-color-adjust:none;border:1px solid ButtonText;background:ButtonFace;color:ButtonText}
-.ipa-modeCard:has(> :checked),.ipa-bgOption:has(> :checked){outline:2px solid Highlight;outline-offset:-2px}
+.ipa-modeCard:has(> :checked),.ipa-preset:has(> :checked){outline:2px solid Highlight;outline-offset:-2px}
 .ipa-modeMark{forced-color-adjust:none;border-color:CanvasText}
 .ipa-modeCard:has(> :checked) .ipa-modeMark{background:Highlight;border-color:Highlight;color:HighlightText}
-.ipa-bgThumb{forced-color-adjust:none;background:Canvas;box-shadow:inset 0 0 0 2px Highlight}
+.ipa-presetStage{border:1px solid CanvasText}
+.ipa-presetCheck{forced-color-adjust:none;background:Highlight;color:HighlightText}
 .ipa-heroRingTrack{stroke:CanvasText}
 .ipa-heroRingValue{stroke:Highlight}
 .ipa-statusDot{background:Highlight}
@@ -686,6 +719,14 @@ background-color:rgba(9,11,16,.42);
     /** Fill a `%s` template without depending on the locale engine's interpolation. */
     function fmt(template, value) {
       return typeof template === 'string' ? template.replace('%s', String(value)) : String(value);
+    }
+
+    /** Fill a `%s` template with several values, in order. */
+    function fill(template, ...values) {
+      let index = 0;
+      return typeof template === 'string'
+        ? template.replace(/%s/g, () => String(values[index++] ?? ''))
+        : String(values[0] ?? '');
     }
 
     /** Wall-clock time of the pending power action, in the reader's own timezone. */
@@ -873,6 +914,26 @@ background-color:rgba(9,11,16,.42);
       );
     }
 
+    /** Hibernate glyph: a crescent, deliberately plain next to the power glyph. */
+    function HibernateGlyph({ size }) {
+      const edge = size ?? 16;
+      return h('svg', {
+        viewBox: '0 0 24 24',
+        width: edge,
+        height: edge,
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: 1.8,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        'aria-hidden': true,
+        focusable: 'false',
+        style: { display: 'block' },
+      },
+        h('path', { d: 'M20.4 14.6A8.4 8.4 0 0 1 9.4 3.6a8.6 8.6 0 1 0 11 11z' }),
+      );
+    }
+
     /** Refresh arrow for the page's status control. */
     function RefreshGlyph({ size }) {
       const edge = size ?? 15;
@@ -1006,6 +1067,7 @@ background-color:rgba(9,11,16,.42);
       const quietLeft = Math.max(0, data.quietRemainingSeconds ?? 0);
       const quietTotal = data.quietSeconds > 0 ? data.quietSeconds : quietLeft;
       const mode = data.mode === 'shutdown' ? 'shutdown' : 'hibernate';
+      const modeName = mode === 'shutdown' ? t('mode.shutdown') : t('mode.hibernate');
       const background = normalizeBackground(data.backgroundStyle);
       const total = data.busy?.total ?? 0;
 
@@ -1076,12 +1138,23 @@ background-color:rgba(9,11,16,.42);
       else announcement = t('status.idle');
 
       const canArm = supported && ready && !offline && !busy && !locked && !registryDown;
+      const bgDisabled = locked || busy || !ready || offline || !supported;
       const RADIUS = 42;
       const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
       const fraction = dialValue === null || dialTotal <= 0 ? 0 : Math.min(1, Math.max(0, dialValue / dialTotal));
 
       const metaItems = [fmt(t('countdown.window'), String(data.countdownSeconds))];
       if (scheduledAt !== null) metaItems.unshift(fmt(t('status.scheduledAt'), scheduledAt));
+
+      // The action bar repeats the plan in one line, so the reader can confirm
+      // what the button will do without scrolling back through the flow.
+      const footMeta = counting
+        ? (scheduledAt === null ? t('body.counting') : fmt(t('status.scheduledAt'), scheduledAt))
+        : armed
+          ? bodyText
+          : (!supported || offline || registryDown || locked || !ready || data.phase === 'failed')
+            ? bodyText
+            : fill(t('foot.plan'), String(data.quietSeconds), String(data.countdownSeconds), modeName);
 
       const metric = (labelKey, value) => h('div', { className: 'ipa-metric', key: labelKey },
         h('dt', { className: 'ipa-metricLabel' }, t(labelKey)),
@@ -1093,7 +1166,7 @@ background-color:rgba(9,11,16,.42);
       // the selection, the arrow keys and the "2 of 2" announcement. The card
       // only draws it: the description is exposed as the control's description
       // instead of being folded into its name.
-      const modeCard = (value, titleKey, descKey) => {
+      const modeCard = (value, titleKey, descKey, Icon) => {
         const descId = `ipa-mode-${value}`;
         return h('label', {
           key: value,
@@ -1118,6 +1191,7 @@ background-color:rgba(9,11,16,.42);
             },
           }),
           h('span', { className: 'ipa-modeCardHead' },
+            h('span', { className: 'ipa-modeIcon', 'aria-hidden': true }, h(Icon, { size: 18 })),
             h('span', { className: 'ipa-modeCardTitle' }, t(titleKey)),
             h('span', { className: 'ipa-modeMark', 'aria-hidden': true }, h(CheckGlyph)),
           ),
@@ -1134,7 +1208,7 @@ background-color:rgba(9,11,16,.42);
       const flowSteps = [
         ['flow.idle', 'flow.idleDesc', fmt(t('flow.idle'), String(data.quietSeconds))],
         ['flow.countdown', 'flow.countdownDesc', fmt(t('flow.countdown'), String(data.countdownSeconds))],
-        ['flow.act', 'flow.actDesc', mode === 'shutdown' ? t('mode.shutdown') : t('mode.hibernate')],
+        ['flow.act', 'flow.actDesc', modeName],
       ];
 
       return h('div', { className: 'ipa-page' },
@@ -1155,21 +1229,6 @@ background-color:rgba(9,11,16,.42);
                   disabled: busy,
                   onClick: () => { void refresh(); },
                 }, h(RefreshGlyph, { size: 15 })),
-                armed
-                  ? h('button', {
-                    type: 'button',
-                    className: 'ipa-button',
-                    'data-variant': 'danger',
-                    disabled: busy,
-                    onClick: () => { void cancel(); },
-                  }, t(busy ? 'countdown.cancelling' : 'page.cancel'))
-                  : h('button', {
-                    type: 'button',
-                    className: 'ipa-button',
-                    'data-variant': 'primary',
-                    disabled: !canArm,
-                    onClick: () => { void arm(mode); },
-                  }, h(PowerGlyph, { size: 15 }), t(busy ? 'page.saving' : t('page.arm'))),
               ),
             ),
           ),
@@ -1217,6 +1276,10 @@ background-color:rgba(9,11,16,.42);
                 h('span', { className: 'ipa-heroPhase' }, phaseText),
                 bodyText === '' ? null : h('p', { className: 'ipa-heroBody' }, bodyText),
                 h('div', { className: 'ipa-heroMeta' },
+                  h('span', { className: 'ipa-chip', 'data-tone': armed ? 'accent' : undefined },
+                    h(mode === 'shutdown' ? PowerGlyph : HibernateGlyph, { size: 12 }),
+                    modeName,
+                  ),
                   ...metaItems.map((text) => h('span', { key: text }, text)),
                 ),
               ),
@@ -1229,8 +1292,8 @@ background-color:rgba(9,11,16,.42);
             ),
             h(Section, { title: t('section.mode'), hint: t('section.modeHint') },
               h('div', { className: 'ipa-modeGrid', role: 'radiogroup', 'aria-label': t('section.mode') },
-                modeCard('hibernate', 'mode.hibernate', 'mode.hibernateDesc'),
-                modeCard('shutdown', 'mode.shutdown', 'mode.shutdownDesc'),
+                modeCard('hibernate', 'mode.hibernate', 'mode.hibernateDesc', HibernateGlyph),
+                modeCard('shutdown', 'mode.shutdown', 'mode.shutdownDesc', PowerGlyph),
               ),
               // Both notes share one grid cell, so switching mode never moves
               // the sections below it.
@@ -1247,14 +1310,13 @@ background-color:rgba(9,11,16,.42);
               h('div', { className: 'ipa-bg' },
                 h('div', {
                   className: 'ipa-bgOptions',
-                  'data-background': background,
                   role: 'radiogroup',
                   'aria-label': t('section.background'),
                 },
-                  h('span', { className: 'ipa-bgThumb', 'aria-hidden': true }),
                   ...styleChoices.map(([value, labelKey]) => h('label', {
                     key: value,
-                    className: 'ipa-bgOption',
+                    className: 'ipa-preset',
+                    'data-preset': value,
                     'data-active': background === value || undefined,
                   },
                     h('input', {
@@ -1263,10 +1325,21 @@ background-color:rgba(9,11,16,.42);
                       name: 'ipa-background',
                       value,
                       checked: background === value,
-                      disabled: locked || busy || !ready || offline || !supported,
+                      disabled: bgDisabled,
                       onChange: () => { if (value !== background) void setBackground(value); },
                     }),
-                    h('span', null, t(labelKey)),
+                    // A miniature countdown window over the same backdrop in all
+                    // three tiles, so the difference between opaque, frosted and
+                    // blurred is visible instead of described.
+                    h('span', { className: 'ipa-presetStage', 'aria-hidden': true },
+                      h('span', { className: 'ipa-presetBackdrop' }),
+                      h('span', { className: 'ipa-presetPanel' },
+                        h('span', { className: 'ipa-presetRail' }),
+                        String(data.countdownSeconds),
+                      ),
+                      h('span', { className: 'ipa-presetCheck' }, h(CheckGlyph)),
+                    ),
+                    h('span', { className: 'ipa-presetLabel' }, t(labelKey)),
                   )),
                 ),
                 h('p', { className: 'ipa-bgDesc' }, t(`background.${background}Desc`)),
@@ -1290,11 +1363,31 @@ background-color:rgba(9,11,16,.42);
         ),
         h('footer', { className: 'ipa-pageFoot' },
           h('div', { className: 'ipa-pageWrap ipa-footInner' },
-            h('span', { className: 'ipa-footState' },
+            h('div', { className: 'ipa-footStatus' },
               h('span', { className: 'ipa-statusDot', 'data-tone': tone === 'error' ? 'error' : undefined, 'aria-hidden': true }),
-              phaseText,
+              h('div', { className: 'ipa-footText' },
+                h('span', { className: 'ipa-footPhase' }, phaseText),
+                h('span', { className: 'ipa-footMeta' }, footMeta),
+              ),
             ),
-            h('span', { className: 'ipa-footTag' }, t('countdown.scopeTag')),
+            h('div', { className: 'ipa-footActions' },
+              armed
+                ? h('button', {
+                  type: 'button',
+                  className: 'ipa-button',
+                  'data-variant': 'danger',
+                  disabled: busy,
+                  onClick: () => { void cancel(); },
+                }, t(busy ? 'countdown.cancelling' : 'page.cancel'))
+                : h('button', {
+                  type: 'button',
+                  className: 'ipa-button',
+                  'data-variant': 'primary',
+                  disabled: !canArm,
+                  onClick: () => { void arm(mode); },
+                }, h(mode === 'shutdown' ? PowerGlyph : HibernateGlyph, { size: 15 }),
+                t(busy ? 'page.saving' : (mode === 'shutdown' ? t('page.armShutdown') : t('page.armHibernate')))),
+            ),
           ),
         ),
       );

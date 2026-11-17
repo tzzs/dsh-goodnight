@@ -16,7 +16,7 @@ The entry sits in the left rail, right under **Plugins** and **Automation tasks*
 
 ![The scheduling page](docs/page.png)
 
-The page carries the power action, the countdown background, the live task counts, the flow and the notes. While a reservation is live the header button becomes **Cancel schedule** and the rail glyph grows a small dot.
+The page carries the power action, the countdown background, the live task counts, the flow and the notes. The action bar at the bottom names what the button will do (**Schedule shutdown** / **Schedule hibernation**), becomes **Cancel schedule** while a reservation is live, and the rail glyph grows a small dot.
 
 ---
 
@@ -118,9 +118,9 @@ The entry sits in the left rail, right under **Plugins** and **Automation tasks*
 
 From top to bottom the page shows the current state (not scheduled / waiting · N tasks running / counting down / executing / failed), the live load, the power action, the countdown background, the flow and the notes.
 
-- **Schedule / Cancel schedule** sits in the page header: one button that switches with the state, never both at once.
+- **Schedule / Cancel schedule** sits in the action bar at the bottom, next to a one-line plan ("20 s idle → 60 s countdown → shutdown") and named after the selected power action, so the commit button never leaves the choices behind.
 - **State on the rail** — while a reservation is live the power glyph grows a small dot; during the countdown that dot turns red and blinks. The dot survives the rail collapsing to icons.
-- **Countdown background** — solid / frosted glass / gaussian blur, applied immediately and persisted on the Host.
+- **Countdown background** — three preview tiles that draw the countdown window each preset produces (solid / frosted glass / gaussian blur), applied immediately and persisted on the Host.
 - **How it runs** — `20 s continuously idle → 60 s cancellable countdown → run`, plus "closing this page does not cancel; only this Host is monitored".
 - **What is running** — running agents, queued messages and background jobs are listed separately, with a total.
 - **Connection state** — "Loading status…" before the first answer, "Cannot reach the plugin Host" with controls disabled when the connection drops, "Submitting…" while a request is in flight so a button cannot be pressed twice.
@@ -187,7 +187,7 @@ The host suite used to carry an `if (process.platform !== 'win32')` skip, which 
 
 For an interactive motion preview, open `docs/preview.html?page=1&live=1` in a browser. It uses local mock state for mode/background selection, scheduling and cancellation, and offers a simulated countdown. It sends no Host requests and never executes a power command.
 
-The motion takes inspiration from [DesignBookmark Motion](https://designbookmark.com/motion): mode cards mark the selection with a border and a checkmark that draws in only after the Host confirms it, and the background highlight slides to the active preset. Countdown digits update in place on a fixed baseline, with no per-second displacement or flashing, and stay readable during the final red warning. The progress rail uses `transform` rather than changing layout width. All decorative motion respects `prefers-reduced-motion`, while time and cancellation keep working.
+The motion takes inspiration from [DesignBookmark Motion](https://designbookmark.com/motion): mode cards and background tiles mark the selection with an accent ring and a checkmark that draws in only after the Host confirms it. Countdown digits update in place on a fixed baseline, with no per-second displacement or flashing, and stay readable during the final red warning. The progress rail uses `transform` rather than changing layout width. All decorative motion respects `prefers-reduced-motion`, while time and cancellation keep working.
 
 `docs/preview.html` without `live=1` is a dependency-free static preview: it renders the real `client.js` components and real stylesheet in a browser without triggering a power action. Query parameters switch states, e.g. `?s=6&mode=shutdown&multi=1` for the urgent state and the multi-screen controls, `?bg=glass` / `?bg=blur` for the backgrounds, `?page=1` for the page, `?dark=1` for the dark theme; `docs/backgrounds.html` puts frosted glass and gaussian blur side by side on one page.
 
