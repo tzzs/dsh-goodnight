@@ -159,17 +159,17 @@
 
 ## 路由
 
-浏览器半通过五条需要认证的路由和 Host 通信。每条都先过信任检查（Host/Origin、`sec-fetch-site`，然后是认证 Cookie），不通过就返回 `403` / `401`。
+浏览器半通过五条需要认证的路由和 Host 通信。每条都先检查 Host、Origin、`sec-fetch-site` 和认证 Cookie，拒绝请求时返回 `403` 或 `401`。连接服务不可用时，所有路由返回 `503`。
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
 | `GET` | `/idle-power/state` | 模式、阶段、剩余秒数、背景样式、在跑的任务数 |
 | `POST` | `/idle-power/arm` | 预约；body `{ "mode": "hibernate" \| "shutdown" }` |
 | `POST` | `/idle-power/cancel` | 取消预约或取消倒计时 |
-| `POST` | `/idle-power/mode` | 只改模式，不预约 |
+| `POST` | `/idle-power/mode` | 没有预约时修改模式 |
 | `POST` | `/idle-power/background` | 只改背景；body `{ "backgroundStyle": "solid" \| "glass" \| "blur" }` |
 
-命令进入执行阶段后，`/arm`、`/cancel`、`/mode`、`/background` 一律返回 `409 execution-in-progress`——已经提交的电源操作不能撤。预约时若期间发生过取消，或连续两次预约的查表结果乱序返回，后到的那次会以 `409 reservation-changed` 退出，不会把取消后的状态重新点亮。
+命令进入执行阶段后，`/arm`、`/cancel`、`/mode`、`/background` 一律返回 `409 execution-in-progress`，已经提交的电源操作不能撤。过期的预约请求，以及预约期间发往 `/mode` 的请求，会收到 `409 reservation-changed`。要修改已有预约的模式，使用 `/arm` 重新开始安静期。
 
 `/background` 是纯外观偏好，**刻意不碰预约状态机**：它不会递增内部 revision，所以改背景永远不会让正在上传的预约被判成「已过期」。
 
@@ -190,6 +190,8 @@ npm test
 
 - `test/host.test.mjs` —— 用假 agents、假 jobs 和一个只记录 `argv` 不执行的 subprocess 驱动状态机。覆盖忙碌判定、注册表缺失、安静期行为、倒计时作废、两种命令行、取消、失败上报、模式与背景路由、背景配置的非法值回退，以及并发竞争：执行提交后的修改请求被拒绝、改背景不会让在途预约过期、取消压过正在上传的预约、过期查表结果不能覆盖取消、睡眠跨过倒计时终点后重新等待。
 - `test/client.test.cjs` —— 用最小 React 替身渲染真实的 `client.js` 组件并对产出的树做断言：入口两种形态、面板各状态（读取中 / 断线 / 注册表不可用 / 执行中 / 失败）、分项任务数、三档背景的选择与禁用态、整屏倒计时的信息分层与进度条语义、`data-background` 的输出与未知值回退、进度环的几何与边界、多屏检测与镜像窗口的降级、关闭方式、倒计时取消失败反馈、`prefers-reduced-motion` 覆盖。
+
+Host 测试还覆盖信任检查失败、连接服务不可用、过期的模式修改，以及电源命令查找期间的休眠恢复。客户端测试覆盖倒计时中所有控件的键盘访问。
 
 ### 跨平台测试
 

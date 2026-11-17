@@ -1044,7 +1044,7 @@ background-color:rgba(9,11,16,.42);
     function PowerCountdown({ usePower, cancel, t }) {
       const { data, busy, offline, note, noteCode } = usePower((current) => current);
       const cancelRef = useRef(null);
-      const mirrorRef = useRef(null);
+      const dialogRef = useRef(null);
       const mirrorsRef = useRef([]);
       const [now, setNow] = useState(() => Date.now());
       const [align, setAlign] = useState('center');
@@ -1081,15 +1081,11 @@ background-color:rgba(9,11,16,.42);
         return () => { if (previous?.isConnected) previous.focus?.(); };
       }, []);
 
-      // Escape cancels from anywhere. Tab cycles inside the dialog so the mirror
-      // button stays keyboard-reachable instead of stealing focus from Cancel.
       useEffect(() => {
         const onKey = (event) => {
           if (event.key === 'Escape') { event.preventDefault?.(); cancelCountdown(); return; }
           if (event.key !== 'Tab') return;
-          const controls = [cancelRef.current, mirrorRef.current].filter(
-            (el) => el !== null && el !== undefined && typeof el.focus === 'function' && el.isConnected !== false,
-          );
+          const controls = Array.from(dialogRef.current?.querySelectorAll('button:not(:disabled)') ?? []);
           if (controls.length === 0) { event.preventDefault?.(); cancelRef.current?.focus?.(); return; }
           const active = typeof document === 'undefined' ? null : document.activeElement;
           const index = controls.indexOf(active);
@@ -1179,6 +1175,7 @@ background-color:rgba(9,11,16,.42);
 
       return h('div', {
         className: `ipa-scrim${urgent ? ' ipa-isUrgent' : ''}`,
+        ref: dialogRef,
         'data-background': normalizeBackground(data.backgroundStyle),
         role: 'alertdialog',
         'aria-modal': true,
@@ -1223,7 +1220,6 @@ background-color:rgba(9,11,16,.42);
               extended && h('button', {
                 type: 'button',
                 className: 'ipa-mirrors',
-                ref: mirrorRef,
                 disabled: mirrorStatus.kind === 'working',
                 onClick: () => { void showMirrors(); },
               },
