@@ -11,6 +11,7 @@ window.__ModuleLoader__.load({
     const ROUTE_CANCEL = 'idle-power/cancel';
     const ROUTE_MODE = 'idle-power/mode';
     const ROUTE_BACKGROUND = 'idle-power/background';
+    const ROUTE_COLOR = 'idle-power/color';
 
     // ---------------------------------------------------------------- locale
     const zh = {
@@ -75,6 +76,17 @@ window.__ModuleLoader__.load({
       'note.hostRestart': 'Host 重启会取消预约：重启说明有人回到了机器前。',
       'note.shutdown': '会强制关闭应用，未保存的内容可能丢失。请先保存其他应用的工作。',
       'note.hibernate': '休眠后按电源键会把整机内存读回来，开着的窗口都还在。',
+      'preview.button': '预览',
+      'preview.title': '倒计时预览',
+      'preview.subtitle': '只是预览，不会执行任何电源操作',
+      'preview.noAction': '10 秒后自动结束',
+      'preview.close': '结束预览',
+      'preview.hint': '这是预览：倒计时归零后什么都不会发生。',
+      'preview.scope': '真实的倒计时会占满整个窗口，并在这台机器上执行电源操作。',
+      'color.label': '纯色背景',
+      'color.auto': '跟随主题',
+      'color.custom': '自定义',
+      'color.hint': '文字会自动选黑或白，保证在这个底色上可读。',
       'background.solid': '纯色',
       'background.solidDesc': '不透明底色，文字对比度最高。',
       'background.glass': '毛玻璃',
@@ -176,6 +188,17 @@ window.__ModuleLoader__.load({
       'note.hostRestart': 'A Host restart cancels the reservation: a restart means somebody is back at the machine.',
       'note.shutdown': 'Forces apps to close. Unsaved work may be lost; save your work in other apps first.',
       'note.hibernate': 'After hibernating, pressing the power button reads the memory image back.',
+      'preview.button': 'Preview',
+      'preview.title': 'Countdown preview',
+      'preview.subtitle': 'Preview only — no power action runs',
+      'preview.noAction': 'Ends by itself in 10 s',
+      'preview.close': 'End preview',
+      'preview.hint': 'This is a preview: nothing happens when it reaches zero.',
+      'preview.scope': 'A real countdown fills the window and runs the power command on this machine.',
+      'color.label': 'Solid colour',
+      'color.auto': 'Theme',
+      'color.custom': 'Custom',
+      'color.hint': 'Text switches between black and white to stay readable on this colour.',
       'background.solid': 'Solid',
       'background.solidDesc': 'Opaque surface with the strongest text contrast.',
       'background.glass': 'Frosted glass',
@@ -328,6 +351,8 @@ box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-directi
 .ipa-sectionHead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
 .ipa-sectionTitle{margin:0;font-size:1rem;font-weight:600;line-height:1.5;letter-spacing:-.01em}
 .ipa-sectionBody{margin:0;color:var(--ipa-fg-subtle);font-size:.78125rem;line-height:1.5}
+.ipa-sectionActions{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ipa-button[data-size=sm]{min-height:30px;padding:4px 10px;font-size:.75rem;font-weight:500}
 /* ---- mode cards --------------------------------------------------------- */
 .ipa-modeGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 /* A ring rather than a thicker border: emphasis without moving the cards. */
@@ -376,6 +401,24 @@ box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-directi
 .ipa-presetLabel{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-inline:2px;color:var(--ipa-fg-muted);font-size:.78125rem;line-height:1.4}
 .ipa-preset:has(> :checked) .ipa-presetLabel{color:var(--ipa-fg);font-weight:600}
 .ipa-bgDesc{margin:0;color:var(--ipa-fg-subtle);font-size:.75rem;line-height:1.55}
+/* A pinned colour belongs to the solid surface only, so the row appears with
+   that preset and disappears with the other two. */
+.ipa-colors{display:flex;flex-direction:column;gap:8px;margin-top:2px}
+.ipa-colorsLabel{color:var(--ipa-fg-subtle);font-size:.71875rem;font-weight:500}
+.ipa-colorRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ipa-colorOption{position:relative;display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:4px 10px 4px 4px;border-radius:999px;border:1px solid var(--ipa-border);background:var(--ipa-card);color:var(--ipa-fg-muted);font-size:.71875rem;cursor:pointer;transition:border-color var(--ipa-fast) var(--ipa-ease),box-shadow var(--ipa-fast) var(--ipa-ease),background-color var(--ipa-fast) var(--ipa-ease)}
+@media (hover:hover){.ipa-colorOption:hover:not(:has(> :disabled)):not([data-active]){border-color:var(--ipa-border-strong)}}
+.ipa-colorOption[data-active]{border-color:var(--ipa-accent);background:color-mix(in srgb,var(--ipa-accent) 7%,var(--ipa-card));box-shadow:0 0 0 1px var(--ipa-accent);color:var(--ipa-fg)}
+.ipa-colorOption:has(> :disabled){opacity:.5;cursor:default}
+.ipa-colorOption:has(> :focus-visible){outline:2px solid var(--ipa-ring);outline-offset:2px}
+.ipa-colorSwatch{display:block;flex:none;width:24px;height:24px;border-radius:50%;background:var(--ipa-swatch);box-shadow:inset 0 0 0 1px rgba(255,255,255,.20),inset 0 0 0 2px rgba(0,0,0,.06)}
+.ipa-colorAutoSwatch{display:block;flex:none;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#ffffff 0 49%,#14171d 51% 100%);box-shadow:inset 0 0 0 1px var(--ipa-border)}
+.ipa-colorOptionText{white-space:nowrap}
+.ipa-colorCustom{padding-right:10px}
+.ipa-colorInput{appearance:none;flex:none;width:34px;height:24px;padding:0;border:0;border-radius:999px;background:0 0;cursor:pointer}
+.ipa-colorInput::-webkit-color-swatch-wrapper{padding:0}
+.ipa-colorInput::-webkit-color-swatch{border:0;border-radius:999px}
+.ipa-colorsHint{margin:0;color:var(--ipa-fg-subtle);font-size:.71875rem;line-height:1.5}
 /* ---- flow and notes ----------------------------------------------------- */
 .ipa-flowList{display:flex;flex-direction:column;margin:0;padding:0;list-style:none;border:1px solid var(--ipa-border);border-radius:var(--ipa-radius);overflow:hidden;background:var(--ipa-card)}
 .ipa-flowStep{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 14px;padding:14px 16px;border-bottom:1px solid var(--ipa-divider)}
@@ -435,6 +478,10 @@ background-color:rgba(9,11,16,.42);
 --dsw-focus-ring-color:#6f9bff;
 }
 .ipa-scrim[data-background=blur] .ipa-card{background-image:none;background-color:var(--dsw-alias-bg-overlay);background-color:color-mix(in srgb,var(--dsw-alias-bg-overlay) 58%,transparent)}
+/* A pinned colour cannot follow the theme, so the ink is pinned with it: the
+   pair is chosen by luminance on the client, never guessed in CSS. */
+.ipa-scrim[data-ink=light]{--dsw-alias-label-primary:#f4f6fa;--dsw-alias-label-primary-foreground:#101318;--dsw-alias-label-secondary:#c6cdd9;--dsw-alias-label-tertiary:#9aa4b4;--dsw-alias-border-l2:rgba(255,255,255,.24);--dsw-alias-border-l3:rgba(255,255,255,.34);--dsw-alias-bg-layer-2:rgba(255,255,255,.10);--dsw-alias-interactive-bg-hover:rgba(255,255,255,.12);--dsw-focus-ring-color:#9db9ff}
+.ipa-scrim[data-ink=dark]{--dsw-alias-label-primary:#14171d;--dsw-alias-label-primary-foreground:#ffffff;--dsw-alias-label-secondary:#454c5a;--dsw-alias-label-tertiary:#666e7d;--dsw-alias-border-l2:rgba(0,0,0,.24);--dsw-alias-border-l3:rgba(0,0,0,.34);--dsw-alias-bg-layer-2:rgba(0,0,0,.07);--dsw-alias-interactive-bg-hover:rgba(0,0,0,.07);--dsw-focus-ring-color:#2f66f5}
 .ipa-top,.ipa-bottom{display:flex;align-items:flex-start;justify-content:space-between;gap:clamp(12px,2.4vmin,40px);flex-wrap:wrap;min-width:0}
 .ipa-bottom{align-items:flex-end}
 .ipa-statusLine{display:flex;align-items:flex-start;gap:10px;min-width:0;max-width:min(70ch,72vw)}
@@ -544,7 +591,8 @@ background-color:rgba(9,11,16,.42);
 .ipa-modeCard:has(> :checked),.ipa-preset:has(> :checked){outline:2px solid Highlight;outline-offset:-2px}
 .ipa-modeMark{forced-color-adjust:none;border-color:CanvasText}
 .ipa-modeCard:has(> :checked) .ipa-modeMark{background:Highlight;border-color:Highlight;color:HighlightText}
-.ipa-presetStage{border:1px solid CanvasText}
+.ipa-presetStage,.ipa-colorSwatch,.ipa-colorAutoSwatch,.ipa-colorInput{forced-color-adjust:none;border:1px solid CanvasText}
+.ipa-colorOption[data-active]{outline:2px solid Highlight;outline-offset:-2px}
 .ipa-presetCheck{forced-color-adjust:none;background:Highlight;color:HighlightText}
 .ipa-heroRingTrack{stroke:CanvasText}
 .ipa-heroRingValue{stroke:Highlight}
@@ -619,6 +667,7 @@ background-color:rgba(9,11,16,.42);
       phase: 'idle',
       mode: 'shutdown',
       backgroundStyle: 'solid',
+      countdownColor: null,
       countdownSeconds: 60,
       quietSeconds: 20,
       remainingSeconds: 0,
@@ -638,7 +687,7 @@ background-color:rgba(9,11,16,.42);
      * @returns store handle and the actions every surface shares.
      */
     function createRuntime(ctx) {
-      const store = createStore({ data: EMPTY_STATE, ready: false, offline: false, busy: false, note: null, noteCode: null, notePhase: null });
+      const store = createStore({ data: EMPTY_STATE, ready: false, offline: false, busy: false, note: null, noteCode: null, notePhase: null, preview: false });
       const patch = (fields) => store.set((current) => ({ ...current, ...fields }));
 
       let revision = 0;
@@ -698,6 +747,8 @@ background-color:rgba(9,11,16,.42);
       // Appearance is Host-owned for the same reason: every window watching this
       // Host must show the same background, including after a page reload.
       const setBackground = (backgroundStyle) => post(ROUTE_BACKGROUND, { backgroundStyle });
+      // `null` hands the solid surface back to the Host theme.
+      const setColor = (color) => post(ROUTE_COLOR, { color });
 
       return {
         store,
@@ -706,10 +757,19 @@ background-color:rgba(9,11,16,.42);
         cancel,
         setMode,
         setBackground,
+        setColor,
+        // Previewing the countdown is a client-only state: nothing is armed and
+        // no route is touched.
+        openPreview: () => patch({ preview: true }),
+        closePreview: () => patch({ preview: false }),
       };
     }
 
     const BACKGROUND_STYLES = ['solid', 'glass', 'blur'];
+
+    // Six dark surfaces that suit a warning overlay; the native colour input
+    // covers everything else.
+    const COLOR_PRESETS = ['#14171d', '#1c2a44', '#17332b', '#3a2233', '#f2efe8', '#e6ecf5'];
 
     /** An unknown or stale style from the Host must never blank the overlay. */
     function normalizeBackground(value) {
@@ -719,6 +779,29 @@ background-color:rgba(9,11,16,.42);
     /** Fill a `%s` template without depending on the locale engine's interpolation. */
     function fmt(template, value) {
       return typeof template === 'string' ? template.replace('%s', String(value)) : String(value);
+    }
+
+    const COLOR_PATTERN = /^#[0-9a-f]{6}$/;
+
+    /** A custom solid colour, or null when the surface follows the Host theme. */
+    function normalizeColor(value) {
+      return typeof value === 'string' && COLOR_PATTERN.test(value) ? value.toLowerCase() : null;
+    }
+
+    /**
+     * Relative luminance, so a custom surface always gets a readable ink. The
+     * threshold sits at 0.18 rather than 0.5: a mid-tone surface reads better
+     * with light text than with dark text.
+     */
+    function isDarkColor(hex) {
+      const value = normalizeColor(hex);
+      if (value === null) return true;
+      const channel = (offset) => {
+        const part = parseInt(value.slice(offset, offset + 2), 16) / 255;
+        return part <= 0.03928 ? part / 12.92 : ((part + 0.055) / 1.055) ** 2.4;
+      };
+      const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+      return luminance < 0.18;
     }
 
     /** Fill a `%s` template with several values, in order. */
@@ -934,6 +1017,22 @@ background-color:rgba(9,11,16,.42);
       );
     }
 
+    /** Play triangle for the countdown preview. */
+    function PlayGlyph({ size }) {
+      const edge = size ?? 14;
+      return h('svg', {
+        viewBox: '0 0 24 24',
+        width: edge,
+        height: edge,
+        fill: 'currentColor',
+        'aria-hidden': true,
+        focusable: 'false',
+        style: { display: 'block' },
+      },
+        h('path', { d: 'M8 4.8 19 12 8 19.2z' }),
+      );
+    }
+
     /** Refresh arrow for the page's status control. */
     function RefreshGlyph({ size }) {
       const edge = size ?? 15;
@@ -1028,11 +1127,12 @@ background-color:rgba(9,11,16,.42);
      * becomes a `region` landmark, and four of those around one page dilute the
      * real landmarks. The heading alone gives the outline.
      */
-    function Section({ title, hint, children }) {
+    function Section({ title, hint, action, children }) {
       return h('section', { className: 'ipa-section' },
         h('div', { className: 'ipa-sectionHead' },
           h('h2', { className: 'ipa-sectionTitle' }, title),
           hint === undefined ? null : h('p', { className: 'ipa-sectionBody' }, hint),
+          action === undefined ? null : action,
         ),
         children,
       );
@@ -1044,7 +1144,7 @@ background-color:rgba(9,11,16,.42);
      * how to stop it — and a full page is where the shipped Plugins and
      * Automation-tasks panels already live.
      */
-    function PowerPage({ usePower, arm, cancel, setMode, setBackground, refresh, t }) {
+    function PowerPage({ usePower, arm, cancel, setMode, setBackground, setColor, openPreview, refresh, t }) {
       const { data, ready, offline, busy, note, noteCode } = usePower((current) => current);
       const counting = data.phase === 'counting';
       const armed = data.phase === 'armed' || counting;
@@ -1069,6 +1169,7 @@ background-color:rgba(9,11,16,.42);
       const mode = data.mode === 'shutdown' ? 'shutdown' : 'hibernate';
       const modeName = mode === 'shutdown' ? t('mode.shutdown') : t('mode.hibernate');
       const background = normalizeBackground(data.backgroundStyle);
+      const customColor = normalizeColor(data.countdownColor);
       const total = data.busy?.total ?? 0;
 
       // The hero answers one question — what is going to happen, and how soon —
@@ -1306,7 +1407,18 @@ background-color:rgba(9,11,16,.42);
                 }, t(value === 'shutdown' ? 'note.shutdown' : 'note.hibernate'))),
               ),
             ),
-            h(Section, { title: t('section.background'), hint: t('section.backgroundHint') },
+            h(Section, {
+              title: t('section.background'),
+              hint: t('section.backgroundHint'),
+              action: h('div', { className: 'ipa-sectionActions' },
+                h('button', {
+                  type: 'button',
+                  className: 'ipa-button',
+                  'data-size': 'sm',
+                  onClick: () => openPreview(),
+                }, h(PlayGlyph, { size: 12 }), t('preview.button')),
+              ),
+            },
               h('div', { className: 'ipa-bg' },
                 h('div', {
                   className: 'ipa-bgOptions',
@@ -1343,6 +1455,62 @@ background-color:rgba(9,11,16,.42);
                   )),
                 ),
                 h('p', { className: 'ipa-bgDesc' }, t(`background.${background}Desc`)),
+                // A pinned colour only means something on the opaque surface.
+                background === 'solid' && h('div', { className: 'ipa-colors' },
+                  h('span', { className: 'ipa-colorsLabel' }, t('color.label')),
+                  h('div', { className: 'ipa-colorRow', role: 'radiogroup', 'aria-label': t('color.label') },
+                    h('label', { className: 'ipa-colorOption', 'data-active': customColor === null || undefined },
+                      h('input', {
+                        type: 'radio',
+                        className: 'ipa-choiceInput',
+                        name: 'ipa-countdown-color',
+                        value: 'auto',
+                        checked: customColor === null,
+                        disabled: bgDisabled,
+                        onChange: () => { if (customColor !== null) void setColor(null); },
+                      }),
+                      h('span', { className: 'ipa-colorAutoSwatch', 'aria-hidden': true }),
+                      h('span', { className: 'ipa-colorOptionText' }, t('color.auto')),
+                    ),
+                    ...COLOR_PRESETS.map((preset) => h('label', {
+                      key: preset,
+                      className: 'ipa-colorOption',
+                      'data-active': customColor === preset || undefined,
+                      style: { '--ipa-swatch': preset },
+                    },
+                      h('input', {
+                        type: 'radio',
+                        className: 'ipa-choiceInput',
+                        name: 'ipa-countdown-color',
+                        value: preset,
+                        checked: customColor === preset,
+                        disabled: bgDisabled,
+                        'aria-label': preset,
+                        onChange: () => { if (customColor !== preset) void setColor(preset); },
+                      }),
+                      h('span', { className: 'ipa-colorSwatch', 'aria-hidden': true }),
+                    )),
+                    h('label', {
+                      className: 'ipa-colorOption ipa-colorCustom',
+                      'data-active': customColor !== null && !COLOR_PRESETS.includes(customColor) || undefined,
+                      style: customColor === null ? undefined : { '--ipa-swatch': customColor },
+                    },
+                      h('input', {
+                        type: 'color',
+                        className: 'ipa-colorInput',
+                        value: customColor ?? COLOR_PRESETS[0],
+                        disabled: bgDisabled,
+                        'aria-label': t('color.custom'),
+                        onChange: (event) => {
+                          const next = normalizeColor(event?.currentTarget?.value);
+                          if (next !== null && next !== customColor) void setColor(next);
+                        },
+                      }),
+                      h('span', { className: 'ipa-colorOptionText' }, t('color.custom')),
+                    ),
+                  ),
+                  h('p', { className: 'ipa-colorsHint' }, t('color.hint')),
+                ),
               ),
             ),
             h(Section, { title: t('section.flow'), hint: t('section.flowHint') },
@@ -1392,6 +1560,37 @@ background-color:rgba(9,11,16,.42);
         ),
       );
     }
+    const PREVIEW_SECONDS = 10;
+
+    /**
+     * A rehearsal of the countdown: the real component, the real colours, a
+     * fake deadline. Nothing is armed, no route is called, no command runs, and
+     * the overlay closes itself when the demo reaches zero.
+     */
+    function PowerPreview({ snapshot, close, t }) {
+      const started = useMemo(() => Date.now(), []);
+      const deadline = started + PREVIEW_SECONDS * 1000;
+      const demo = {
+        ...snapshot,
+        data: {
+          ...snapshot.data,
+          phase: 'counting',
+          deadline,
+          remainingSeconds: PREVIEW_SECONDS,
+          countdownSeconds: PREVIEW_SECONDS,
+          quietSeconds: snapshot.data.quietSeconds > 0 ? snapshot.data.quietSeconds : 20,
+        },
+      };
+
+      useEffect(() => {
+        const timer = setTimeout(() => close(), PREVIEW_SECONDS * 1000 + 900);
+        return () => clearTimeout(timer);
+      }, [close]);
+
+      const useDemo = (selector) => (typeof selector === 'function' ? selector(demo) : demo);
+      return h(PowerCountdown, { usePower: useDemo, cancel: close, t, preview: true });
+    }
+
     /**
      * Full-window countdown; the only cancel affordance before an irreversible
      * action. The entire viewport is the warning: a rail drains at the top edge,
@@ -1400,7 +1599,7 @@ background-color:rgba(9,11,16,.42);
      * monitor, and on a window spanning two displays where dead centre can land
      * on the bezel.
      */
-    function PowerCountdown({ usePower, cancel, t }) {
+    function PowerCountdown({ usePower, cancel, t, preview = false }) {
       const { data, busy, offline, note, noteCode } = usePower((current) => current);
       const cancelRef = useRef(null);
       const mirrorRef = useRef(null);
@@ -1499,7 +1698,8 @@ background-color:rgba(9,11,16,.42);
       // The ring and rail use the un-rounded remainder so they move on every
       // 250ms tick; the digits keep the rounded value a person can read.
       const exactRemaining = deadline === null ? remaining : Math.max(0, (deadline - now) / 1000);
-      const urgent = remaining <= 10;
+      // A rehearsal never claims to be urgent: it runs for ten seconds by design.
+      const urgent = !preview && remaining <= 10;
       const total = data.countdownSeconds > 0 ? data.countdownSeconds : remaining;
       const RADIUS = 54;
       const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -1508,13 +1708,20 @@ background-color:rgba(9,11,16,.42);
       const scheduledAt = formatClock(deadline === null ? now + remaining * 1000 : deadline);
       const quietSeconds = data.quietSeconds > 0 ? data.quietSeconds : 20;
       const windowSeconds = total > 0 ? total : remaining;
+      // A pinned colour only applies to the solid surface; the ink is computed
+      // from its luminance so the digits stay readable on light and dark picks.
+      const surface = normalizeBackground(data.backgroundStyle);
+      const customColor = surface === 'solid' ? normalizeColor(data.countdownColor) : null;
+      const ink = customColor === null ? null : isDarkColor(customColor) ? 'light' : 'dark';
       const valueNow = Math.max(0, Math.min(remaining, Math.max(1, windowSeconds)));
       const railScale = `scaleX(${fraction})`;
 
       // Seconds only, so the title changes once a second rather than four times.
+      // A preview leaves the window title alone: it is not a real countdown.
       useEffect(() => {
+        if (preview) return;
         try { document.title = `${remaining}${t('countdown.suffix')} · ${action}`; } catch { /* host owns the title */ }
-      }, [remaining, action, t]);
+      }, [remaining, action, t, preview]);
 
       // Mirrors have no script of their own; this window drives every update.
       useEffect(() => {
@@ -1538,10 +1745,15 @@ background-color:rgba(9,11,16,.42);
 
       return h('div', {
         className: `ipa-scrim${urgent ? ' ipa-isUrgent' : ''}`,
-        'data-background': normalizeBackground(data.backgroundStyle),
+        'data-background': surface,
+        'data-ink': ink === null ? undefined : ink,
+        'data-preview': preview ? '' : undefined,
+        // The card and the CTA both read this token, so pinning it here keeps
+        // the whole overlay consistent with the chosen colour.
+        style: customColor === null ? undefined : { '--dsw-alias-bg-overlay': customColor },
         role: 'alertdialog',
         'aria-modal': true,
-        'aria-label': t('countdown.title'),
+        'aria-label': preview ? t('preview.title') : t('countdown.title'),
       },
         h('div', {
           className: 'ipa-rail',
@@ -1559,8 +1771,10 @@ background-color:rgba(9,11,16,.42);
             h('div', { className: 'ipa-statusLine' },
               h('span', { className: 'ipa-stateDot', 'aria-hidden': true }),
               h('div', { className: 'ipa-eyebrow' },
-                t('countdown.title'),
-                h('span', { className: 'ipa-eyebrowSub' }, fmt(t('countdown.quietDone'), String(quietSeconds))),
+                preview ? t('preview.title') : t('countdown.title'),
+                h('span', { className: 'ipa-eyebrowSub' },
+                  preview ? t('preview.subtitle') : fmt(t('countdown.quietDone'), String(quietSeconds)),
+                ),
               ),
             ),
             h('div', { className: 'ipa-topRight' },
@@ -1620,7 +1834,7 @@ background-color:rgba(9,11,16,.42);
             ),
             h('div', { className: 'ipa-stageText' },
               h('div', { className: 'ipa-mode' }, action),
-              h('div', { className: 'ipa-metaLine' }, fmt(t('countdown.scheduledAt'), scheduledAt)),
+              h('div', { className: 'ipa-metaLine' }, preview ? t('preview.noAction') : fmt(t('countdown.scheduledAt'), scheduledAt)),
               (offline || note) && h('div', { className: 'ipa-feedback', role: 'alert' }, offline ? t('countdown.offline') : `${t('status.failed')}: ${describeFailure(noteCode, note, t)}`),
               h('button', {
                 type: 'button',
@@ -1630,15 +1844,15 @@ background-color:rgba(9,11,16,.42);
                 onClick: cancelCountdown,
                 autoFocus: true,
               },
-                t(busy ? 'countdown.cancelling' : 'countdown.cancel'),
+                preview ? t('preview.close') : t(busy ? 'countdown.cancelling' : 'countdown.cancel'),
                 h('kbd', { className: 'ipa-kbd' }, 'Esc'),
               ),
             ),
           ),
           h('div', { className: 'ipa-bottom' },
             h('div', { className: 'ipa-notes' },
-              h('p', { className: 'ipa-hint' }, t('countdown.hint')),
-              h('p', { className: 'ipa-hint' }, t('note.scope')),
+              h('p', { className: 'ipa-hint' }, preview ? t('preview.hint') : t('countdown.hint')),
+              h('p', { className: 'ipa-hint' }, preview ? t('preview.scope') : t('note.scope')),
               extended && h('p', { className: 'ipa-hint' }, t('countdown.multiNote')),
               data.mode === 'shutdown' && h('p', { className: 'ipa-hint ipa-hintWarn' }, t('note.shutdown')),
             ),
@@ -1718,6 +1932,21 @@ background-color:rgba(9,11,16,.42);
             refresh: runtime.refresh,
           }),
         }, PowerPage));
+
+        // The preview shares the countdown component but never touches the Host.
+        ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+          name: 'shell.overlay',
+          id: 'dsh-idle-power.preview',
+          order: 99,
+          locale: NS,
+          inject: () => ({
+            hooks: { power: runtime.store },
+            close: runtime.closePreview,
+          }),
+        }, function PreviewWhenOpen({ usePower, close, t }) {
+          const snapshot = usePower((current) => current);
+          return snapshot.preview === true ? h(PowerPreview, { snapshot, close, t }) : null;
+        }));
 
         // The countdown stays a shell overlay: it must cover every page.
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({

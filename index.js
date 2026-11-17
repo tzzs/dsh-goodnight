@@ -20,6 +20,7 @@ const ARM_PATH = '/idle-power/arm'
 const CANCEL_PATH = '/idle-power/cancel'
 const MODE_PATH = '/idle-power/mode'
 const BACKGROUND_PATH = '/idle-power/background'
+const COLOR_PATH = '/idle-power/color'
 
 const PHASE_IDLE = 'idle'
 const PHASE_ARMED = 'armed'
@@ -58,6 +59,33 @@ function boundedInteger(value, fallback, min, max) {
  */
 function normalizedBackground(value, fallback) {
 	return BACKGROUND_STYLES.includes(value) ? value : fallback
+}
+
+const COLOR_PATTERN = /^#[0-9a-f]{6}$/
+
+/**
+ * A custom countdown colour is optional: `null` keeps the overlay on the Host
+ * theme tokens, which stay correct in both themes and forced-colours mode.
+ * Only a plain opaque hex is accepted, so the client can always compute a
+ * readable ink from it.
+ */
+function normalizedColor(value, fallback = null) {
+	if (value === null || value === undefined) return fallback
+	if (typeof value !== 'string') return fallback
+	const lowered = value.trim().toLowerCase()
+	return COLOR_PATTERN.test(lowered) ? lowered : fallback
+}
+
+/**
+ * Request-body colour parsing: `null` clears the override, a hex sets it, and
+ * anything else is a 400. Kept separate from `normalizedColor` because a body
+ * that omits the field must be rejected, not defaulted.
+ */
+function parseColorInput(value) {
+	if (value === null) return { ok: true, color: null }
+	if (typeof value !== 'string') return { ok: false }
+	const lowered = value.trim().toLowerCase()
+	return COLOR_PATTERN.test(lowered) ? { ok: true, color: lowered } : { ok: false }
 }
 
 /** One plain-JSON reply. Live state is never cached. */
@@ -128,6 +156,8 @@ export function apply(ctx, config, environment = {}) {
 		// Default is the opaque surface: its contrast never depends on what is
 		// behind the window. The panel can override it for this Host's lifetime.
 		backgroundStyle: normalizedBackground(config?.backgroundStyle, BACKGROUND_SOLID),
+		// `null` means "follow the Host theme"; a hex pins the solid surface.
+		countdownColor: normalizedColor(config?.countdownColor, null),
 		shutdownCommand:
 			typeof config?.shutdownCommand === 'string' && config.shutdownCommand.length > 0
 				? config.shutdownCommand
@@ -141,6 +171,7 @@ export function apply(ctx, config, environment = {}) {
 	let phase = PHASE_IDLE
 	let mode = options.defaultMode
 	let backgroundStyle = options.backgroundStyle
+	let countdownColor = options.countdownColor
 	let quietSince = null
 	let deadline = null
 	let error = null
@@ -199,6 +230,7 @@ export function apply(ctx, config, environment = {}) {
 			phase,
 			mode,
 			backgroundStyle,
+			countdownColor,
 			countdownSeconds: options.countdownSeconds,
 			quietSeconds: options.quietSeconds,
 			remainingSeconds: deadline === null ? 0 : Math.max(0, Math.ceil((deadline - now) / 1000)),
@@ -508,6 +540,53 @@ export function apply(ctx, config, environment = {}) {
 			sendJson(res, 200, stateSnapshot())
 		},
 	}), `dsh-idle-power: POST ${BACKGROUND_PATH}`)
+
+	/**
+	 * The same cosmetic-preference rules as the background style: shared by every
+	 * window on this Host, never bumps `revision`, refused once executing.
+	 */
+	ctx.effect(() => ctx.webServer.register({
+		kind: 'exact',
+		path: COLOR_PATH,
+		handler: async (req, res) => {
+			if (rejected(req, res)) return
+			if (req.method !== 'POST') {
+				sendMethodNotAllowed(res, 'POST')
+				return
+			}
+			const essence = String(req.headers['content-type'] ?? '').split(';', 1)[0]?.trim().toLowerCase()
+			if (essence !== 'application/json') {
+				sendJson(res, 415, { code: 'unsupported-media-type', message: 'content-type must be application/json' })
+				return
+			}
+			const text = await readBoundedBody(req)
+			if (text === null) {
+				sendJson(res, 413, { code: 'payload-too-large', message: 'request body is too large' })
+				return
+			}
+			let parsed
+			try {
+				parsed = JSON.parse(text)
+			} catch {
+				parsed = undefined
+			}
+			if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+				sendJson(res, 400, { code: 'bad-request', message: 'body must be {"color":"#rrggbb"|null}' })
+				return
+			}
+			const next = parseColorInput(parsed.color)
+			if (!next.ok) {
+				sendJson(res, 400, { code: 'bad-request', message: 'color must be "#rrggbb" or null' })
+				return
+			}
+			if (phase === PHASE_EXECUTING) {
+				sendJson(res, 409, executionConflict())
+				return
+			}
+			countdownColor = next.color
+			sendJson(res, 200, stateSnapshot())
+		},
+	}), `dsh-idle-power: POST ${COLOR_PATH}`)
 
 	ctx.effect(() => ctx.webServer.register({
 		kind: 'exact',

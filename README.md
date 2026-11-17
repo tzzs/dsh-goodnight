@@ -121,6 +121,10 @@ From top to bottom the page shows the current state (not scheduled / waiting · 
 - **Schedule / Cancel schedule** sits in the action bar at the bottom, next to a one-line plan ("20 s idle → 60 s countdown → shutdown") and named after the selected power action, so the commit button never leaves the choices behind.
 - **State on the rail** — while a reservation is live the power glyph grows a small dot; during the countdown that dot turns red and blinks. The dot survives the rail collapsing to icons.
 - **Countdown background** — three preview tiles that draw the countdown window each preset produces (solid / frosted glass / gaussian blur), applied immediately and persisted on the Host.
+- **A solid surface can be recoloured** — with the solid preset selected, a colour row offers the theme, six presets (four dark, two light) and the system colour picker; the ink switches between black and white by luminance.
+- **Countdown preview** — the Preview button in that section runs the real countdown component for ten seconds with the current colour, background and mode. Nothing is armed, no route is called, and it closes itself at zero.
+
+![Countdown preview](docs/preview.png)
 - **How it runs** — `20 s continuously idle → 60 s cancellable countdown → run`, plus "closing this page does not cancel; only this Host is monitored".
 - **What is running** — running agents, queued messages and background jobs are listed separately, with a total.
 - **Connection state** — "Loading status…" before the first answer, "Cannot reach the plugin Host" with controls disabled when the connection drops, "Submitting…" while a request is in flight so a button cannot be pressed twice.
@@ -153,8 +157,9 @@ The browser half talks to the Host over five authenticated routes. Every one run
 | `POST` | `/idle-power/cancel` | cancel a reservation or a running countdown |
 | `POST` | `/idle-power/mode` | change the mode without reserving |
 | `POST` | `/idle-power/background` | change the background only; body `{ "backgroundStyle": "solid" \| "glass" \| "blur" }` |
+| `POST` | `/idle-power/color` | change the solid colour only; body `{ "color": "#rrggbb" \| null }` |
 
-Once the power command is committed, `/arm`, `/cancel`, `/mode` and `/background` all answer `409 execution-in-progress`. An arm whose upload was overtaken by a cancel, or whose executable check resolved out of order, answers `409 reservation-changed` instead of re-arming a reservation the user already cancelled.
+Once the power command is committed, `/arm`, `/cancel`, `/mode`, `/background` and `/color` all answer `409 execution-in-progress`. An arm whose upload was overtaken by a cancel, or whose executable check resolved out of order, answers `409 reservation-changed` instead of re-arming a reservation the user already cancelled.
 
 `/background` is a pure appearance preference and **deliberately does not touch the reservation state machine**: it never bumps the internal revision, so changing the background can never make an in-flight arm look superseded.
 

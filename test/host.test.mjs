@@ -282,6 +282,38 @@ await scenario('invalid background config falls back to solid', { backgroundStyl
   check('unknown config value is ignored', (await readState(routes)).backgroundStyle === 'solid')
 })
 
+// 1c. The custom solid colour is optional and validated like the style: a hex
+// pins the surface, `null` hands the surface back to the Host theme.
+await scenario('countdown colour route', {}, async ({ routes }) => {
+  check('colour defaults to following the theme', (await readState(routes)).countdownColor === null, (await readState(routes)).countdownColor)
+  const set = await call(routes, '/idle-power/color', { method: 'POST', body: '{"color":"#1B2436"}' })
+  check('POST /color accepts a hex', set.statusCode === 200, set.statusCode)
+  check('the hex is normalised to lower case', parse(set)?.countdownColor === '#1b2436', parse(set)?.countdownColor)
+  check('state keeps the colour', (await readState(routes)).countdownColor === '#1b2436')
+  // Cosmetic writes must stay out of the reservation state machine.
+  check('still idle after a colour change', (await readState(routes)).phase === 'idle')
+
+  const backToTheme = await call(routes, '/idle-power/color', { method: 'POST', body: '{"color":null}' })
+  check('null hands the surface back to the theme', parse(backToTheme)?.countdownColor === null, parse(backToTheme)?.countdownColor)
+
+  for (const bad of ['{"color":"red"}', '{"color":"#12345"}', '{"color":"#1234567"}', '{}', '']) {
+    check(`rejects ${bad || 'an empty body'}`, (await call(routes, '/idle-power/color', { method: 'POST', body: bad })).statusCode === 400)
+  }
+  check('rejects a non-JSON body', (await call(routes, '/idle-power/color', { method: 'POST', body: '{}', headers: { 'content-type': 'text/plain' } })).statusCode === 415)
+  check('is 405 on GET', (await call(routes, '/idle-power/color', { method: 'GET' })).statusCode === 405)
+  check('bad values leave the colour unchanged', (await readState(routes)).countdownColor === null)
+})
+
+await scenario('countdown colour config default', { countdownColor: '#2A1B33' }, async ({ routes }) => {
+  check('configured colour is the initial state', (await readState(routes)).countdownColor === '#2a1b33', (await readState(routes)).countdownColor)
+  const res = await call(routes, '/idle-power/color', { method: 'POST', body: '{"color":"#14171d"}' })
+  check('panel can override the configured colour', parse(res)?.countdownColor === '#14171d', parse(res)?.countdownColor)
+})
+
+await scenario('invalid colour config follows the theme', { countdownColor: 'rgb(1,2,3)' }, async ({ routes }) => {
+  check('a non-hex config value is ignored', (await readState(routes)).countdownColor === null, (await readState(routes)).countdownColor)
+})
+
 await scenario('background change cannot disturb a pending arm', {}, async ({ routes }) => {
   const body = deferred()
   const pending = call(routes, '/idle-power/arm', { method: 'POST', body: '{}', bodyReady: body.promise })

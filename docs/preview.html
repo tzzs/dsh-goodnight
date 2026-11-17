@@ -116,6 +116,8 @@
   const initialSeconds = Number.isFinite(secondsParam) ? Math.max(0, Math.min(3600, Math.ceil(secondsParam))) : 47;
   const initialMode = params.get('mode') === 'shutdown' ? 'shutdown' : 'hibernate';
   const initialBackground = ['solid', 'glass', 'blur'].includes(params.get('bg')) ? params.get('bg') : 'solid';
+  const colorParam = (params.get('color') || '').toLowerCase();
+  const initialColor = /^#[0-9a-f]{6}$/.test(colorParam) ? colorParam : null;
   let alive = true;
   let current = null;
   let scheduled = false;
@@ -293,7 +295,7 @@
     return {
       data: {
         supported: true, platform: 'win32', phase: pageMode ? 'idle' : 'counting', mode: initialMode,
-        backgroundStyle: initialBackground, countdownSeconds: 60, quietSeconds: 20,
+        backgroundStyle: initialBackground, countdownColor: initialColor, countdownSeconds: 60, quietSeconds: 20,
         remainingSeconds: initialSeconds, quietRemainingSeconds: 0, deadline: null,
         busy: { available: true, agentsRunning: 0, inboxPending: 0, jobsRunning: 0, total: 0 },
         error: null, lastExecution: null,
@@ -368,9 +370,17 @@
   };
   const setMode = async (mode) => { if (live) update({}, { mode }); return true; };
   const setBackground = async (backgroundStyle) => { if (live) update({}, { backgroundStyle }); return true; };
-  const pageProps = { usePower, t, arm: start, cancel, setMode, setBackground, refresh: async () => true };
+  const setColor = async (color) => { if (live) update({}, { countdownColor: color }); return true; };
+  // The preview page renders with the same component the Host mounts; two actions
+  // it cannot genuinely perform are no-ops, so the UI still renders.
+  const pageProps = { usePower, t, arm: start, cancel, setMode, setBackground, setColor, openPreview: () => {}, refresh: async () => true };
   const Page = registered.get('idle-power');
   const Countdown = registered.get('dsh-idle-power.countdown');
+  const PreviewOverlay = registered.get('dsh-idle-power.preview');
+  // ?preview=1 rehearses the countdown overlay: the same component the Host
+  // mounts, driven by a fake store snapshot, with nothing armed.
+  const previewMode = params.has('preview');
+  const previewStore = { data: state.data, preview: true };
   const root = document.getElementById('overlay-root');
   // The page is a main-pane view: the app gives it a sized column, and so does
   // this preview, otherwise height:100% would collapse to nothing.
@@ -379,6 +389,12 @@
     const node = React.createElement('div', { key: resetGeneration, style: { display: 'flex', width: '100%', height: '100%' } },
       React.createElement(Page, { ...pageProps, key: 'page' }),
       React.createElement(Countdown, { usePower, t, cancel, key: 'countdown' }),
+      previewMode && PreviewOverlay !== undefined ? React.createElement(PreviewOverlay, {
+        usePower: (selector) => (typeof selector === 'function' ? selector(previewStore) : previewStore),
+        close: () => {},
+        t,
+        key: 'preview',
+      }) : null,
     );
     const previous = tree;
     tree = patch(root, tree, node, false);

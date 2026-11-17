@@ -512,6 +512,86 @@ console.log('\n=== page: refusals are shown in the reader\'s language ===')
 }
 
 
+console.log('\n=== page: solid colour ===')
+{
+  const colorOptions = (tree) => {
+    const found = []
+    walkElements(tree, (node) => {
+      if (typeof node.props.className === 'string' && node.props.className.split(' ').includes('ipa-colorOption')) found.push(node)
+    })
+    return found
+  }
+
+  const solid = renderEntry(page, pageState(baseState))
+  const options = colorOptions(solid.tree)
+  check('offers the theme option, six presets and a custom picker', options.length === 8, String(options.length))
+  check('the theme option is chosen by default', inputOf(options[0])?.props.checked === true)
+  check('presets are unchecked by default', options.slice(1, 7).every((option) => inputOf(option)?.props.checked === false))
+  check('the row is a radio group', findElement(solid.tree, (n) => n.props.role === 'radiogroup' && n.props['aria-label'] === 'color.label') !== undefined)
+  check('a custom colour input exists', findElement(solid.tree, (n) => n.tag === 'input' && n.props.type === 'color') !== undefined)
+  check('explains the automatic ink', textsOf(solid.tree).includes('color.hint'), textsOf(solid.tree).join('|'))
+
+  const glass = renderEntry(page, pageState({ ...baseState, backgroundStyle: 'glass' }))
+  check('the colour row is hidden for the other presets', colorOptions(glass.tree).length === 0, String(colorOptions(glass.tree).length))
+
+  const calls = []
+  const interactive = renderEntry(page, pageState(baseState), { setColor: async (value) => { calls.push(value); return true } })
+  const live = colorOptions(interactive.tree)
+  inputOf(live[2]).props.onChange()
+  check('choosing a preset reaches the Host', calls.length === 1 && /^#[0-9a-f]{6}$/.test(calls[0]), JSON.stringify(calls))
+  const custom = findElement(interactive.tree, (n) => n.tag === 'input' && n.props.type === 'color')
+  custom.props.onChange({ currentTarget: { value: '#123456' } })
+  check('the custom picker reaches the Host', calls.length === 2 && calls[1] === '#123456', JSON.stringify(calls))
+  custom.props.onChange({ currentTarget: { value: 'not-a-colour' } })
+  check('an invalid pick is ignored', calls.length === 2, JSON.stringify(calls))
+
+  const preset = renderEntry(page, pageState({ ...baseState, countdownColor: '#1c2a44' }), { setColor: async () => true })
+  check('the stored colour is the checked preset', colorOptions(preset.tree).filter((option) => inputOf(option)?.props.checked === true).map((option) => inputOf(option).props.value).join() === '#1c2a44')
+}
+
+console.log('\n=== countdown: pinned colour and ink ===')
+{
+  const paint = (data) => findElement(renderEntry(countdown, { data, offline: false, busy: false, note: null }).tree, (n) => n.props['aria-modal'] === true)
+  const counting = { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null }
+
+  const dark = paint({ ...counting, backgroundStyle: 'solid', countdownColor: '#16233a' })
+  check('a dark pick gets light ink', dark?.props['data-ink'] === 'light', String(dark?.props['data-ink']))
+  check('the colour is pinned as the card surface token', dark?.props.style?.['--dsw-alias-bg-overlay'] === '#16233a', JSON.stringify(dark?.props.style))
+
+  const light = paint({ ...counting, backgroundStyle: 'solid', countdownColor: '#f2e9d8' })
+  check('a light pick gets dark ink', light?.props['data-ink'] === 'dark', String(light?.props['data-ink']))
+
+  const themed = paint({ ...counting, backgroundStyle: 'solid', countdownColor: null })
+  check('following the theme pins no ink', themed?.props['data-ink'] === undefined, String(themed?.props['data-ink']))
+  check('following the theme pins no colour', themed?.props.style === undefined, JSON.stringify(themed?.props.style))
+
+  const glass = paint({ ...counting, backgroundStyle: 'glass', countdownColor: '#16233a' })
+  check('a pinned colour cannot leak onto the other presets', glass?.props['data-ink'] === undefined && glass?.props.style === undefined)
+}
+
+console.log('\n=== preview: a rehearsal, not a countdown ===')
+{
+  const previewEntry = byId('dsh-idle-power.preview')
+  check('preview overlay is registered', previewEntry?.name === 'shell.overlay', previewEntry?.name)
+
+  const closed = renderEntry(previewEntry, { data: baseState, preview: false })
+  check('nothing renders while the preview is closed', closed.root === null)
+
+  let closes = 0
+  const open = renderEntry(previewEntry, { data: { ...baseState, mode: 'shutdown' }, preview: true }, { close: () => { closes += 1 } })
+  const texts = textsOf(open.tree)
+  const joined = texts.join('|')
+  check('renders the countdown component', findElement(open.tree, (n) => n.props['aria-modal'] === true) !== undefined)
+  check('labels itself as a preview', joined.includes('preview.title') && joined.includes('preview.subtitle'), joined)
+  check('says nothing will run', joined.includes('preview.noAction') && joined.includes('preview.hint'), joined)
+  check('the escape hatch is the preview close action', joined.includes('preview.close'), joined)
+  check('a preview leaves the real countdown copy alone', !joined.includes('countdown.quietDone'), joined)
+  const cancelButton = findElement(open.tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-cta'))
+  cancelButton?.props.onClick?.()
+  check('closing the preview does not touch the Host', closes === 1, String(closes))
+  check('the preview does not rewrite the window title', !String(documentStub.title ?? '').includes('preview'))
+}
+
 console.log('\n=== countdown: hidden unless counting ===')
 {
   check('null when idle', renderEntry(countdown, { data: baseState }).root === null)
