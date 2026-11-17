@@ -1614,7 +1614,9 @@ background-color:rgba(9,11,16,.42);
     function PowerCountdown({ usePower, cancel, t, preview = false }) {
       const { data, busy, offline, note, noteCode } = usePower((current) => current);
       const cancelRef = useRef(null);
-      const mirrorRef = useRef(null);
+      // The overlay is the tab trap's boundary: a focus list of two controls went
+      // stale as soon as the countdown grew a third button.
+      const dialogRef = useRef(null);
       const mirrorsRef = useRef([]);
       // Whether this countdown is the thing that put the window into fullscreen:
       // closing it must give the screen back, but an unrelated fullscreen must
@@ -1697,8 +1699,8 @@ background-color:rgba(9,11,16,.42);
         };
       }, []);
 
-      // Escape cancels from anywhere. Tab cycles inside the dialog so the mirror
-      // button stays keyboard-reachable instead of stealing focus from Cancel.
+      // Escape cancels from anywhere. Tab cycles through every enabled control in
+      // the dialog so each button stays reachable without escaping the trap.
       useEffect(() => {
         const onKey = (event) => {
           if (event.key === 'Escape') {
@@ -1710,9 +1712,8 @@ background-color:rgba(9,11,16,.42);
             return;
           }
           if (event.key !== 'Tab') return;
-          const controls = [cancelRef.current, mirrorRef.current].filter(
-            (el) => el !== null && el !== undefined && typeof el.focus === 'function' && el.isConnected !== false,
-          );
+          const controls = Array.from(dialogRef.current?.querySelectorAll?.('button:not(:disabled)') ?? [])
+            .filter((el) => typeof el.focus === 'function' && el.isConnected !== false);
           if (controls.length === 0) { event.preventDefault?.(); cancelRef.current?.focus?.(); return; }
           const active = typeof document === 'undefined' ? null : document.activeElement;
           const index = controls.indexOf(active);
@@ -1810,6 +1811,7 @@ background-color:rgba(9,11,16,.42);
 
       return h('div', {
         className: `ipa-scrim${urgent ? ' ipa-isUrgent' : ''}`,
+        ref: dialogRef,
         'data-background': surface,
         'data-ink': ink === null ? undefined : ink,
         'data-preview': preview ? '' : undefined,
@@ -1867,7 +1869,6 @@ background-color:rgba(9,11,16,.42);
               extended && h('button', {
                 type: 'button',
                 className: 'ipa-mirrors',
-                ref: mirrorRef,
                 disabled: mirrorStatus.kind === 'working',
                 onClick: () => { void showMirrors(); },
               },

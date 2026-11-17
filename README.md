@@ -148,18 +148,18 @@ A mode or background you pick in the UI is remembered by the Host (it survives a
 
 ## HTTP routes
 
-The browser half talks to the Host over five authenticated routes. Every one runs a trust check first (Host/Origin, `sec-fetch-site`, then the auth cookie) and answers `403` / `401` without it.
+The browser half talks to the Host over six authenticated routes. Every one checks Host, Origin, `sec-fetch-site` and the auth cookie first, answering `403` or `401`; when the connection service is unavailable every route answers `503`.
 
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/idle-power/state` | mode, phase, remaining seconds, background style, live task counts |
 | `POST` | `/idle-power/arm` | reserve; body `{ "mode": "hibernate" \| "shutdown" }` |
 | `POST` | `/idle-power/cancel` | cancel a reservation or a running countdown |
-| `POST` | `/idle-power/mode` | change the mode without reserving |
+| `POST` | `/idle-power/mode` | change the mode when nothing is reserved |
 | `POST` | `/idle-power/background` | change the background only; body `{ "backgroundStyle": "solid" \| "glass" \| "blur" }` |
 | `POST` | `/idle-power/color` | change the solid colour only; body `{ "color": "#rrggbb" \| null }` |
 
-Once the power command is committed, `/arm`, `/cancel`, `/mode`, `/background` and `/color` all answer `409 execution-in-progress`. An arm whose upload was overtaken by a cancel, or whose executable check resolved out of order, answers `409 reservation-changed` instead of re-arming a reservation the user already cancelled.
+Once the power command is committed, `/arm`, `/cancel`, `/mode`, `/background` and `/color` all answer `409 execution-in-progress`. A superseded arm, and any `/mode` sent while a reservation is live, answers `409 reservation-changed`; to change the action of an existing reservation, arm again so the quiet window restarts.
 
 `/background` is a pure appearance preference and **deliberately does not touch the reservation state machine**: it never bumps the internal revision, so changing the background can never make an in-flight arm look superseded.
 
@@ -180,6 +180,8 @@ Two dependency-free harnesses drive the real code with stand-ins, so the suite c
 
 - `test/host.test.mjs` — the state machine against fake agents, fake jobs and a subprocess that records `argv` instead of executing. Covers the busy predicate, a missing registry, quiet behaviour, countdown voiding, both command lines, cancellation, failure reporting, the mode and background routes, background config fallback for unknown values, and the races: mutations refused once execution is committed, a background change that must not disturb a pending arm, a cancel beating a slow arm upload, a stale lookup unable to overwrite a cancellation, and a suspend that overshoots the deadline re-arming instead of firing.
 - `test/client.test.cjs` — renders the real `client.js` components with a minimal React stand-in and asserts on the produced tree: the rail glyph and its pending dot, every page state (loading / offline / registry unavailable / executing / failed), the live load and per-kind task breakdown, mode and background selection with their disabled states, the flow and notes, the full-screen countdown's information hierarchy and progressbar semantics, the emitted `data-background` with fallback for unknown values, the progress ring's geometry and edge cases, multi-screen detection and mirror degradation, cancel-failure feedback, and `prefers-reduced-motion` coverage.
+
+The host tests also cover a failed trust check, an unavailable connection service, mode changes during a reservation, and waking up during the executable lookup; the client tests cover keyboard access to every countdown control plus the fullscreen request and the two-step `Esc`.
 
 ### Cross-platform testing
 

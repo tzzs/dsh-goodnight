@@ -181,7 +181,7 @@ export function apply(ctx, config, environment = {}) {
 	let disposed = false
 
 	const executionConflict = () => ({ ok: false, code: 'execution-in-progress', message: 'the power command is already executing' })
-	const superseded = () => ({ ok: false, code: 'reservation-changed', message: 'the reservation changed while the command was being checked' })
+	const superseded = () => ({ ok: false, code: 'reservation-changed', message: 'the reservation changed; please try again' })
 
 	/**
 	 * Count everything this Host is still doing: agent turns, queued inbox work,
@@ -302,6 +302,11 @@ export function apply(ctx, config, environment = {}) {
 		try {
 			const executable = await ctx.subprocess.resolveExecutable(options.shutdownCommand)
 			if (disposed || revision !== attempt || phase !== PHASE_COUNTING) return
+			const now = Date.now()
+			if (now - deadline > RESUME_GAP_MS) {
+				evaluate(now)
+				return
+			}
 			// Resolving PATH may yield while new work arrives. Recheck immediately
 			// before spawn, with no asynchronous boundary after this check.
 			const busy = countBusy()
@@ -396,7 +401,7 @@ export function apply(ctx, config, environment = {}) {
 	/** The one fence every route runs first: Host/Origin trust plus browser authentication. */
 	function rejected(req, res) {
 		const connection = ctx.get('connection')
-		const rejection = connection === undefined ? undefined : connection.requestRejection(req)
+		const rejection = connection === undefined ? 503 : connection.requestRejection(req)
 		if (rejection === undefined) return false
 		res.statusCode = rejection
 		res.end()
@@ -489,6 +494,10 @@ export function apply(ctx, config, environment = {}) {
 			}
 			if (phase === PHASE_EXECUTING) {
 				sendJson(res, 409, executionConflict())
+				return
+			}
+			if (phase === PHASE_ARMED || phase === PHASE_COUNTING) {
+				sendJson(res, 409, superseded())
 				return
 			}
 			revision += 1

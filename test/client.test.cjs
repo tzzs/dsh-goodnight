@@ -856,6 +856,42 @@ console.log('\n=== multi-screen: controls appear only with a second display ==='
   delete windowStub.screen
 }
 
+console.log('\n=== multi-screen: keyboard access ===')
+{
+  listeners.keydown.length = 0
+  windowStub.screen = { isExtended: true }
+  const counting = { data: { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null } }
+  const { tree } = renderEntry(countdown, counting)
+  const group = findElement(tree, (n) => n.props.role === 'group' && n.props['aria-label'] === 'countdown.alignLabel')
+  const alignButtons = group.children.filter((child) => child.kind === 'element' && child.tag === 'button')
+  const mirror = findElement(tree, (n) => n.props.className === 'ipa-mirrors')
+  const cancelButton = findElement(tree, (n) => n.props.className === 'ipa-cta')
+  const buttons = [...alignButtons, mirror, cancelButton]
+  tree.querySelectorAll = () => buttons.filter((button) => !button.props.disabled)
+  for (const button of buttons) button.focus = () => { documentStub.activeElement = button }
+  const pressTab = (shiftKey = false) => fire('keydown', { key: 'Tab', shiftKey, preventDefault() {} })
+
+  cancelButton.focus()
+  pressTab(true)
+  check('Shift+Tab reaches the mirror button', documentStub.activeElement === mirror)
+  pressTab(true)
+  check('Shift+Tab reaches the right alignment button', documentStub.activeElement === alignButtons[2])
+  pressTab(true)
+  check('Shift+Tab reaches the center alignment button', documentStub.activeElement === alignButtons[1])
+  alignButtons[0].focus()
+  pressTab(true)
+  check('Shift+Tab wraps to cancel', documentStub.activeElement === cancelButton)
+  pressTab()
+  check('Tab wraps to the left alignment button', documentStub.activeElement === alignButtons[0])
+  mirror.props.disabled = true
+  alignButtons[2].focus()
+  pressTab()
+  check('Tab skips a disabled mirror button', documentStub.activeElement === cancelButton)
+  delete windowStub.screen
+  delete documentStub.activeElement
+  listeners.keydown.length = 0
+}
+
 console.log('\n=== multi-screen: pure placement helpers ===')
 {
   const api = moduleObj.internals
