@@ -14,51 +14,70 @@ window.__ModuleLoader__.load({
 
     // ---------------------------------------------------------------- locale
     const zh = {
-      'button.tip': '空闲后休眠或关机',
-      'entry.schedulePrefix': '预约',
-      'entry.secondsTo': ' 秒后',
-      'entry.quietSuffix': ' 秒后开始倒计时',
-      'mode.hibernate.short': '休眠',
-      'mode.shutdown.short': '关机',
-      'panel.title': '空闲后休眠或关机',
-      'panel.subtitle': '等待当前 DSH Host 的任务结束，再执行一次电源操作。',
-      'panel.flow': '执行流程',
-      'panel.quiet': '秒持续空闲',
-      'panel.countdown': '秒可取消倒计时',
-      'panel.scope': '关闭页面不会取消预约；不监测其他应用或其他 Host。',
-      'panel.mode': '电源操作',
-      'status.loading': '正在读取状态…',
-      'status.saving': '正在提交…',
-      'status.executing': '正在执行电源操作',
-      'status.agents': '运行中的智能体',
-      'status.inbox': '排队消息',
-      'status.jobs': '后台任务',
-      'countdown.cancelling': '正在取消…',
-      'countdown.offline': '连接已断开，预约可能仍在执行。取消尚未确认，请重试。',
-      'error.execution-in-progress': '电源操作已经开始执行，无法再取消。',
-      'error.reservation-changed': '预约状态刚刚发生了变化，请重新操作。',
-      'error.command-unavailable': '找不到可执行的电源命令，请检查 shutdownCommand 配置。',
-      'error.agents-unavailable': '智能体注册表不可用，暂时无法预约。',
-      'error.unsupported-platform': '此插件只支持 Windows。',
-      'panel.hibernate': '休眠',
-      'panel.hibernateDesc': '内存快照落盘，等于断电；下次开机原样恢复窗口和未保存的内容。',
-      'panel.shutdown': '关机',
-      'panel.shutdownDesc': '倒计时结束后关闭 Windows，DSH 对话记录仍然保留。',
-      'panel.shutdownNote': '会强制关闭应用，未保存的内容可能丢失。请先保存其他应用的工作。',
-      'panel.hibernateNote': '休眠后按电源键会把整机内存读回来，开着的窗口都还在。',
-      'panel.arm': '预约',
-      'panel.cancel': '取消预约',
-      'panel.close': '关闭',
+      'rail.label': '预约关机',
+      'page.eyebrow': '空闲电源',
+      'page.title': '预约关机',
+      'page.subtitle': '等当前 DSH Host 的任务全部结束，再执行一次电源操作。',
+      'page.refresh': '刷新状态',
+      'page.retry': '重试',
+      'page.arm': '预约',
+      'page.cancel': '取消预约',
+      'page.saving': '正在提交…',
+      'page.loading': '正在读取状态…',
       'status.idle': '未预约',
       'status.waiting': '等待中',
-      'status.tasksSuffix': ' 个任务在跑',
-      'status.quietPrefix': '任务已停下，',
-      'status.quietSuffix': ' 秒后开始倒计时',
       'status.counting': '倒计时中',
+      'status.executing': '正在执行电源操作',
       'status.failed': '执行失败',
       'status.offline': '连不上插件 Host',
       'status.unsupported': '此插件只支持 Windows',
       'status.registryUnavailable': '智能体注册表不可用，已暂停倒计时',
+      'status.tasksSuffix': ' 个任务在跑',
+      'status.quietSuffix': ' 秒后开始倒计时',
+      'status.countingSuffix': ' 秒后执行',
+      'status.scheduledAt': '预计 %s 执行',
+      'body.idle': '还没有预约。现在预约，会一直等到所有任务结束。',
+      'body.waiting': '任务全部停下后开始倒计时。',
+      'body.quiet': '任务已经停下，正在确认这段空闲。',
+      'body.counting': '倒计时期间出现新任务会自动作废。',
+      'body.executing': '电源操作已经发出，无法取消。',
+      'body.failed': '电源操作没有成功，可以重新预约。',
+      'body.offline': '状态读取失败，预约可能仍在执行；确认连接后再操作。',
+      'body.registry': '找不到智能体注册表，无法判断任务是否结束，倒计时已暂停。',
+      'body.unsupported': '只有 Windows 提供休眠和关机命令。',
+      'section.mode': '电源操作',
+      'section.modeHint': '倒计时归零后执行选中的操作。',
+      'section.flow': '执行流程',
+      'section.flowHint': '三步依次发生；倒计时期间出现新任务会自动作废。',
+      'section.background': '倒计时背景',
+      'section.backgroundHint': '只影响倒计时窗口的外观。',
+      'section.notes': '说明',
+      'mode.hibernate': '休眠',
+      'mode.hibernateDesc': '内存快照落盘，等于断电；下次开机原样恢复窗口和未保存的内容。',
+      'mode.shutdown': '关机',
+      'mode.shutdownDesc': '倒计时结束后关闭 Windows，DSH 对话记录仍然保留。',
+      'flow.idle': '持续空闲 %s 秒',
+      'flow.idleDesc': '智能体、排队消息和后台任务都停下之后，再连续空闲这么久。',
+      'flow.countdown': '可取消倒计时 %s 秒',
+      'flow.countdownDesc': '占满整个窗口的倒计时，按 Esc 或点取消都能停下。',
+      'flow.act': '执行电源操作',
+      'flow.actDesc': '倒计时归零后执行休眠或关机，开始执行后无法再取消。',
+      'metric.agents': '运行中的智能体',
+      'metric.inbox': '排队消息',
+      'metric.jobs': '后台任务',
+      'metric.total': '任务合计',
+      'note.scope': '关闭页面不会取消预约；只监测当前 Host，不监测其他应用或其他 Host。',
+      'note.autoVoid': '倒计时期间任何新任务都会让本次预约自动作废。',
+      'note.platform': '只有 Windows 提供休眠和关机命令。',
+      'note.hostRestart': 'Host 重启会取消预约：重启说明有人回到了机器前。',
+      'note.shutdown': '会强制关闭应用，未保存的内容可能丢失。请先保存其他应用的工作。',
+      'note.hibernate': '休眠后按电源键会把整机内存读回来，开着的窗口都还在。',
+      'background.solid': '纯色',
+      'background.solidDesc': '不透明底色，文字对比度最高。',
+      'background.glass': '毛玻璃',
+      'background.glassDesc': '半透明 + 模糊，隐约透出背后的窗口。',
+      'background.blur': '高斯模糊',
+      'background.blurDesc': '重度模糊 + 暗底，沉浸式深色提示。',
       'countdown.title': '所有任务已完成',
       'countdown.hibernate': '将进入休眠',
       'countdown.shutdown': '将关机',
@@ -84,60 +103,79 @@ window.__ModuleLoader__.load({
       'countdown.mirrorPlain': '已打开一个镜像窗口，请把它拖到另一块屏幕。',
       'countdown.beaconTitle': '关机倒计时 · 镜像窗口',
       'countdown.beaconHint': '在任意窗口取消，都会停止本次电源操作。',
-      'panel.background': '倒计时背景',
-      'background.solid': '纯色',
-      'background.solidDesc': '不透明底色，文字对比度最高。',
-      'background.glass': '毛玻璃',
-      'background.glassDesc': '半透明 + 模糊，隐约透出背后的窗口。',
-      'background.blur': '高斯模糊',
-      'background.blurDesc': '重度模糊 + 暗底，沉浸式深色提示。',
+      'countdown.cancelling': '正在取消…',
+      'countdown.offline': '连接已断开，预约可能仍在执行。取消尚未确认，请重试。',
+      'error.execution-in-progress': '电源操作已经开始执行，无法再取消。',
+      'error.reservation-changed': '预约状态刚刚发生了变化，请重新操作。',
+      'error.command-unavailable': '找不到可执行的电源命令，请检查 shutdownCommand 配置。',
+      'error.agents-unavailable': '智能体注册表不可用，暂时无法预约。',
+      'error.unsupported-platform': '此插件只支持 Windows。',
     };
     const en = {
-      'button.tip': 'Hibernate or power off when idle',
-      'entry.schedulePrefix': 'Schedule ',
-      'entry.secondsTo': 's to ',
-      'entry.quietSuffix': 's to countdown',
-      'mode.hibernate.short': 'hibernate',
-      'mode.shutdown.short': 'shut down',
-      'panel.title': 'Hibernate or power off when idle',
-      'panel.subtitle': 'Run one power action after tasks in this DSH Host finish.',
-      'panel.flow': 'How it runs',
-      'panel.quiet': 's continuously idle',
-      'panel.countdown': 's cancellable countdown',
-      'panel.scope': 'Closing this page does not cancel. Other apps and Hosts are not monitored.',
-      'panel.mode': 'Power action',
-      'status.loading': 'Loading status…',
-      'status.saving': 'Submitting…',
-      'status.executing': 'Executing power action',
-      'status.agents': 'Running agents',
-      'status.inbox': 'Queued messages',
-      'status.jobs': 'Background jobs',
-      'countdown.cancelling': 'Cancelling…',
-      'countdown.offline': 'Connection lost. The reservation may still run. Cancellation is unconfirmed; please retry.',
-      'error.execution-in-progress': 'The power command is already executing and can no longer be cancelled.',
-      'error.reservation-changed': 'The reservation just changed; please try again.',
-      'error.command-unavailable': 'The power command could not be found; check the shutdownCommand setting.',
-      'error.agents-unavailable': 'The agent registry is unavailable, so nothing can be scheduled right now.',
-      'error.unsupported-platform': 'This plugin supports Windows only.',
-      'panel.hibernate': 'Hibernate',
-      'panel.hibernateDesc': 'Writes a memory snapshot to disk, so the next boot restores every open window and unsaved edit.',
-      'panel.shutdown': 'Shut down',
-      'panel.shutdownDesc': 'Shuts down Windows after the countdown. DSH conversations remain saved.',
-      'panel.shutdownNote': 'Forces apps to close. Unsaved work may be lost; save your work in other apps first.',
-      'panel.hibernateNote': 'After hibernating, pressing the power button reads the memory image back.',
-      'panel.arm': 'Schedule',
-      'panel.cancel': 'Cancel',
-      'panel.close': 'Close',
+      'rail.label': 'Scheduled power',
+      'page.eyebrow': 'IDLE POWER',
+      'page.title': 'Scheduled power',
+      'page.subtitle': 'Run one power action after every task in this DSH Host has finished.',
+      'page.refresh': 'Refresh status',
+      'page.retry': 'Retry',
+      'page.arm': 'Schedule',
+      'page.cancel': 'Cancel schedule',
+      'page.saving': 'Submitting…',
+      'page.loading': 'Loading status…',
       'status.idle': 'Not scheduled',
       'status.waiting': 'Waiting',
-      'status.tasksSuffix': ' tasks running',
-      'status.quietPrefix': 'All tasks stopped, ',
-      'status.quietSuffix': 's until the countdown',
       'status.counting': 'Counting down',
+      'status.executing': 'Executing power action',
       'status.failed': 'Failed',
       'status.offline': 'Cannot reach the plugin Host',
       'status.unsupported': 'This plugin supports Windows only',
       'status.registryUnavailable': 'Agent registry unavailable; countdown paused',
+      'status.tasksSuffix': ' tasks running',
+      'status.quietSuffix': 's until the countdown',
+      'status.countingSuffix': 's until it runs',
+      'status.scheduledAt': 'Scheduled for %s',
+      'body.idle': 'Nothing is scheduled. Scheduling waits until every task has finished.',
+      'body.waiting': 'The countdown starts once every task has stopped.',
+      'body.quiet': 'Every task stopped; this idle window is being confirmed.',
+      'body.counting': 'Any new task voids this countdown automatically.',
+      'body.executing': 'The power command has been sent and can no longer be cancelled.',
+      'body.failed': 'The power action did not succeed; you can schedule it again.',
+      'body.offline': 'Status could not be read. The reservation may still run; check the connection before acting.',
+      'body.registry': 'The agent registry is missing, so "all tasks finished" cannot be proven; the countdown is paused.',
+      'body.unsupported': 'Only Windows provides the hibernate and shutdown commands.',
+      'section.mode': 'Power action',
+      'section.modeHint': 'What runs when the countdown reaches zero.',
+      'section.flow': 'How it runs',
+      'section.flowHint': 'Three steps in order; a new task during the countdown voids the whole reservation.',
+      'section.background': 'Countdown background',
+      'section.backgroundHint': 'Only changes how the countdown window looks.',
+      'section.notes': 'Notes',
+      'mode.hibernate': 'Hibernate',
+      'mode.hibernateDesc': 'Writes a memory snapshot to disk, so the next boot restores every open window and unsaved edit.',
+      'mode.shutdown': 'Shut down',
+      'mode.shutdownDesc': 'Shuts down Windows after the countdown. DSH conversations remain saved.',
+      'flow.idle': '%s s of continuous idle',
+      'flow.idleDesc': 'Agents, queued messages and background jobs must all stop, then stay stopped for this long.',
+      'flow.countdown': '%s s cancellable countdown',
+      'flow.countdownDesc': 'A countdown that fills the whole window; Esc or Cancel stops it.',
+      'flow.act': 'Run the power action',
+      'flow.actDesc': 'At zero it hibernates or shuts down. Once it starts it cannot be cancelled.',
+      'metric.agents': 'Running agents',
+      'metric.inbox': 'Queued messages',
+      'metric.jobs': 'Background jobs',
+      'metric.total': 'Tasks total',
+      'note.scope': 'Closing this page does not cancel. Only this Host is monitored; other apps and Hosts are not.',
+      'note.autoVoid': 'Any new task during the countdown voids this reservation.',
+      'note.platform': 'Only Windows provides the hibernate and shutdown commands.',
+      'note.hostRestart': 'A Host restart cancels the reservation: a restart means somebody is back at the machine.',
+      'note.shutdown': 'Forces apps to close. Unsaved work may be lost; save your work in other apps first.',
+      'note.hibernate': 'After hibernating, pressing the power button reads the memory image back.',
+      'background.solid': 'Solid',
+      'background.solidDesc': 'Opaque surface with the strongest text contrast.',
+      'background.glass': 'Frosted glass',
+      'background.glassDesc': 'Translucent with a blur; faintly shows the window behind.',
+      'background.blur': 'Gaussian blur',
+      'background.blurDesc': 'Heavy blur and a dark scrim; an immersive dark warning.',
       'countdown.title': 'All tasks finished',
       'countdown.hibernate': 'About to hibernate',
       'countdown.shutdown': 'About to power off',
@@ -163,34 +201,130 @@ window.__ModuleLoader__.load({
       'countdown.mirrorPlain': 'Opened one mirror window — drag it to another screen.',
       'countdown.beaconTitle': 'Power-off countdown · mirror',
       'countdown.beaconHint': 'Cancelling in any window stops this power action everywhere.',
-      'panel.background': 'Countdown background',
-      'background.solid': 'Solid',
-      'background.solidDesc': 'Opaque surface with the strongest text contrast.',
-      'background.glass': 'Frosted glass',
-      'background.glassDesc': 'Translucent with a blur; faintly shows the window behind.',
-      'background.blur': 'Gaussian blur',
-      'background.blurDesc': 'Heavy blur and a dark scrim; an immersive dark warning.',
+      'countdown.cancelling': 'Cancelling…',
+      'countdown.offline': 'Connection lost. The reservation may still run. Cancellation is unconfirmed; please retry.',
+      'error.execution-in-progress': 'The power command is already executing and can no longer be cancelled.',
+      'error.reservation-changed': 'The reservation just changed; please try again.',
+      'error.command-unavailable': 'The power command could not be found; check the shutdownCommand setting.',
+      'error.agents-unavailable': 'The agent registry is unavailable, so nothing can be scheduled right now.',
+      'error.unsupported-platform': 'This plugin supports Windows only.',
     };
-
     // ---------------------------------------------------------------- styles
     const CSS = `
 /* A short press, a soft settle, and a readable reveal share the same cadence.
    Keep these tokens local: a plugin must not change the host's motion system. */
-:where(.ipa-panel,.ipa-scrim,.ipa-entry,.ipa-fab){--ipa-ease:cubic-bezier(.2,.7,.2,1);--ipa-settle:cubic-bezier(.22,1.35,.36,1);--ipa-fast:140ms;--ipa-move:300ms}
-.ipa-fab{display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:none;border-radius:var(--dsw-radius-sm);background:0 0;color:var(--dsw-alias-label-secondary);cursor:pointer;position:relative;flex:none}
-@media (hover:hover){.ipa-fab:hover{background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-fab:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color);outline-offset:2px}
-.ipa-fab[data-active]{color:var(--dsw-alias-brand-primary)}
-.ipa-fab .ipa-dot{position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-brand-primary)}
-.ipa-fab[data-phase=counting] .ipa-dot{background:var(--dsw-alias-state-error-primary)}
-.ipa-entry{display:flex;align-items:center;gap:8px;width:100%;min-width:0;height:36px;padding:0 12px;box-sizing:border-box;border:none;border-radius:var(--dsw-radius-md);background:0 0;color:var(--dsw-alias-label-secondary);cursor:pointer;font:inherit;font-size:13px;line-height:22px;text-align:left;position:relative}
-@media (hover:hover){.ipa-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}}
-.ipa-entry:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color);outline-offset:-2px}
-.ipa-entry .ipa-entryText{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ipa-entry[data-active]{color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2);font-weight:500}
-.ipa-entry[data-phase=counting]{color:var(--dsw-alias-state-error-primary)}
-.ipa-entry .ipa-dot{position:static;flex:none;width:6px;height:6px;border-radius:50%;background:currentColor}
-.ipa-entry[data-phase=counting] .ipa-dot{background:currentColor}
+:where(.ipa-page,.ipa-scrim){--ipa-ease:cubic-bezier(.2,.7,.2,1);--ipa-settle:cubic-bezier(.22,1.35,.36,1);--ipa-fast:140ms;--ipa-move:300ms}
+/* ---- rail entry --------------------------------------------------------- */
+/* The rail renders one glyph per panel and the host owns its tooltip, so the
+   reservation state has to live inside the artwork: a dot while a power action
+   is pending, blinking once the countdown is running. */
+.ipa-railGlyph{display:block}
+.ipa-railDot{fill:currentColor}
+.ipa-railGlyph[data-phase=counting] .ipa-railDot{fill:var(--dsw-alias-state-error-primary);animation:ipa-blink 1.6s ease-in-out infinite}
+@keyframes ipa-blink{0%,100%{opacity:1}50%{opacity:.45}}
+/* ---- page shell --------------------------------------------------------- */
+.ipa-page{box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-direction:column;width:100%;height:100%;min-height:0;overflow:hidden;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-size:14px;line-height:1.6;font-variant-numeric:tabular-nums}
+.ipa-page *{box-sizing:border-box}
+.ipa-pageWrap{width:100%;max-width:1120px;margin:0 auto;padding-inline:clamp(18px,3.6cqw,48px)}
+.ipa-pageTop{flex:none;border-bottom:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}
+.ipa-pageHeader{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-top:clamp(20px,3cqw,32px);padding-bottom:clamp(14px,2cqw,20px)}
+[data-platform=darwin] .ipa-pageHeader{padding-top:calc(32px + var(--dsh-frame-top-clearance,0px))}
+.ipa-pageHead{min-width:0;flex:1}
+.ipa-pageEyebrow{display:block;margin-bottom:6px;font-size:11px;line-height:18px;font-weight:600;letter-spacing:.12em;color:var(--dsw-alias-label-tertiary)}
+.ipa-pageTitle{margin:0;font-size:clamp(22px,3.4cqw,28px);line-height:1.25;font-weight:650;letter-spacing:-.03em;text-wrap:balance}
+.ipa-pageSub{margin:6px 0 0;max-width:62ch;color:var(--dsw-alias-label-secondary);font-size:13.5px;line-height:21px;text-wrap:pretty}
+.ipa-pageTools{display:flex;align-items:center;gap:8px;flex:none}
+.ipa-scroll{flex:1;min-height:0;overflow:auto;scrollbar-gutter:stable}
+.ipa-pageBody{display:flex;flex-direction:column;gap:clamp(20px,2.6cqw,28px);padding-top:clamp(18px,2.6cqw,26px);padding-bottom:clamp(28px,4cqw,48px)}
+.ipa-pageFoot{flex:none;border-top:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}
+.ipa-footInner{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:38px;font-size:11.5px;line-height:18px;color:var(--dsw-alias-label-tertiary)}
+.ipa-footState{display:flex;align-items:center;gap:8px;min-width:0}
+.ipa-statusDot{flex:none;width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-brand-primary)}
+.ipa-statusDot[data-tone=error]{background:var(--dsw-alias-state-error-primary)}
+.ipa-footTag{flex:none;white-space:nowrap}
+/* ---- controls ----------------------------------------------------------- */
+.ipa-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;min-height:36px;padding:7px 14px;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;font-weight:600;line-height:20px;cursor:pointer;transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
+@media (hover:hover){.ipa-button:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}}
+.ipa-button[data-variant=primary]{border-color:transparent;background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary-foreground)}
+@media (hover:hover){.ipa-button[data-variant=primary]:hover:not(:disabled){filter:brightness(1.06)}}
+.ipa-button[data-variant=danger]{border-color:var(--dsw-alias-state-error-primary);background:0 0;color:var(--dsw-alias-state-error-primary)}
+.ipa-button:disabled{opacity:.5;cursor:default}
+.ipa-button:active:not(:disabled){transform:scale(.985)}
+.ipa-iconButton{display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;padding:0;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:0 0;color:var(--dsw-alias-label-secondary);cursor:pointer}
+@media (hover:hover){.ipa-iconButton:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}}
+.ipa-iconButton:disabled{opacity:.45;cursor:default}
+.ipa-page :focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:2px}
+/* ---- status hero -------------------------------------------------------- */
+.ipa-hero{display:flex;align-items:center;gap:clamp(18px,3cqw,34px);flex-wrap:wrap;padding:clamp(18px,2.6cqw,26px);border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1)}
+.ipa-heroDial{position:relative;display:grid;place-items:center;flex:none;width:clamp(96px,14cqw,124px);height:clamp(96px,14cqw,124px)}
+.ipa-heroRing{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+.ipa-heroRingTrack{fill:none;stroke:var(--dsw-alias-border-l2);stroke-width:3}
+.ipa-heroRingValue{fill:none;stroke:var(--dsw-alias-brand-primary);stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset .26s linear}
+.ipa-heroDial[data-urgent] .ipa-heroRingValue{stroke:var(--dsw-alias-state-error-primary)}
+.ipa-heroValue{display:flex;align-items:baseline;gap:3px;color:var(--dsw-alias-label-primary)}
+.ipa-heroNum{font-size:clamp(26px,4.4cqw,36px);font-weight:650;line-height:1;letter-spacing:-.04em}
+.ipa-heroUnit{font-size:12px;color:var(--dsw-alias-label-secondary)}
+.ipa-heroGlyph{display:grid;place-items:center;color:var(--dsw-alias-label-secondary)}
+.ipa-heroText{display:flex;flex-direction:column;gap:6px;min-width:min(240px,60%);flex:1}
+.ipa-heroPhase{font-size:clamp(16px,2.2cqw,19px);font-weight:600;line-height:1.35}
+.ipa-hero[data-tone=error] .ipa-heroPhase{color:var(--dsw-alias-state-error-primary)}
+.ipa-heroBody{margin:0;max-width:64ch;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:21px}
+.ipa-heroMeta{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
+/* Four equal cells read as one instrument, not four cards. */
+.ipa-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:10px;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);overflow:hidden}
+.ipa-metric{display:flex;flex-direction:column;gap:2px;padding:12px 16px;border-inline-end:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}
+.ipa-metric:last-child{border-inline-end:0}
+.ipa-metricLabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:18px}
+.ipa-metricValue{font-size:20px;line-height:26px;font-weight:600;letter-spacing:-.02em}
+/* ---- sections ----------------------------------------------------------- */
+.ipa-section{display:flex;flex-direction:column;gap:12px;min-width:0}
+.ipa-sectionHead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.ipa-sectionTitle{margin:0;font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.01em}
+.ipa-sectionBody{margin:0;color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:19px}
+/* ---- mode cards --------------------------------------------------------- */
+.ipa-modeGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ipa-modeCard{display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px;border-radius:var(--dsw-radius-md);border:.5px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:inherit;font:inherit;font-size:13px;text-align:left;cursor:pointer;transition:border-color var(--ipa-fast) var(--ipa-ease),background-color var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
+@media (hover:hover){.ipa-modeCard:hover:not(:disabled):not([data-active]){background:var(--dsw-alias-interactive-bg-hover)}}
+.ipa-modeCard[data-active]{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2)}
+.ipa-modeCard:disabled{opacity:.55;cursor:default}
+.ipa-modeCard:active:not(:disabled){transform:scale(.995)}
+.ipa-modeCardHead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ipa-modeCardTitle{font-size:14px;font-weight:600;line-height:22px}
+.ipa-modeMark{display:grid;place-items:center;flex:none;width:18px;height:18px;border:1px solid var(--dsw-alias-border-l2);border-radius:50%;color:var(--dsw-alias-label-primary-foreground);transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease)}
+.ipa-modeCard[data-active] .ipa-modeMark{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-brand-primary)}
+.ipa-modeMark path{stroke-dasharray:16;stroke-dashoffset:16;transition:stroke-dashoffset 180ms var(--ipa-ease)}
+.ipa-modeCard[data-active] .ipa-modeMark path{stroke-dashoffset:0}
+.ipa-modeCardDesc{color:var(--dsw-alias-label-secondary);font-size:12.5px;line-height:20px}
+/* Both notes occupy one grid cell so the section keeps its height when the
+   selected mode changes; nothing below it jumps. */
+.ipa-modeNotes{display:grid;margin-top:-4px}
+.ipa-modeNote{grid-area:1/1;margin:0;visibility:hidden;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:19px}
+.ipa-modeNote[data-active]{visibility:visible}
+/* ---- appearance --------------------------------------------------------- */
+.ipa-bg{display:flex;flex-direction:column;gap:8px;max-width:420px}
+.ipa-bgOptions{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border-radius:var(--dsw-radius-sm);box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}
+.ipa-bgThumb{position:absolute;pointer-events:none;z-index:0;left:4px;top:4px;bottom:4px;width:calc((100% - 16px)/3);border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-layer-2);box-shadow:inset 0 0 0 1px var(--dsw-alias-brand-primary);transition:transform var(--ipa-move) var(--ipa-settle)}
+.ipa-bgOptions[data-background=glass] .ipa-bgThumb{transform:translateX(calc(100% + 4px))}
+.ipa-bgOptions[data-background=blur] .ipa-bgThumb{transform:translateX(calc(200% + 8px))}
+.ipa-bgOption{position:relative;z-index:1;min-width:0;min-height:36px;padding:6px 8px;border:none;border-radius:var(--dsw-radius-xs);background:0 0;color:var(--dsw-alias-label-secondary);font:inherit;font-size:12.5px;font-weight:500;cursor:pointer}
+@media (hover:hover){.ipa-bgOption:hover:not(:disabled):not([aria-pressed=true]){background:var(--dsw-alias-interactive-bg-hover)}}
+.ipa-bgOption[aria-pressed=true]{color:var(--dsw-alias-brand-primary);font-weight:600}
+.ipa-bgOption:disabled{opacity:.5;cursor:default}
+.ipa-bgDesc{margin:0;font-size:12px;line-height:19px;color:var(--dsw-alias-label-tertiary)}
+/* ---- flow and notes ----------------------------------------------------- */
+.ipa-flowList{display:flex;flex-direction:column;margin:0;padding:0;list-style:none;border:.5px solid var(--dsw-alias-border-l1);border-radius:var(--dsw-radius-md);overflow:hidden;background:var(--dsw-alias-bg-layer-1)}
+.ipa-flowStep{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 14px;padding:14px 16px;border-bottom:.5px solid var(--dsw-alias-border-l1)}
+.ipa-flowStep:last-child{border-bottom:0}
+.ipa-flowNum{grid-row:span 2;display:grid;place-items:center;width:24px;height:24px;margin-top:2px;border-radius:50%;background:var(--dsw-alias-bg-layer-2);box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);font-size:11.5px;font-weight:600}
+.ipa-flowTitle{margin:0;font-size:13.5px;font-weight:600;line-height:22px}
+.ipa-flowBody{margin:0;max-width:72ch;color:var(--dsw-alias-label-secondary);font-size:12.5px;line-height:20px}
+.ipa-noteList{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.ipa-noteItem{position:relative;max-width:86ch;padding-left:14px;color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px;overflow-wrap:anywhere}
+.ipa-noteItem:before{content:'';position:absolute;left:2px;top:9px;width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.6}
+/* ---- banners ------------------------------------------------------------ */
+.ipa-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;border-radius:var(--dsw-radius-sm);border:.5px solid color-mix(in srgb,var(--dsw-alias-state-error-primary) 34%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 8%,transparent);color:var(--dsw-alias-state-error-primary);font-size:12.5px;line-height:20px}
+.ipa-bannerText{min-width:0;flex:1}
+.ipa-banner .ipa-button{border-color:currentColor;background:0 0;color:inherit;min-height:30px;padding:3px 10px;font-size:12px}
 /* ---- countdown: the whole window is the warning, not a card in the middle ---- */
 /* The scrim is the dialog's positioning and stacking context. The card below is
    opaque and always fills the viewport, so the mask only ever shows in the
@@ -280,78 +414,6 @@ background-color:rgba(9,11,16,.42);
 .ipa-scopeTag{font-size:clamp(10px,1.15vmin,13px);color:var(--dsw-alias-label-tertiary);text-align:right;white-space:nowrap}
 .ipa-feedback{color:var(--dsw-alias-state-error-primary);font-size:clamp(12px,1.5vmin,17px);line-height:1.5;max-width:520px;overflow-wrap:anywhere}
 .ipa-mirrorNote{font-size:clamp(10px,1.15vmin,13px);color:var(--dsw-alias-label-tertiary);line-height:1.5;max-width:44ch}
-/* Motion answers an action: the panel opens from its trigger and a selection
-   travels to its destination. Countdown digits stay still for easy scanning. */
-.ipa-panel{transform-origin:bottom left;animation:ipa-pop var(--ipa-move) var(--ipa-settle)}
-@keyframes ipa-pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
-.ipa-modeOption,.ipa-bgOption,.ipa-primary,.ipa-cancel,.ipa-cta,.ipa-close,.ipa-entry,.ipa-fab,.ipa-mirrors,.ipa-alignBtn{transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease),color var(--ipa-fast) var(--ipa-ease),box-shadow var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
-.ipa-modeOption:active:not(:disabled),.ipa-bgOption:active:not(:disabled){transform:scale(.985)}
-.ipa-primary:active:not(:disabled),.ipa-cancel:active:not(:disabled),.ipa-cta:active:not([aria-disabled=true]),.ipa-close:active,.ipa-entry:active,.ipa-fab:active,.ipa-mirrors:active:not(:disabled),.ipa-alignBtn:active{transform:scale(.975)}
-/* Key only on a semantic state change, never on a polling/clock update. No
-   opacity-zero start: warnings and cancellation remain readable immediately. */
-.ipa-stateText,.ipa-modeNote[data-active]{display:block;animation:ipa-label-in 180ms var(--ipa-ease)}
-@keyframes ipa-label-in{from{transform:translateY(3px)}to{transform:none}}
-.ipa-entry[data-phase=counting] .ipa-dot,.ipa-fab[data-phase=counting] .ipa-dot{animation:ipa-blink 1.6s ease-in-out infinite}
-@keyframes ipa-blink{0%,100%{opacity:1}50%{opacity:.45}}
-.ipa-panel{position:fixed;z-index:59;left:12px;bottom:150px;width:min(320px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow-y:auto;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);box-shadow:var(--dsw-elevation-prominent);color:var(--dsw-alias-label-primary);font-size:13px}
-.ipa-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
-.ipa-title{font-size:14px;font-weight:600}
-.ipa-close{flex:none;width:22px;height:22px;border:none;background:0 0;color:var(--dsw-alias-label-tertiary);cursor:pointer;border-radius:var(--dsw-radius-xs);font-size:15px;line-height:1}
-@media (hover:hover){.ipa-close:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-sub{color:var(--dsw-alias-label-secondary);line-height:1.55;margin-top:-4px}
-.ipa-modes{position:relative;isolation:isolate;display:grid;grid-template-rows:repeat(2,1fr);gap:8px}
-/* Equal rows let one surface travel between modes without measuring layout.
-   Only Host-confirmed mode changes move it, including changes in other windows. */
-.ipa-modes::before{content:'';position:absolute;z-index:0;pointer-events:none;inset:0 0 auto;height:calc((100% - 8px)/2);box-sizing:border-box;border:1px solid var(--dsw-alias-brand-primary);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-2);transition:transform var(--ipa-move) var(--ipa-settle)}
-.ipa-modes[data-mode=shutdown]::before{transform:translateY(calc(100% + 8px))}
-.ipa-modeOption{position:relative;z-index:1;display:flex;flex-direction:column;gap:3px;text-align:left;padding:9px 11px;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l1);background:transparent;color:inherit;cursor:pointer;font-size:13px}
-@media (hover:hover){.ipa-modeOption:not(:disabled):not([data-active]):hover{background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-modeOption[data-active]{border-color:transparent}
-.ipa-modeOption .ipa-optionTitle{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:600;width:100%}
-.ipa-modeMark{display:grid;place-items:center;flex:none;width:16px;height:16px;border:1px solid var(--dsw-alias-border-l2);border-radius:50%;color:var(--dsw-alias-label-primary-foreground);transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease)}
-.ipa-modeOption[data-active] .ipa-modeMark{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-brand-primary)}
-.ipa-modeMark path{stroke-dasharray:16;stroke-dashoffset:16;transition:stroke-dashoffset 180ms var(--ipa-ease)}
-.ipa-modeOption[data-active] .ipa-modeMark path{stroke-dashoffset:0}
-/* Stack both notes in one cell to reserve their tallest wrapped height. The
-   popover and buttons stay still when the selected warning changes. */
-.ipa-modeNotes{display:grid;margin-top:-6px}
-.ipa-modeNote{grid-area:1/1;visibility:hidden}
-.ipa-modeNote[data-active]{visibility:visible}
-.ipa-modeOption .ipa-optionDesc{color:var(--dsw-alias-label-secondary);line-height:1.5;font-size:12px}
-.ipa-note{color:var(--dsw-alias-label-tertiary);line-height:1.5;font-size:12px}
-.ipa-status{padding-top:10px;border-top:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);line-height:1.5}
-.ipa-status[data-tone=error]{color:var(--dsw-alias-state-error-primary)}
-.ipa-actions{display:flex;gap:8px}
-.ipa-primary{flex:1;padding:9px 12px;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-brand-primary);background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary-foreground);font-size:13px;font-weight:600;cursor:pointer}
-.ipa-cancel{flex:1;padding:9px 12px;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-size:13px;font-weight:600;cursor:pointer}
-@media (hover:hover){.ipa-cancel:hover{background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-primary:disabled,.ipa-cancel:disabled{opacity:.5;cursor:default}
-.ipa-modeOption:disabled{opacity:.5;cursor:default}
-.ipa-panel{width:min(360px,calc(100vw - 24px));gap:14px;overscroll-behavior:contain;overflow-wrap:anywhere}
-.ipa-title{font-size:16px;line-height:1.4}
-.ipa-close{width:32px;height:32px;font-size:20px}
-.ipa-modeOption{padding:12px;gap:5px;min-height:44px}
-.ipa-modeOption:focus-visible,.ipa-close:focus-visible,.ipa-primary:focus-visible,.ipa-cancel:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:2px}
-.ipa-primary,.ipa-cancel{min-height:44px}
-/* Compact appearance picker in the popover: a group of toggle buttons (not a
-   second radiogroup) so the mode radios stay the only radios in the panel. */
-.ipa-bg{display:flex;flex-direction:column;gap:6px}
-.ipa-bgHead{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary)}
-.ipa-bgOptions{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border-radius:var(--dsw-radius-sm);box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}
-.ipa-bgThumb{position:absolute;pointer-events:none;z-index:0;left:4px;top:4px;bottom:4px;width:calc((100% - 16px)/3);border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-layer-2);box-shadow:inset 0 0 0 1px var(--dsw-alias-brand-primary);transition:transform var(--ipa-move) var(--ipa-settle)}
-.ipa-bgOptions[data-background=glass] .ipa-bgThumb{transform:translateX(calc(100% + 4px))}
-.ipa-bgOptions[data-background=blur] .ipa-bgThumb{transform:translateX(calc(200% + 8px))}
-.ipa-bgOption{position:relative;z-index:1;min-width:0;min-height:36px;padding:6px 8px;border:none;border-radius:var(--dsw-radius-xs);background:0 0;color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500;cursor:pointer}
-@media (hover:hover){.ipa-bgOption:not(:disabled):not([aria-pressed=true]):hover{background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-bgOption[aria-pressed=true]{color:var(--dsw-alias-brand-primary);font-weight:600}
-.ipa-bgOption:disabled{opacity:.5;cursor:default}
-.ipa-bgOption:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:1px}
-.ipa-bgDesc{font-size:11.5px;line-height:1.5;color:var(--dsw-alias-label-tertiary)}
-.ipa-flow{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-top:1px solid var(--dsw-alias-border-l1);border-bottom:1px solid var(--dsw-alias-border-l1);line-height:1.5;color:var(--dsw-alias-label-secondary)}
-.ipa-flow strong{color:var(--dsw-alias-label-primary);font-weight:500}
-.ipa-details{display:grid;grid-template-columns:1fr auto;gap:5px 12px;margin:0;color:var(--dsw-alias-label-secondary);font-size:12px}
-.ipa-details dd{margin:0;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary)}
-.ipa-note{color:var(--dsw-alias-label-secondary)}
 .ipa-cta[aria-disabled=true]{opacity:.6;cursor:wait}
 /* A window stretched across two displays can put the exact centre on the bezel.
    Let the reader pin the hero to the half of the window they are looking at. */
@@ -380,20 +442,31 @@ background-color:rgba(9,11,16,.42);
 .ipa-scopeTag{display:none}
 .ipa-card[data-align=left] .ipa-stage,.ipa-card[data-align=right] .ipa-stage{justify-content:center;padding-left:0;padding-right:0}
 }
-@media (max-width:480px){.ipa-dial{width:clamp(160px,58vmin,260px);height:clamp(160px,58vmin,260px)}.ipa-entry{min-height:44px}.ipa-close{width:44px;height:44px}}
-/* A committed or failed power action must not look like an idle row. */
-.ipa-entry[data-phase=executing]{color:var(--dsw-alias-brand-primary)}
-.ipa-entry[data-phase=failed],.ipa-fab[data-phase=failed]{color:var(--dsw-alias-state-error-primary)}
+@media (max-width:480px){.ipa-dial{width:clamp(160px,58vmin,260px);height:clamp(160px,58vmin,260px)}}
+/* ---- page responsiveness ------------------------------------------------- */
+/* The page is a main-pane view, so it reflows against its own column width
+   instead of the viewport: a narrow window must not squeeze four metrics. */
+@container ipa-page (max-width:760px){
+.ipa-pageHeader{align-items:flex-start}
+.ipa-pageTools{width:100%;justify-content:flex-end}
+.ipa-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+.ipa-metric:nth-child(2){border-inline-end:0}
+.ipa-metric:nth-child(-n+2){border-bottom:.5px solid var(--dsw-alias-border-l1)}
+.ipa-modeGrid{grid-template-columns:minmax(0,1fr)}
+.ipa-heroDial{width:88px;height:88px}
+}
+@container ipa-page (max-width:520px){
+.ipa-pageWrap{padding-inline:14px}
+.ipa-footTag{display:none}
+.ipa-bg{max-width:none}
+.ipa-flowStep{padding:12px}
+}
 /* Keep this last so every decorative transition has an immediate readable
    counterpart. Progress still updates from the Host; only interpolation stops. */
 @media (prefers-reduced-motion:reduce){
-.ipa-panel,.ipa-count,.ipa-dialWrap,.ipa-stateText,.ipa-modeNote[data-active],.ipa-entry[data-phase=counting] .ipa-dot,.ipa-fab[data-phase=counting] .ipa-dot,.ipa-scrim,.ipa-card{animation:none}
-.ipa-ringValue,.ipa-railFill{transition:none}
-.ipa-modes::before,.ipa-bgThumb,.ipa-modeMark,.ipa-modeMark path,.ipa-modeOption,.ipa-bgOption,.ipa-primary,.ipa-cancel,.ipa-cta,.ipa-close,.ipa-entry,.ipa-fab,.ipa-mirrors,.ipa-alignBtn{transition:none}
-.ipa-modeOption:active:not(:disabled),.ipa-bgOption:active:not(:disabled),.ipa-primary:active:not(:disabled),.ipa-cancel:active:not(:disabled),.ipa-cta:active:not([aria-disabled=true]),.ipa-close:active,.ipa-entry:active,.ipa-fab:active,.ipa-mirrors:active:not(:disabled),.ipa-alignBtn:active{transform:none}
+.ipa-page,.ipa-page *,.ipa-page *:before,.ipa-page *:after,.ipa-scrim,.ipa-scrim *,.ipa-card{animation:none!important;transition:none!important}
 }
 `;
-
     // ----------------------------------------------------------------- store
     /** Shallow compare, so an unchanged poll result does not re-render the UI. */
     function shallowEqual(left, right) {
@@ -468,13 +541,14 @@ background-color:rgba(9,11,16,.42);
 
     // --------------------------------------------------------------- runtime
     /**
-     * Poll the Host, perform the two mutations, and own the panel's open flag.
-     * One poller serves both slot entries so neither duplicates transport work.
+     * Poll the Host and perform the four mutations. One poller serves every
+     * surface — the rail glyph, the page and the countdown overlay — so none of
+     * them duplicates transport work.
      * @param ctx - Client root context.
-     * @returns store handle, actions, and the poller body.
+     * @returns store handle and the actions every surface shares.
      */
     function createRuntime(ctx) {
-      const store = createStore({ data: EMPTY_STATE, ready: false, offline: false, panelOpen: false, busy: false, note: null, noteCode: null, notePhase: null, anchor: null });
+      const store = createStore({ data: EMPTY_STATE, ready: false, offline: false, busy: false, note: null, noteCode: null, notePhase: null });
       const patch = (fields) => store.set((current) => ({ ...current, ...fields }));
 
       let revision = 0;
@@ -542,12 +616,6 @@ background-color:rgba(9,11,16,.42);
         cancel,
         setMode,
         setBackground,
-        // The panel is a popover anchored above its trigger: the foot row is
-        // short, so a fixed offset would sit on top of the very button the user
-        // just pressed. Capture the trigger rect and let the panel position
-        // itself against it.
-        open: (anchor) => patch({ panelOpen: true, anchor: anchor ?? null }),
-        close: () => patch({ panelOpen: false }),
       };
     }
 
@@ -730,309 +798,411 @@ background-color:rgba(9,11,16,.42);
 
     /** Power glyph; deliberately geometric and theme-neutral. */
     function PowerGlyph({ size }) {
+      const edge = size ?? 16;
       return h('svg', {
         viewBox: '0 0 24 24',
-        width: size ?? 16,
-        height: size ?? 16,
+        width: edge,
+        height: edge,
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: 2,
+        strokeLinecap: 'round',
         'aria-hidden': true,
+        focusable: 'false',
         style: { display: 'block' },
       },
-        h('path', {
-          d: 'M12 3.2v8.1',
-          fill: 'none',
-          stroke: 'currentColor',
-          strokeWidth: 2,
-          strokeLinecap: 'round',
-        }),
-        h('path', {
-          d: 'M6.4 6.6a8.1 8.1 0 1 0 11.2 0',
-          fill: 'none',
-          stroke: 'currentColor',
-          strokeWidth: 2,
-          strokeLinecap: 'round',
-        }),
+        h('path', { d: 'M12 3.2v8.1' }),
+        h('path', { d: 'M6.4 6.6a8.1 8.1 0 1 0 11.2 0' }),
+      );
+    }
+
+    /** Refresh arrow for the page's status control. */
+    function RefreshGlyph({ size }) {
+      const edge = size ?? 15;
+      return h('svg', {
+        viewBox: '0 0 24 24',
+        width: edge,
+        height: edge,
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: 1.8,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        'aria-hidden': true,
+        focusable: 'false',
+        style: { display: 'block' },
+      },
+        h('path', { d: 'M20.2 12a8.2 8.2 0 1 1-2.6-6' }),
+        h('path', { d: 'M20.4 3.9v4.8h-4.8' }),
+      );
+    }
+
+    /** Selection tick drawn inside the mode card's radio mark. */
+    function CheckGlyph() {
+      return h('svg', { viewBox: '0 0 16 16', width: 12, height: 12, fill: 'none', 'aria-hidden': true, focusable: 'false' },
+        h('path', { d: 'M3.5 8l3 3 6-6', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+      );
+    }
+
+    // The rail seat is a plain icon render with no injected props, so the glyph
+    // subscribes to the Host snapshot itself. `apply` owns the one assignment.
+    let powerStore = null;
+
+    /** Subscribe the rail glyph to the snapshot it has to reflect. */
+    function usePowerSnapshot() {
+      const [snapshot, setSnapshot] = useState(() => (powerStore === null ? null : powerStore.getSnapshot()));
+      useEffect(() => {
+        if (powerStore === null) return undefined;
+        return powerStore.subscribe(() => setSnapshot(powerStore.getSnapshot()));
+      }, []);
+      return snapshot;
+    }
+
+    /**
+     * Left-rail entry, sitting directly under the shipped Plugins and
+     * Automation-tasks entries. The rail has room for a glyph and a label only,
+     * so the reservation state is drawn into the artwork: a dot while a power
+     * action is pending, blinking once the countdown is running.
+     */
+    function PowerRailIcon(props) {
+      // The host may hand the rail entry an injected selector hook, or render it
+      // as a plain icon. Both shapes resolve to the same glyph, and the hook
+      // order inside each branch stays constant.
+      if (typeof props.usePower === 'function') {
+        return h(PowerRailGlyph, { ...props, snapshot: props.usePower((current) => current) });
+      }
+      return h(PowerRailGlyphFromStore, props);
+    }
+
+    /** Rail glyph when the host renders the entry without injected props. */
+    function PowerRailGlyphFromStore(props) {
+      return h(PowerRailGlyph, { ...props, snapshot: usePowerSnapshot() });
+    }
+
+    /** The artwork itself: a power glyph plus the pending-reservation dot. */
+    function PowerRailGlyph({ size, active, snapshot }) {
+      const phase = snapshot === null || snapshot === undefined ? 'idle' : snapshot.data.phase;
+      const armed = phase === 'armed' || phase === 'counting';
+      const edge = Number.isFinite(size) && size > 0 ? size : 18;
+      return h('svg', {
+        className: 'ipa-railGlyph',
+        viewBox: '0 0 24 24',
+        width: edge,
+        height: edge,
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: active === true ? 1.9 : 1.6,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        'aria-hidden': true,
+        focusable: 'false',
+        'data-phase': phase,
+        style: { display: 'block' },
+      },
+        h('path', { d: 'M12 3.4v7.4' }),
+        h('path', { d: 'M6.9 6.6a7.3 7.3 0 1 0 10.2 0' }),
+        armed && h('circle', { className: 'ipa-railDot', cx: 18.6, cy: 5.4, r: 2.4, stroke: 'none' }),
+      );
+    }
+
+    /** One titled block; the hint sits beside the title, not above the content. */
+    function Section({ id, title, hint, children }) {
+      return h('section', { className: 'ipa-section', 'aria-labelledby': id },
+        h('div', { className: 'ipa-sectionHead' },
+          h('h2', { className: 'ipa-sectionTitle', id }, title),
+          hint === undefined ? null : h('p', { className: 'ipa-sectionBody' }, hint),
+        ),
+        children,
       );
     }
 
     /**
-     * Sidebar-foot trigger. Expanded sidebar renders a full-width row with a
-     * readable label, because a bare 28px glyph beside the plugin button is
-     * effectively invisible. A live reservation also changes the row's colour,
-     * so a pending power action can never be forgotten in the corner.
+     * The main-pane page. It replaced a sidebar popover: an action that can shut
+     * the machine down needs room to say what will happen, in which order, and
+     * how to stop it — and a full page is where the shipped Plugins and
+     * Automation-tasks panels already live.
      */
-    function PowerButton({ usePower, open, t, wide }) {
-      const { data, offline, panelOpen } = usePower((current) => current);
-      const active = data.phase === 'armed' || data.phase === 'counting';
+    function PowerPage({ usePower, arm, cancel, setMode, setBackground, refresh, t }) {
+      const { data, ready, offline, busy, note, noteCode } = usePower((current) => current);
       const counting = data.phase === 'counting';
-      // Hand the trigger's own rect to the panel so it opens above this row
-      // instead of over it.
-      const openHere = (event) => {
-        const rect = event?.currentTarget?.getBoundingClientRect?.();
-        open(rect === undefined ? null : { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right });
-      };
+      const armed = data.phase === 'armed' || counting;
+      const locked = data.phase === 'executing';
+      const registryDown = data.busy?.available === false;
+      const supported = data.supported !== false;
+      const [now, setNow] = useState(() => Date.now());
 
-      if (!wide) {
-        const dotLabel = !data.supported
-          ? t('status.unsupported')
-          : offline
-            ? t('status.offline')
-            : data.busy?.available === false
-              ? t('status.registryUnavailable')
-              : counting
-              ? t('status.counting')
-              : active
-                ? t('status.waiting')
-                : t('button.tip');
-        return h('button', {
-          type: 'button',
-          className: 'ipa-fab',
-          'data-ipa-trigger': '',
-          'aria-label': dotLabel,
-          'aria-haspopup': 'dialog',
-          'aria-expanded': Boolean(panelOpen),
-          title: dotLabel,
-          'data-active': active || undefined,
-          'data-phase': data.phase,
-          onClick: openHere,
-        },
-          h(PowerGlyph, { size: 16 }),
-          active && h('span', { className: 'ipa-dot', 'aria-hidden': 'true' }),
-        );
+      // Only the countdown needs a ticking clock; an idle page must not re-render.
+      useEffect(() => {
+        if (!counting) return undefined;
+        const timer = setInterval(() => setNow(Date.now()), 250);
+        return () => clearInterval(timer);
+      }, [counting]);
+
+      const deadline = data.deadline ?? null;
+      const remaining = counting
+        ? deadline === null ? data.remainingSeconds : Math.max(0, Math.ceil((deadline - now) / 1000))
+        : 0;
+      const quietLeft = Math.max(0, data.quietRemainingSeconds ?? 0);
+      const quietTotal = data.quietSeconds > 0 ? data.quietSeconds : quietLeft;
+      const mode = data.mode === 'shutdown' ? 'shutdown' : 'hibernate';
+      const background = normalizeBackground(data.backgroundStyle);
+      const total = data.busy?.total ?? 0;
+
+      // The hero answers one question — what is going to happen, and how soon —
+      // so every branch fills the same four slots instead of inventing its own.
+      let phaseText;
+      let bodyText;
+      let tone = 'normal';
+      let dialValue = null;
+      let dialTotal = 0;
+      let urgent = false;
+      let scheduledAt = null;
+
+      if (!supported) {
+        phaseText = t('status.unsupported');
+        bodyText = t('body.unsupported');
+        tone = 'error';
+      } else if (offline) {
+        phaseText = t('status.offline');
+        bodyText = t('body.offline');
+        tone = 'error';
+      } else if (registryDown) {
+        phaseText = t('status.registryUnavailable');
+        bodyText = t('body.registry');
+        tone = 'error';
+      } else if (!ready) {
+        phaseText = t('page.loading');
+        bodyText = '';
+      } else if (data.phase === 'failed') {
+        phaseText = t('status.failed');
+        bodyText = describeFailure(null, data.error, t) || t('body.failed');
+        tone = 'error';
+      } else if (counting) {
+        phaseText = `${t('status.counting')} · ${remaining}${t('status.countingSuffix')}`;
+        bodyText = t('body.counting');
+        dialValue = remaining;
+        dialTotal = data.countdownSeconds > 0 ? data.countdownSeconds : remaining;
+        urgent = remaining <= 10;
+        scheduledAt = formatClock(deadline === null ? now + remaining * 1000 : deadline);
+      } else if (armed) {
+        phaseText = total > 0 ? `${t('status.waiting')} · ${total}${t('status.tasksSuffix')}` : t('status.waiting');
+        bodyText = total > 0 ? t('body.waiting') : t('body.quiet');
+        if (total === 0) {
+          dialValue = quietLeft;
+          dialTotal = quietTotal;
+        }
+      } else if (locked) {
+        phaseText = t('status.executing');
+        bodyText = t('body.executing');
+      } else {
+        phaseText = t('status.idle');
+        bodyText = t('body.idle');
       }
 
-      // Name the action that will actually run. "预约关机" alone was wrong:
-      // hibernate is the default mode, and it is not a shutdown.
-      const modeName = data.mode === 'shutdown' ? t('mode.shutdown.short') : t('mode.hibernate.short');
-      let text;
-      if (!data.supported) text = t('status.unsupported');
-      else if (offline) text = t('status.offline');
-      else if (data.busy?.available === false) text = t('status.registryUnavailable');
-      else if (data.phase === 'failed') text = t('status.failed');
-      else if (data.phase === 'executing') text = t('status.executing');
-      else if (counting) text = `${data.remainingSeconds}${t('entry.secondsTo')}${modeName}`;
-      else if (active && data.busy.total > 0)
-        text = `${t('status.waiting')} · ${data.busy.total}${t('status.tasksSuffix')}`;
-      else if (active) text = `${t('status.waiting')} · ${data.quietRemainingSeconds}${t('entry.quietSuffix')}`;
-      else text = `${t('entry.schedulePrefix')}${modeName}`;
+      const canArm = supported && ready && !offline && !busy && !locked && !registryDown;
+      const RADIUS = 42;
+      const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+      const fraction = dialValue === null || dialTotal <= 0 ? 0 : Math.min(1, Math.max(0, dialValue / dialTotal));
 
-      return h('button', {
-        type: 'button',
-        className: 'ipa-entry',
-        'data-ipa-trigger': '',
-        'aria-label': text,
-        'aria-haspopup': 'dialog',
-        'aria-expanded': Boolean(panelOpen),
-        title: text,
-        'data-active': active || undefined,
-        'data-phase': data.phase,
-        onClick: openHere,
-      },
-        h(PowerGlyph, { size: 15 }),
-        h('span', { className: 'ipa-entryText' }, text),
-        active && h('span', { className: 'ipa-dot', 'aria-hidden': 'true' }),
+      const metaItems = [fmt(t('countdown.window'), String(data.countdownSeconds))];
+      if (scheduledAt !== null) metaItems.unshift(fmt(t('status.scheduledAt'), scheduledAt));
+
+      const metric = (labelKey, value) => h('div', { className: 'ipa-metric', key: labelKey },
+        h('span', { className: 'ipa-metricLabel' }, t(labelKey)),
+        h('span', { className: 'ipa-metricValue' }, String(value)),
       );
-    }
 
-    /** The scheduling panel: mode choice, appearance, live status, arm and cancel. */
-    function PowerPanel({ usePower, arm, cancel, setMode, setBackground, close, t }) {
-      const { data, ready, offline, busy, note, noteCode, anchor } = usePower((current) => current);
-      const panelRef = useRef(null);
-      useEffect(() => {
-        const previous = document.activeElement;
-        panelRef.current?.focus?.();
-        const onKey = (event) => {
-          if (event.key === 'Escape') { close(); previous?.focus?.(); }
-        };
-        // A pointer press anywhere outside the card dismisses it, the way every
-        // other popover in this app behaves.
-        const onPress = (event) => {
-          const target = event.target;
-          if (panelRef.current !== null && panelRef.current.contains?.(target) === true) return;
-          if (typeof target?.closest === 'function' && target.closest('[data-ipa-trigger]') !== null) return;
-          close();
-        };
-        window.addEventListener('keydown', onKey);
-        window.addEventListener('pointerdown', onPress, true);
-        return () => {
-          window.removeEventListener('keydown', onKey);
-          window.removeEventListener('pointerdown', onPress, true);
-        };
-      }, [close]);
+      const modeDisabled = !supported || !ready || offline || busy || locked || registryDown;
+      const modeCard = (value, titleKey, descKey) => h('button', {
+        type: 'button',
+        key: value,
+        className: 'ipa-modeCard',
+        role: 'radio',
+        'aria-checked': mode === value,
+        'data-active': mode === value || undefined,
+        disabled: modeDisabled,
+        onClick: () => {
+          if (value === mode) return;
+          // While reserved, changing the mode re-arms with it; while idle it
+          // just records what 预约 would do.
+          if (armed) void arm(value);
+          else void setMode(value);
+        },
+      },
+        h('span', { className: 'ipa-modeCardHead' },
+          h('span', { className: 'ipa-modeCardTitle' }, t(titleKey)),
+          h('span', { className: 'ipa-modeMark', 'aria-hidden': true }, h(CheckGlyph)),
+        ),
+        h('span', { className: 'ipa-modeCardDesc' }, t(descKey)),
+      );
 
-      // Open above the trigger row. Falling back to the old fixed offset keeps
-      // the panel usable if the rect was never captured.
-      const hasAnchor = anchor !== null && anchor !== undefined && Number.isFinite(anchor.top) && Number.isFinite(anchor.left);
-      const viewportWidth = typeof window === 'undefined' ? 1200 : window.innerWidth;
-      const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight;
-      const placement = hasAnchor
-        ? {
-          left: Math.max(8, Math.min(anchor.left, viewportWidth - 372)),
-          bottom: anchor.top < 360 ? 12 : Math.max(12, viewportHeight - anchor.top + 8),
-        }
-        : { left: 12, bottom: 150 };
-
-      const mode = data.mode;
-      const background = normalizeBackground(data.backgroundStyle);
-      const armed = data.phase === 'armed' || data.phase === 'counting';
-      const locked = data.phase === 'executing';
       const styleChoices = [
         ['solid', 'background.solid', 'background.solidDesc'],
         ['glass', 'background.glass', 'background.glassDesc'],
         ['blur', 'background.blur', 'background.blurDesc'],
       ];
 
-      let statusText;
-      let statusTone = 'normal';
-      if (!data.supported) statusText = t('status.unsupported');
-      else if (note !== null) {
-        statusText = `${t('status.failed')}: ${describeFailure(noteCode, note, t)}`;
-        statusTone = 'error';
-      } else if (offline) { statusText = t('status.offline'); statusTone = 'error'; }
-      else if (!ready) statusText = t('status.loading');
-      else if (data.busy?.available === false) { statusText = t('status.registryUnavailable'); statusTone = 'error'; }
-      else if (data.phase === 'failed') {
-        statusText = `${t('status.failed')}: ${data.error ?? ''}`;
-        statusTone = 'error';
-      } else if (data.phase === 'counting') statusText = `${t('status.counting')} · ${data.remainingSeconds}${t('countdown.suffix')}`;
-      else if (data.phase === 'armed' && data.busy.total > 0)
-        statusText = `${t('status.waiting')} · ${data.busy.total}${t('status.tasksSuffix')}`;
-      else if (data.phase === 'armed')
-        statusText = `${t('status.quietPrefix')}${data.quietRemainingSeconds}${t('status.quietSuffix')}`;
-      else if (data.phase === 'executing') statusText = t('status.executing');
-      else statusText = t('status.idle');
+      const flowSteps = [
+        ['flow.idle', 'flow.idleDesc', fmt(t('flow.idle'), String(data.quietSeconds))],
+        ['flow.countdown', 'flow.countdownDesc', fmt(t('flow.countdown'), String(data.countdownSeconds))],
+        ['flow.act', 'flow.actDesc', mode === 'shutdown' ? t('mode.shutdown') : t('mode.hibernate')],
+      ];
 
-      const option = (value, titleKey, descKey) => h('button', {
-        type: 'button',
-        className: 'ipa-modeOption',
-        'data-active': mode === value || undefined,
-        disabled: locked || busy || !ready || offline || !data.supported || data.busy?.available === false,
-        tabIndex: mode === value ? 0 : -1,
-        onKeyDown: (event) => {
-          if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-          event.preventDefault();
-          const choices = Array.from(event.currentTarget.parentElement.querySelectorAll('[role="radio"]'));
-          const target = event.key === 'Home' ? choices[0] : event.key === 'End' ? choices[1] : choices.find((item) => item !== event.currentTarget);
-          target?.focus();
-          target?.click();
-        },
-        onClick: () => {
-          if (value === data.mode) return;
-          // While reserved, changing the mode re-arms with it; while idle it
-          // just records what 预约 would do, so the entry label follows.
-          if (armed) void arm(value);
-          else void setMode(value);
-        },
-        role: 'radio',
-        'aria-checked': mode === value,
-      },
-        h('span', { className: 'ipa-optionTitle' },
-          t(titleKey),
-          h('span', { className: 'ipa-modeMark', 'aria-hidden': true },
-            h('svg', { viewBox: '0 0 16 16', width: 12, height: 12 },
-              h('path', { d: 'M3.5 8l3 3 6-6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+      return h('section', { className: 'ipa-page', 'aria-label': t('page.title') },
+        h('header', { className: 'ipa-pageTop' },
+          h('div', { className: 'ipa-pageWrap' },
+            h('div', { className: 'ipa-pageHeader' },
+              h('div', { className: 'ipa-pageHead' },
+                h('span', { className: 'ipa-pageEyebrow' }, t('page.eyebrow')),
+                h('h1', { className: 'ipa-pageTitle' }, t('page.title')),
+                h('p', { className: 'ipa-pageSub' }, t('page.subtitle')),
+              ),
+              h('div', { className: 'ipa-pageTools' },
+                h('button', {
+                  type: 'button',
+                  className: 'ipa-iconButton',
+                  'aria-label': t('page.refresh'),
+                  title: t('page.refresh'),
+                  disabled: busy,
+                  onClick: () => { void refresh(); },
+                }, h(RefreshGlyph, { size: 15 })),
+                armed
+                  ? h('button', {
+                    type: 'button',
+                    className: 'ipa-button',
+                    'data-variant': 'danger',
+                    disabled: busy,
+                    onClick: () => { void cancel(); },
+                  }, t(busy ? 'countdown.cancelling' : 'page.cancel'))
+                  : h('button', {
+                    type: 'button',
+                    className: 'ipa-button',
+                    'data-variant': 'primary',
+                    disabled: !canArm,
+                    onClick: () => { void arm(mode); },
+                  }, h(PowerGlyph, { size: 15 }), t(busy ? 'page.saving' : t('page.arm'))),
+              ),
             ),
           ),
         ),
-        h('span', { className: 'ipa-optionDesc' }, t(descKey)),
-      );
-
-      return h('div', {
-        className: 'ipa-panel',
-        ref: panelRef,
-        role: 'dialog',
-        tabIndex: -1,
-        'aria-label': t('panel.title'),
-        'aria-busy': busy,
-        style: { left: `${placement.left}px`, bottom: `${placement.bottom}px`, maxHeight: `${Math.max(80, viewportHeight - placement.bottom - 12)}px` },
-      },
-        h('div', { className: 'ipa-head' },
-          h('span', { className: 'ipa-title' }, t('panel.title')),
-          h('button', {
-            type: 'button',
-            className: 'ipa-close',
-            'aria-label': t('panel.close'),
-            onClick: close,
-          }, '\u00d7'),
-        ),
-        h('div', { className: 'ipa-sub' }, t('panel.subtitle')),
-        h('div', { className: 'ipa-modes', 'data-mode': mode, role: 'radiogroup', 'aria-label': t('panel.mode') },
-          option('hibernate', 'panel.hibernate', 'panel.hibernateDesc'),
-          option('shutdown', 'panel.shutdown', 'panel.shutdownDesc'),
-        ),
-        h('div', { className: 'ipa-modeNotes' },
-          ...['hibernate', 'shutdown'].map((value) => h('div', {
-            className: 'ipa-note ipa-modeNote', key: value,
-            'data-active': mode === value || undefined,
-            'aria-hidden': mode !== value,
-          }, t(value === 'shutdown' ? 'panel.shutdownNote' : 'panel.hibernateNote'))),
-        ),
-        h('div', { className: 'ipa-bg' },
-          h('div', { className: 'ipa-bgHead' }, t('panel.background')),
-          h('div', { className: 'ipa-bgOptions', 'data-background': background, role: 'group', 'aria-label': t('panel.background') },
-            h('span', { className: 'ipa-bgThumb', 'aria-hidden': true }),
-            ...styleChoices.map(([value, labelKey]) => h('button', {
-              type: 'button',
-              key: value,
-              className: 'ipa-bgOption',
-              'aria-pressed': background === value,
-              'aria-label': t(labelKey),
-              disabled: locked || busy || !ready || offline || !data.supported,
-              onClick: () => { if (value !== background) void setBackground(value); },
-              onKeyDown: (event) => {
-                if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
-                const parent = event.currentTarget?.parentElement;
-                if (parent === null || parent === undefined || typeof parent.querySelectorAll !== 'function') return;
-                event.preventDefault?.();
-                const choices = Array.from(parent.querySelectorAll('.ipa-bgOption'));
-                const index = choices.indexOf(event.currentTarget);
-                const step = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1;
-                const target = event.key === 'Home' ? choices[0]
-                  : event.key === 'End' ? choices[choices.length - 1]
-                    : choices[(index + step + choices.length) % choices.length];
-                target?.focus?.();
-                target?.click?.();
-              },
-            }, t(labelKey))),
+        h('div', { className: 'ipa-scroll' },
+          h('div', { className: 'ipa-pageWrap ipa-pageBody' },
+            note !== null && note !== undefined && h('div', { className: 'ipa-banner', role: 'alert' },
+              h('span', { className: 'ipa-bannerText' }, describeFailure(noteCode, note, t)),
+            ),
+            h('div', { className: 'ipa-hero', 'data-tone': tone === 'error' ? 'error' : undefined },
+              h('div', { className: 'ipa-heroDial', 'data-urgent': urgent || undefined },
+                dialValue === null
+                  ? h('span', { className: 'ipa-heroGlyph' }, h(PowerGlyph, { size: 34 }))
+                  : h('svg', { className: 'ipa-heroRing', viewBox: '0 0 100 100', 'aria-hidden': true },
+                    h('circle', { className: 'ipa-heroRingTrack', cx: 50, cy: 50, r: RADIUS }),
+                    h('circle', {
+                      className: 'ipa-heroRingValue',
+                      cx: 50,
+                      cy: 50,
+                      r: RADIUS,
+                      'stroke-dasharray': CIRCUMFERENCE,
+                      'stroke-dashoffset': CIRCUMFERENCE * (1 - fraction),
+                    }),
+                  ),
+                dialValue === null ? null : h('div', { className: 'ipa-heroValue', role: 'timer', 'aria-live': 'off' },
+                  h('span', { className: 'ipa-heroNum' }, String(dialValue)),
+                  h('span', { className: 'ipa-heroUnit' }, t('countdown.suffix')),
+                ),
+              ),
+              h('div', { className: 'ipa-heroText' },
+                h('span', { className: 'ipa-heroPhase', role: 'status' }, phaseText),
+                bodyText === '' ? null : h('p', { className: 'ipa-heroBody' }, bodyText),
+                h('div', { className: 'ipa-heroMeta' },
+                  ...metaItems.map((text) => h('span', { key: text }, text)),
+                ),
+              ),
+            ),
+            h('div', { className: 'ipa-metrics' },
+              metric('metric.agents', data.busy?.agentsRunning ?? 0),
+              metric('metric.inbox', data.busy?.inboxPending ?? 0),
+              metric('metric.jobs', data.busy?.jobsRunning ?? 0),
+              metric('metric.total', total),
+            ),
+            h(Section, { id: 'ipa-section-mode', title: t('section.mode'), hint: t('section.modeHint') },
+              h('div', { className: 'ipa-modeGrid', role: 'radiogroup', 'aria-label': t('section.mode') },
+                modeCard('hibernate', 'mode.hibernate', 'mode.hibernateDesc'),
+                modeCard('shutdown', 'mode.shutdown', 'mode.shutdownDesc'),
+              ),
+              // Both notes share one grid cell, so switching mode never moves
+              // the sections below it.
+              h('div', { className: 'ipa-modeNotes' },
+                ...['hibernate', 'shutdown'].map((value) => h('p', {
+                  key: value,
+                  className: 'ipa-modeNote',
+                  'data-active': mode === value || undefined,
+                  'aria-hidden': mode !== value,
+                }, t(value === 'shutdown' ? 'note.shutdown' : 'note.hibernate'))),
+              ),
+            ),
+            h(Section, { id: 'ipa-section-background', title: t('section.background'), hint: t('section.backgroundHint') },
+              h('div', { className: 'ipa-bg' },
+                h('div', {
+                  className: 'ipa-bgOptions',
+                  'data-background': background,
+                  role: 'group',
+                  'aria-label': t('section.background'),
+                },
+                  h('span', { className: 'ipa-bgThumb', 'aria-hidden': true }),
+                  ...styleChoices.map(([value, labelKey]) => h('button', {
+                    type: 'button',
+                    key: value,
+                    className: 'ipa-bgOption',
+                    'aria-pressed': background === value,
+                    'aria-label': t(labelKey),
+                    disabled: locked || busy || !ready || offline || !supported,
+                    onClick: () => { if (value !== background) void setBackground(value); },
+                    onKeyDown: (event) => {
+                      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+                      const parent = event.currentTarget?.parentElement;
+                      if (parent === null || parent === undefined || typeof parent.querySelectorAll !== 'function') return;
+                      event.preventDefault?.();
+                      const choices = Array.from(parent.querySelectorAll('.ipa-bgOption'));
+                      const index = choices.indexOf(event.currentTarget);
+                      const step = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1;
+                      const target = event.key === 'Home' ? choices[0]
+                        : event.key === 'End' ? choices[choices.length - 1]
+                          : choices[(index + step + choices.length) % choices.length];
+                      target?.focus?.();
+                      target?.click?.();
+                    },
+                  }, t(labelKey))),
+                ),
+                h('p', { className: 'ipa-bgDesc' }, t(`background.${background}Desc`)),
+              ),
+            ),
+            h(Section, { id: 'ipa-section-flow', title: t('section.flow'), hint: t('section.flowHint') },
+              h('ol', { className: 'ipa-flowList' },
+                ...flowSteps.map(([titleKey, descKey, title], index) => h('li', { className: 'ipa-flowStep', key: titleKey },
+                  h('span', { className: 'ipa-flowNum', 'aria-hidden': true }, String(index + 1)),
+                  h('h3', { className: 'ipa-flowTitle' }, title),
+                  h('p', { className: 'ipa-flowBody' }, t(descKey)),
+                )),
+              ),
+            ),
+            h(Section, { id: 'ipa-section-notes', title: t('section.notes') },
+              h('ul', { className: 'ipa-noteList' },
+                ...['note.scope', 'note.autoVoid', 'note.hostRestart', 'note.platform'].map((key) => h('li', { className: 'ipa-noteItem', key }, t(key))),
+              ),
+            ),
           ),
-          h('div', { className: 'ipa-bgDesc' },
-            h('span', { className: 'ipa-stateText', key: background }, t(`background.${background}Desc`)),
+        ),
+        h('footer', { className: 'ipa-pageFoot' },
+          h('div', { className: 'ipa-pageWrap ipa-footInner' },
+            h('span', { className: 'ipa-footState' },
+              h('span', { className: 'ipa-statusDot', 'data-tone': tone === 'error' ? 'error' : undefined, 'aria-hidden': true }),
+              phaseText,
+            ),
+            h('span', { className: 'ipa-footTag' }, t('countdown.scopeTag')),
           ),
-        ),
-        h('div', { className: 'ipa-flow', 'aria-label': t('panel.flow') },
-          h('strong', null, `${data.quietSeconds} ${t('panel.quiet')} → ${data.countdownSeconds} ${t('panel.countdown')}`),
-          h('span', { className: 'ipa-note' }, t('panel.scope')),
-        ),
-        h('div', { className: 'ipa-status', 'data-tone': statusTone, role: 'status' },
-          h('span', { className: 'ipa-stateText', key: `${data.phase}:${statusTone}:${ready}:${offline}` }, statusText),
-        ),
-        armed && data.busy.total > 0 && h('dl', { className: 'ipa-details' },
-          [['agentsRunning', 'status.agents'], ['inboxPending', 'status.inbox'], ['jobsRunning', 'status.jobs']]
-            .flatMap(([key, label]) => [
-              h('dt', { key: `${key}-t` }, t(label)),
-              h('dd', { key: `${key}-d` }, String(data.busy[key] ?? 0)),
-            ]),
-        ),
-        // Exactly one primary action: arm while idle, cancel while reserved.
-        // Showing both at once was the reason an armed reservation still looked
-        // unarmed.
-        h('div', { className: 'ipa-actions' },
-          armed
-            ? h('button', {
-              type: 'button',
-              className: 'ipa-cancel',
-              disabled: busy,
-              onClick: () => { void cancel(); },
-            }, h('span', { className: 'ipa-stateText', key: String(busy) }, t(busy ? 'countdown.cancelling' : 'panel.cancel')))
-            : h('button', {
-              type: 'button',
-              className: 'ipa-primary',
-              disabled: busy || !ready || offline || !data.supported || locked || data.busy?.available === false,
-              onClick: () => { void arm(mode); },
-            }, h('span', { className: 'ipa-stateText', key: `${locked}:${busy}` }, t(locked ? 'status.executing' : busy ? 'status.saving' : 'panel.arm'))),
         ),
       );
     }
-
     /**
      * Full-window countdown; the only cancel affordance before an irreversible
      * action. The entire viewport is the warning: a rail drains at the top edge,
@@ -1279,9 +1449,9 @@ background-color:rgba(9,11,16,.42);
           h('div', { className: 'ipa-bottom' },
             h('div', { className: 'ipa-notes' },
               h('p', { className: 'ipa-hint' }, t('countdown.hint')),
-              h('p', { className: 'ipa-hint' }, t('panel.scope')),
+              h('p', { className: 'ipa-hint' }, t('note.scope')),
               extended && h('p', { className: 'ipa-hint' }, t('countdown.multiNote')),
-              data.mode === 'shutdown' && h('p', { className: 'ipa-hint ipa-hintWarn' }, t('panel.shutdownNote')),
+              data.mode === 'shutdown' && h('p', { className: 'ipa-hint ipa-hintWarn' }, t('note.shutdown')),
             ),
             h('div', { className: 'ipa-scopeTag' }, t('countdown.scopeTag')),
           ),
@@ -1297,6 +1467,10 @@ background-color:rgba(9,11,16,.42);
       internals: { fmt, formatClock, normalizeBackground, BACKGROUND_STYLES, hasMultipleScreens, mirrorGeometry, mirrorFeatures, readScreenDetails, openMirrorWindows, createMirrorDocument },
       apply(ctx) {
         const runtime = createRuntime(ctx);
+        // The rail glyph is rendered outside any injected seat, so it reads the
+        // store from here instead of from a prop.
+        powerStore = runtime.store;
+        const t = typeof ctx.locale.bind === 'function' ? ctx.locale.bind(NS) : (key) => key;
 
         ctx.effect(() => {
           const tag = document.createElement('style');
@@ -1309,7 +1483,7 @@ background-color:rgba(9,11,16,.42);
 
         ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-idle-power: dictionaries');
 
-        // One poller for both entries: 1s while armed, a slow 3s otherwise.
+        // One poller for every surface: 1s while a reservation is live, 3s idle.
         ctx.effect(() => {
           let disposed = false;
           let timer;
@@ -1328,18 +1502,23 @@ background-color:rgba(9,11,16,.42);
           };
         }, 'dsh-idle-power: poller');
 
-        ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
-          name: 'sidebar.footer.action',
-          id: 'dsh-idle-power',
-          order: 10,
+        // Rail entry: directly under the shipped 插件 and 自动化任务 panels, so a
+        // scheduled power action reads as one more automation in the same list.
+        ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+          name: 'sidebar.panellist',
+          id: 'idle-power',
+          order: 15,
           locale: NS,
-          inject: () => ({ hooks: { power: runtime.store }, open: runtime.open }),
-        }, PowerButton));
+          label: () => t('rail.label'),
+          // Optional: a host that passes slot props through gives the glyph the
+          // live store; one that renders a bare icon leaves the module store.
+          inject: () => ({ hooks: { power: runtime.store } }),
+        }, PowerRailIcon));
 
-        ctx.slots.inject('shell.overlay', () => ctx.slots.register({
-          name: 'shell.overlay',
-          id: 'dsh-idle-power.panel',
-          order: 10,
+        // The page owns the whole main column while this entry is selected.
+        ctx.slots.inject('main', () => ctx.slots.register({
+          name: 'main',
+          key: 'idle-power',
           locale: NS,
           inject: () => ({
             hooks: { power: runtime.store },
@@ -1347,13 +1526,11 @@ background-color:rgba(9,11,16,.42);
             cancel: runtime.cancel,
             setMode: runtime.setMode,
             setBackground: runtime.setBackground,
-            close: runtime.close,
+            refresh: runtime.refresh,
           }),
-        }, function PanelWhenOpen({ usePower, ...rest }) {
-          const { panelOpen } = usePower((current) => current);
-          return panelOpen ? h(PowerPanel, { usePower, ...rest }) : null;
-        }));
+        }, PowerPage));
 
+        // The countdown stays a shell overlay: it must cover every page.
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({
           name: 'shell.overlay',
           id: 'dsh-idle-power.countdown',

@@ -8,13 +8,15 @@ Long agent runs usually end when you have walked away. This plugin lets you say 
 
 ![The countdown dialog](docs/countdown.png)
 
-The background is switchable from the panel: **solid** (default, above), **frosted glass**, and **gaussian blur**:
+The background is switchable from the page: **solid** (default, above), **frosted glass**, and **gaussian blur**:
 
 ![Frosted glass and gaussian blur](docs/backgrounds.png)
 
-| Choose what happens | While it waits |
-|---|---|
-| ![The scheduling panel](docs/panel.png) | The sidebar entry names the live state: `Schedule shutdown`, `Waiting · 3 tasks running`, `42s to shutdown`. |
+The entry sits in the left rail, right under **Plugins** and **Automation tasks**:
+
+![The scheduling page](docs/page.png)
+
+The page carries the power action, the countdown background, the live task counts, the flow and the notes. While a reservation is live the header button becomes **Cancel schedule** and the rail glyph grows a small dot.
 
 ---
 
@@ -50,9 +52,9 @@ Arming is always an explicit, human action. There is no model-facing tool, so th
 | `shutdown` **(default)** | `shutdown /s /t 0 /f` | Powers off. DSH conversations are still on disk. |
 | `hibernate` | `shutdown /h /f` | Writes the memory image to disk. Next boot restores every open window and unsaved edit. |
 
-Switch modes from the panel; the sidebar entry renames itself to match (`Schedule shutdown` / `Schedule hibernate`).
+Switch modes on the page; the Host remembers the choice, so it survives a reload.
 
-> **Fast Startup note.** If Windows Fast Startup is enabled, `shutdown /s` is a *hybrid* shutdown: the kernel state is saved and the next boot resumes it. The browser half cannot reliably detect that system setting, so the panel does not claim it is on; it warns instead that apps will be forced closed and unsaved work may be lost. A true cold boot needs `powercfg /h off` (admin, permanent) — this plugin deliberately does not touch your system settings.
+> **Fast Startup note.** If Windows Fast Startup is enabled, `shutdown /s` is a *hybrid* shutdown: the kernel state is saved and the next boot resumes it. The browser half cannot reliably detect that system setting, so the page does not claim it is on; it warns instead that apps will be forced closed and unsaved work may be lost. A true cold boot needs `powercfg /h off` (admin, permanent) — this plugin deliberately does not touch your system settings.
 
 ## The countdown screen and multiple monitors
 
@@ -79,7 +81,7 @@ Mirrors are **best-effort**: they work in the browser-hosted Harness; the deskto
 
 ### Background styles
 
-Three presets, switched from the panel (applied immediately, remembered by the Host across reloads), with `backgroundStyle` in `cordis.patch.yml` deciding the default after a Host restart.
+Three presets, switched from the page (applied immediately, remembered by the Host across reloads), with `backgroundStyle` in `cordis.patch.yml` deciding the default after a Host restart.
 
 | Preset | Look | How contrast is kept |
 |---|---|---|
@@ -110,29 +112,21 @@ Either way, **a restart or a plugin reload is required** — the Host half regis
 
 ## Use
 
-The entry lives at the bottom of the sidebar, next to Settings:
+The entry sits in the left rail, right under **Plugins** and **Automation tasks**:
 
-```
-⏻ Schedule shutdown          idle
-⏻ Waiting · 3 tasks running  armed, work still running
-⏻ 42s to shutdown            counting down
-⏻ Executing power action     command committed, no longer cancellable
-⏻ Failed                     non-zero exit; open the panel for the reason
-```
+![The scheduling page](docs/page.png)
 
-Click it, pick a mode, press the action button. While a reservation is live the same button becomes **Cancel**.
+From top to bottom the page shows the current state (not scheduled / waiting · N tasks running / counting down / executing / failed), the live load, the power action, the countdown background, the flow and the notes.
 
-The panel also states:
-
+- **Schedule / Cancel schedule** sits in the page header: one button that switches with the state, never both at once.
+- **State on the rail** — while a reservation is live the power glyph grows a small dot; during the countdown that dot turns red and blinks. The dot survives the rail collapsing to icons.
 - **Countdown background** — solid / frosted glass / gaussian blur, applied immediately and persisted on the Host.
-- **How it runs** — `20 s continuously idle → 60 s cancellable countdown`, plus "closing this page does not cancel; other apps and Hosts are not monitored".
-- **What is running** — running agents, queued messages and background jobs are listed separately instead of one opaque total.
+- **How it runs** — `20 s continuously idle → 60 s cancellable countdown → run`, plus "closing this page does not cancel; only this Host is monitored".
+- **What is running** — running agents, queued messages and background jobs are listed separately, with a total.
 - **Connection state** — "Loading status…" before the first answer, "Cannot reach the plugin Host" with controls disabled when the connection drops, "Submitting…" while a request is in flight so a button cannot be pressed twice.
 - **Failure state** — if cancelling the countdown fails, the dialog stays and says cancellation is unconfirmed instead of pretending it worked.
 
-Keyboard: `Esc` closes the panel or cancels the countdown, `↑`/`↓`/`Home`/`End` move between modes, and `Tab` cycles between the cancel and multi-screen buttons inside the countdown instead of escaping the dialog.
-
-Collapsed to the 56 px rail the entry degrades to an icon. On Windows the entire sidebar foot is hidden while collapsed (host behaviour) — expand the sidebar (`Ctrl+B`) to reach it.
+Keyboard: `Esc` cancels the countdown; the mode cards and the background presets move with the arrow keys / `Home` / `End`; `Tab` cycles between the cancel and multi-screen buttons inside the countdown instead of escaping the dialog.
 
 ## Configuration
 
@@ -180,7 +174,7 @@ npm test
 Two dependency-free harnesses drive the real code with stand-ins, so the suite can run on any machine without powering anything off:
 
 - `test/host.test.mjs` — the state machine against fake agents, fake jobs and a subprocess that records `argv` instead of executing. Covers the busy predicate, a missing registry, quiet behaviour, countdown voiding, both command lines, cancellation, failure reporting, the mode and background routes, background config fallback for unknown values, and the races: mutations refused once execution is committed, a background change that must not disturb a pending arm, a cancel beating a slow arm upload, a stale lookup unable to overwrite a cancellation, and a suspend that overshoots the deadline re-arming instead of firing.
-- `test/client.test.cjs` — renders the real `client.js` components with a minimal React stand-in and asserts on the produced tree: both entry layouts, every panel state (loading / offline / registry unavailable / executing / failed), the per-kind task breakdown, the three background presets and their disabled states, the full-screen countdown's information hierarchy and progressbar semantics, the emitted `data-background` with fallback for unknown values, the progress ring's geometry and edge cases, multi-screen detection and mirror degradation, dismissal, cancel-failure feedback, expanded-state ARIA, and `prefers-reduced-motion` coverage.
+- `test/client.test.cjs` — renders the real `client.js` components with a minimal React stand-in and asserts on the produced tree: the rail glyph and its pending dot, every page state (loading / offline / registry unavailable / executing / failed), the live load and per-kind task breakdown, mode and background selection with their disabled states, the flow and notes, the full-screen countdown's information hierarchy and progressbar semantics, the emitted `data-background` with fallback for unknown values, the progress ring's geometry and edge cases, multi-screen detection and mirror degradation, cancel-failure feedback, and `prefers-reduced-motion` coverage.
 
 ### Cross-platform testing
 
@@ -191,11 +185,11 @@ The plugin **only takes effect on Windows**, but the state machine and the brows
 
 The host suite used to carry an `if (process.platform !== 'win32')` skip, which meant the whole suite **only passed on Windows**. Linux and macOS runners now execute the same assertions for real instead of skipping them.
 
-For an interactive motion preview, open `docs/preview.html?panel=1&live=1` in a browser. It uses local mock state for mode/background selection, scheduling and cancellation, and offers a simulated countdown. It sends no Host requests and never executes a power command.
+For an interactive motion preview, open `docs/preview.html?page=1&live=1` in a browser. It uses local mock state for mode/background selection, scheduling and cancellation, and offers a simulated countdown. It sends no Host requests and never executes a power command.
 
-The motion takes inspiration from [DesignBookmark Motion](https://designbookmark.com/motion): the panel settles open from its trigger; mode and background highlights travel between Host-confirmed selections; checkmarks draw in. Countdown digits update in place on a fixed baseline, with no per-second displacement or flashing, and stay readable during the final red warning. The progress rail uses `transform` rather than changing layout width. All decorative motion respects `prefers-reduced-motion`, while time and cancellation keep working.
+The motion takes inspiration from [DesignBookmark Motion](https://designbookmark.com/motion): mode cards mark the selection with a border and a checkmark that draws in only after the Host confirms it, and the background highlight slides to the active preset. Countdown digits update in place on a fixed baseline, with no per-second displacement or flashing, and stay readable during the final red warning. The progress rail uses `transform` rather than changing layout width. All decorative motion respects `prefers-reduced-motion`, while time and cancellation keep working.
 
-`docs/preview.html` without `live=1` is a dependency-free static preview: it renders the real `client.js` components and real stylesheet in a browser without triggering a power action. Query parameters switch states, e.g. `?s=6&mode=shutdown&multi=1` for the urgent state and the multi-screen controls, `?bg=glass` / `?bg=blur` for the backgrounds, `?panel=1` for the panel, `?dark=1` for the dark theme; `docs/backgrounds.html` puts frosted glass and gaussian blur side by side on one page.
+`docs/preview.html` without `live=1` is a dependency-free static preview: it renders the real `client.js` components and real stylesheet in a browser without triggering a power action. Query parameters switch states, e.g. `?s=6&mode=shutdown&multi=1` for the urgent state and the multi-screen controls, `?bg=glass` / `?bg=blur` for the backgrounds, `?page=1` for the page, `?dark=1` for the dark theme; `docs/backgrounds.html` puts frosted glass and gaussian blur side by side on one page.
 
 Neither suite replaces looking at the page, and neither proves that `shutdown` really powers the machine off — that needs a human clicking the button.
 

@@ -8,6 +8,7 @@
   /* Stand-ins for the DSH design tokens, so the plugin CSS resolves the same way. */
   :root {
     --dsw-alias-bg-mask-3: rgba(16, 19, 26, .66);
+    --dsw-alias-bg-base: #f7f8fa;
     --dsw-alias-bg-overlay: #f1f2f5;
     --dsw-alias-bg-layer-1: #ffffff;
     --dsw-alias-bg-layer-2: #ffffff;
@@ -77,7 +78,6 @@
 <div id="overlay-root"></div>
 <aside id="preview-controls" aria-label="交互预览控制" hidden>
   <div class="preview-actions">
-    <button id="preview-open" type="button" data-ipa-trigger aria-haspopup="dialog" aria-expanded="false">打开设置</button>
     <button id="preview-start" type="button">演示倒计时</button>
     <button id="preview-reset" type="button">重置</button>
   </div>
@@ -96,7 +96,7 @@
   // in the theme it will actually ship in.
   if (new URLSearchParams(location.search).has('dark')) {
     var dark = {
-      '--dsw-alias-bg-overlay': '#1b1e25', '--dsw-alias-bg-layer-1': '#23262e', '--dsw-alias-bg-layer-2': '#2a2e38',
+      '--dsw-alias-bg-base': '#16181d', '--dsw-alias-bg-overlay': '#1b1e25', '--dsw-alias-bg-layer-1': '#23262e', '--dsw-alias-bg-layer-2': '#2a2e38',
       '--dsw-alias-label-primary': '#f2f4f8', '--dsw-alias-label-secondary': '#a9b1c0', '--dsw-alias-label-tertiary': '#828b9b',
       '--dsw-alias-border-l1': 'rgba(255,255,255,.10)', '--dsw-alias-border-l2': 'rgba(255,255,255,.18)',
       '--dsw-alias-border-l3': 'rgba(255,255,255,.28)', '--dsw-alias-brand-primary': '#6f9bff',
@@ -110,7 +110,8 @@
 (function () {
   const params = new URLSearchParams(location.search);
   const live = params.get('live') === '1';
-  const panelMode = params.has('panel');
+  // ?page=1 renders the main-pane page; anything else renders the countdown.
+  const pageMode = params.has('page') || params.has('panel');
   const secondsParam = Number(params.get('s') || 47);
   const initialSeconds = Number.isFinite(secondsParam) ? Math.max(0, Math.min(3600, Math.ceil(secondsParam))) : 47;
   const initialMode = params.get('mode') === 'shutdown' ? 'shutdown' : 'hibernate';
@@ -291,14 +292,13 @@
   function initialState() {
     return {
       data: {
-        supported: true, platform: 'win32', phase: panelMode ? 'idle' : 'counting', mode: initialMode,
+        supported: true, platform: 'win32', phase: pageMode ? 'idle' : 'counting', mode: initialMode,
         backgroundStyle: initialBackground, countdownSeconds: 60, quietSeconds: 20,
         remainingSeconds: initialSeconds, quietRemainingSeconds: 0, deadline: null,
         busy: { available: true, agentsRunning: 0, inboxPending: 0, jobsRunning: 0, total: 0 },
         error: null, lastExecution: null,
       },
       ready: true, offline: false, busy: false, note: null, noteCode: null, notePhase: null,
-      panelOpen: panelMode, anchor: null,
     };
   }
   let state = initialState();
@@ -325,13 +325,13 @@
     locale: { register(namespace, dictionaries) { messages = dictionaries.zh; return () => {}; }, bind: () => t },
     slots: {
       inject(name, callback) { callback(); return () => {}; },
-      register(options, component) { registered.set(options.id, component); return () => {}; },
+      // `main` registers by key and the rail entry by id; both resolve here.
+      register(options, component) { registered.set(options.id ?? options.key, component); return () => {}; },
     },
   };
   captured((spec) => spec === 'react' ? React : null).apply(ctx);
 
   const controls = document.getElementById('preview-controls');
-  const openButton = document.getElementById('preview-open');
   const status = document.getElementById('preview-status');
   let timer = null;
   let resetGeneration = 0;
@@ -355,7 +355,7 @@
     if (!live) return true;
     stopTimer();
     demoStatus = '安全倒计时演示中；到 0 秒自动停止，不执行电源命令。';
-    update({ panelOpen: false }, { phase: 'counting', mode, remainingSeconds: initialSeconds, deadline: Date.now() + initialSeconds * 1000 });
+    update({}, { phase: 'counting', mode, remainingSeconds: initialSeconds, deadline: Date.now() + initialSeconds * 1000 });
     driveCountdown();
     return true;
   };
@@ -364,47 +364,32 @@
     stopTimer();
     demoStatus = '演示已取消。可重新打开设置或再次演示倒计时。';
     update({}, { phase: 'idle', remainingSeconds: 0, deadline: null });
-    openButton.focus();
     return true;
-  };
-  const close = () => {
-    if (!live) return;
-    update({ panelOpen: false });
-    openButton.focus();
   };
   const setMode = async (mode) => { if (live) update({}, { mode }); return true; };
   const setBackground = async (backgroundStyle) => { if (live) update({}, { backgroundStyle }); return true; };
-  const panelProps = { usePower, t, arm: start, cancel, setMode, setBackground, close };
-  const Panel = registered.get('dsh-idle-power.panel');
+  const pageProps = { usePower, t, arm: start, cancel, setMode, setBackground, refresh: async () => true };
+  const Page = registered.get('idle-power');
   const Countdown = registered.get('dsh-idle-power.countdown');
   const root = document.getElementById('overlay-root');
+  // The page is a main-pane view: the app gives it a sized column, and so does
+  // this preview, otherwise height:100% would collapse to nothing.
+  root.style.cssText = 'position:fixed;inset:0;display:flex;z-index:1';
   function render() {
-    const node = React.createElement('div', { key: resetGeneration },
-      React.createElement(Panel, { ...panelProps, key: 'panel' }),
+    const node = React.createElement('div', { key: resetGeneration, style: { display: 'flex', width: '100%', height: '100%' } },
+      React.createElement(Page, { ...pageProps, key: 'page' }),
       React.createElement(Countdown, { usePower, t, cancel, key: 'countdown' }),
     );
     const previous = tree;
     tree = patch(root, tree, node, false);
     if (!previous) root.appendChild(tree.dom);
-    if (!live && panelMode) {
-      // Preserve the original top-left panel screenshot framing.
-      document.querySelector('.fake-app').style.display = 'none';
-      document.body.style.background = '#eef0f4';
-      Object.assign(root.querySelector('.ipa-panel').style, { left: '12px', top: '12px', bottom: 'auto', maxHeight: 'none' });
-    }
-    openButton.setAttribute('aria-expanded', String(state.panelOpen));
+    // The page is a main-pane view, so the stand-in app behind it must go.\n    document.querySelector('.fake-app').style.display = pageMode ? 'none' : '';
     if (status.textContent !== demoStatus) status.textContent = demoStatus;
     flushEffects();
   }
 
   if (live) {
     controls.hidden = false;
-    openButton.addEventListener('click', () => {
-      stopTimer();
-      const rect = openButton.getBoundingClientRect();
-      demoStatus = '安全演示：可切换操作和背景；预约按钮也只启动本页倒计时。';
-      update({ panelOpen: true, anchor: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right } }, { phase: 'idle', remainingSeconds: 0, deadline: null });
-    });
     document.getElementById('preview-start').addEventListener('click', () => { void start(); });
     document.getElementById('preview-reset').addEventListener('click', () => {
       stopTimer();
