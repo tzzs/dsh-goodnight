@@ -1,10 +1,10 @@
-# dsh-idle-power
+# Goodnight
 
 **English** · [简体中文](./README.zh-CN.md)
 
-Hibernate or shut down Windows once **every** task in your DeepSeek Harness Host has finished — with a 60-second countdown that fills the whole window and can be cancelled.
+Say goodnight to Windows once **every** task in your DeepSeek Harness Host has finished. A 60-second countdown fills the whole window, then the plugin hibernates or powers off. Cancel it any time before zero.
 
-Long agent runs usually end when you have walked away. This plugin lets you say *"shut the machine down when everything is actually done"*, then keeps its promise safe: it waits for all agents, subagents and background jobs in this Host, shows a full-window countdown, and **voids itself the moment new work appears**.
+Long agent runs usually end when you have walked away. This plugin lets you say *"put the machine to bed when everything is actually done"*, then keeps its promise safe: it waits for all agents, subagents and background jobs in this Host, shows a full-window countdown, and **voids itself the moment new work appears**.
 
 ![The countdown dialog](docs/countdown.png)
 
@@ -12,11 +12,11 @@ The background is switchable from the page: **solid** (default, above), **froste
 
 ![Frosted glass and gaussian blur](docs/backgrounds.png)
 
-The entry sits in the left rail, right under **Plugins** and **Automation tasks**:
+The entry sits in the left rail, right under **Plugins** and **Automation tasks**, and reads **Goodnight**:
 
 ![The scheduling page](docs/page.png)
 
-The page carries the power action, the countdown background, the live task counts, the flow and the notes. The action bar at the bottom names what the button will do (**Schedule shutdown** / **Schedule hibernation**), becomes **Cancel schedule** while a reservation is live, and the rail glyph grows a small dot.
+The page carries the power action, the countdown background, the live task counts, the flow and the notes. The action bar at the bottom names what the button will do (**Goodnight · shut down** / **Goodnight · hibernate**), becomes **Cancel schedule** while a reservation is live, and the rail glyph grows a small dot.
 
 ---
 
@@ -93,7 +93,7 @@ All three change **only the overlay itself**: the `blur` token overrides are sco
 
 ## Install
 
-The plugin is a regular DSH bundle: an npm package that ships a `cordis.patch.yml` and a `dsh.client` entry.
+The plugin is a regular DSH bundle: an npm package that ships a `cordis.patch.yml` and a `dsh.client` entry. The package keeps its original name, `dsh-idle-power`; **Goodnight** is the name it shows in the app.
 
 **Option A — Plugins page (recommended).** Open the Plugins page in Harness and install the bundle `dsh-idle-power` (or the spec `github:tzzs/dsh-idle-power`). It writes the dependency and adds the bundle to your profile for you.
 
@@ -112,13 +112,13 @@ Either way, **a restart or a plugin reload is required** — the Host half regis
 
 ## Use
 
-The entry sits in the left rail, right under **Plugins** and **Automation tasks**:
+The entry sits in the left rail, right under **Plugins** and **Automation tasks**, and reads **Goodnight**:
 
 ![The scheduling page](docs/page.png)
 
 From top to bottom the page shows the current state (not scheduled / waiting · N tasks running / counting down / executing / failed), the live load, the power action, the countdown background, the flow and the notes.
 
-- **Schedule / Cancel schedule** sits in the action bar at the bottom, next to a one-line plan ("20 s idle → 60 s countdown → shutdown") and named after the selected power action, so the commit button never leaves the choices behind.
+- **Goodnight · shut down** or **Goodnight · hibernate**, whichever the selected power action is, sits in the action bar at the bottom next to a one-line plan ("20 s idle → 60 s countdown → shutdown") that names the same action, so the commit button never leaves the choices behind. While a reservation is live the same spot becomes **Cancel schedule**.
 - **State on the rail** — while a reservation is live the power glyph grows a small dot; during the countdown that dot turns red and blinks. The dot survives the rail collapsing to icons.
 - **Countdown background** — three preview tiles that draw the countdown window each preset produces (solid / frosted glass / gaussian blur), applied immediately and persisted on the Host.
 - **A solid surface can be recoloured** — with the solid preset selected, a colour row offers the theme, six presets (four dark, two light) and the system colour picker; the ink switches between black and white by luminance.
