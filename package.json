@@ -17,9 +17,10 @@
     "icon.svg"
   ],
   "scripts": {
-    "test": "node test/host.test.mjs && node test/client.test.cjs",
+    "test": "node test/host.test.mjs && node test/client.test.cjs && node test/locale.test.cjs",
     "test:host": "node test/host.test.mjs",
-    "test:client": "node test/client.test.cjs"
+    "test:client": "node test/client.test.cjs",
+    "test:locale": "node test/locale.test.cjs"
   },
   "keywords": [
     "dsh",
