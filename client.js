@@ -575,6 +575,19 @@ background-color:rgba(9,11,16,.42);
 /* Wrapping hero: a short/wide window puts the dial beside the copy, a narrow
    one stacks them. Either way Cancel stays above the fold. */
 .ipa-stage{display:flex;align-items:center;justify-content:center;gap:clamp(18px,4vmin,80px);flex-wrap:wrap;min-height:0;padding:clamp(8px,1.5vmin,24px) 0}
+/*
+ * The Host theme sets corner-shape: superellipse(1.5) on *, which turns a
+ * 50% border-radius into a squircle instead of a circle - the waiting orb came
+ * out as a rounded square while the docs preview (plain Chrome) showed a
+ * circle. Anything here that is meant to be a real circle or pill opts back to
+ * round, the same way the Host own avatars and dots do.
+ */
+.ipa-statusDot,.ipa-stateDot,.ipa-heroDial,.ipa-modeMark,.ipa-presetCheck,
+.ipa-colorSwatch,.ipa-colorAutoSwatch,.ipa-colorOption,.ipa-colorInput,
+.ipa-colorInput::-webkit-color-swatch,.ipa-toggleTrack,.ipa-toggleThumb,
+.ipa-flowNum,.ipa-chip,.ipa-noteItem:before,.ipa-waitOrb,.ipa-waitOrbRing,
+.ipa-kbd,.ipa-railDot{corner-shape:round}
+
 /* The waiting screen reuses the countdown's skeleton but stays calm: brand
    colour, an orb instead of a counting ring, and no urgency accent. */
 .ipa-waitOrb{position:relative;display:grid;place-items:center;flex:none;width:clamp(150px,34vmin,320px);height:clamp(150px,34vmin,320px);border-radius:50%;background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--dsw-alias-brand-primary) 15%,transparent),transparent 70%)}

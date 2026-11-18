@@ -975,6 +975,8 @@ console.log('\n=== CSS: page shell and full-viewport countdown layout ===')
   check('filled and danger buttons own their hover state', css.includes('.ipa-button[data-variant=primary]:hover:not(:disabled)') && css.includes('.ipa-button[data-variant=danger]:hover:not(:disabled)'))
   check('the switch shows its state without moving the layout', css.includes('.ipa-toggle:has(> :checked) .ipa-toggleTrack') && css.includes('.ipa-toggle:has(> :checked) .ipa-toggleThumb'))
   check('the waiting orb breathes and respects reduced motion', css.includes('.ipa-waitOrbRing') && css.includes('@keyframes ipa-orbit') && css.includes('@media (prefers-reduced-motion:reduce){.ipa-waitOrbRing{animation:none}}'))
+  check('circles opt out of the Host squircle theme', css.includes('corner-shape:round') && /\.ipa-waitOrb[^{]*\{corner-shape:round\}|\.ipa-kbd,\.ipa-railDot\{corner-shape:round\}/.test(css), 'no corner-shape reset')
+  check('the orb and its ring are in the corner-shape reset', /\.ipa-waitOrb,\.ipa-waitOrbRing/.test(css))
 }
 
 

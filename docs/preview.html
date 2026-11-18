@@ -391,6 +391,15 @@
   const WaitOverlay = registered.get('dsh-idle-power.wait');
   // ?preview=1 rehearses the countdown overlay: the same component the Host
   // mounts, driven by a fake store snapshot, with nothing armed.
+  // The DSH theme injects this globally; without it a 50% radius renders as a
+  // circle here and as a squircle inside the app, so the docs would lie about
+  // the shape. ?squircle=0 turns it off again for comparison.
+  if (params.get('squircle') !== '0') {
+    const shapeStyle = document.createElement('style');
+    shapeStyle.textContent = '@supports (corner-shape:superellipse(1.5)){:root{--dsw-corner-shape:superellipse(1.5)}*,:before,:after{corner-shape:var(--dsw-corner-shape)}}';
+    document.head.appendChild(shapeStyle);
+  }
+
   const previewMode = params.has('preview');
   const previewStore = { data: state.data, preview: true };
   const root = document.getElementById('overlay-root');
