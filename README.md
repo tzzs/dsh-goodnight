@@ -8,13 +8,15 @@ Long agent runs usually end when you have walked away. This plugin lets you say 
 
 ![The countdown dialog](docs/countdown.png)
 
-The background is switchable from the panel: **solid** (default, above), **frosted glass**, and **gaussian blur**:
+The background is switchable from the page: **solid** (default, above), **frosted glass**, and **gaussian blur**:
 
 ![Frosted glass and gaussian blur](docs/backgrounds.png)
 
-| Choose what happens | While it waits |
-|---|---|
-| ![The scheduling panel](docs/panel.png) | The sidebar entry names the live state: `Schedule shutdown`, `Waiting · 3 tasks running`, `42s to shutdown`. |
+The entry sits in the left rail, right under **Plugins** and **Automation tasks**:
+
+![The scheduling page](docs/page.png)
+
+The page carries the power action, the countdown background, the live task counts, the flow and the notes. The action bar at the bottom names what the button will do (**Schedule shutdown** / **Schedule hibernation**), becomes **Cancel schedule** while a reservation is live, and the rail glyph grows a small dot.
 
 ---
 
@@ -34,7 +36,7 @@ It treats the whole Harness as busy if **any** of these is true:
 Then:
 
 1. **Quiet period — 20 s.** All of the above must stay empty continuously. A single tick with work resets the clock. A missing agent registry counts as unknown activity, never as idle.
-2. **Countdown — 60 s.** The whole Harness window becomes one countdown screen: a rail draining across the top edge, digits and a progress ring that scale with the display, status and warnings spread to the corners, and a high-contrast `Cancel` button (`Esc` works too).
+2. **Countdown — 60 s.** The screen becomes one countdown screen: it first asks the engine for real fullscreen (covering the taskbar), then paints a rail draining across the top edge, digits and a progress ring that scale with the display, status and warnings spread to the corners, and a high-contrast `Cancel` button (`Esc` works too). When the engine refuses the automatic request for lack of a user gesture, a `Full screen` button in the corner repeats it from a click.
 3. **Any new task voids the countdown** and drops back to waiting. You never have to race it.
 4. Only when the countdown genuinely reaches zero does it run the power command. **Once the command is committed, cancel and mode changes are refused with `409`**, so the UI can never imply a cancellation that did not happen.
 5. **Waking from sleep never fires immediately.** If one tick arrives far past the deadline — the Host was frozen or the machine was suspended — the plugin re-arms and replays the whole quiet window instead of powering off the moment you sit back down.
@@ -50,13 +52,13 @@ Arming is always an explicit, human action. There is no model-facing tool, so th
 | `shutdown` **(default)** | `shutdown /s /t 0 /f` | Powers off. DSH conversations are still on disk. |
 | `hibernate` | `shutdown /h /f` | Writes the memory image to disk. Next boot restores every open window and unsaved edit. |
 
-Switch modes from the panel; the sidebar entry renames itself to match (`Schedule shutdown` / `Schedule hibernate`).
+Switch modes on the page; the Host remembers the choice, so it survives a reload.
 
-> **Fast Startup note.** If Windows Fast Startup is enabled, `shutdown /s` is a *hybrid* shutdown: the kernel state is saved and the next boot resumes it. The browser half cannot reliably detect that system setting, so the panel does not claim it is on; it warns instead that apps will be forced closed and unsaved work may be lost. A true cold boot needs `powercfg /h off` (admin, permanent) — this plugin deliberately does not touch your system settings.
+> **Fast Startup note.** If Windows Fast Startup is enabled, `shutdown /s` is a *hybrid* shutdown: the kernel state is saved and the next boot resumes it. The browser half cannot reliably detect that system setting, so the page does not claim it is on; it warns instead that apps will be forced closed and unsaved work may be lost. A true cold boot needs `powercfg /h off` (admin, permanent) — this plugin deliberately does not touch your system settings.
 
 ## The countdown screen and multiple monitors
 
-The countdown is no longer a small centred card: the whole Harness window becomes one countdown screen, with information spread to its corners so it stays readable from across the room.
+The countdown is no longer a small centred card: the window — or the whole display once it is fullscreen — becomes one countdown screen, with information spread to its corners so it stays readable from across the room.
 
 - A **rail pinned to the top edge** drains continuously and turns red for the last 10 seconds, so time is visible even in peripheral vision.
 - **Giant digits** scale with `vmin` (readable on 4K, high-DPI and 200% zoom), wrapped by a ring driven by the fractional remainder so it sweeps instead of stepping once a second.
@@ -79,7 +81,7 @@ Mirrors are **best-effort**: they work in the browser-hosted Harness; the deskto
 
 ### Background styles
 
-Three presets, switched from the panel (applied immediately, remembered by the Host across reloads), with `backgroundStyle` in `cordis.patch.yml` deciding the default after a Host restart.
+Three presets, switched from the page (applied immediately, remembered by the Host across reloads), with `backgroundStyle` in `cordis.patch.yml` deciding the default after a Host restart.
 
 | Preset | Look | How contrast is kept |
 |---|---|---|
@@ -110,29 +112,29 @@ Either way, **a restart or a plugin reload is required** — the Host half regis
 
 ## Use
 
-The entry lives at the bottom of the sidebar, next to Settings:
+The entry sits in the left rail, right under **Plugins** and **Automation tasks**:
 
-```
-⏻ Schedule shutdown          idle
-⏻ Waiting · 3 tasks running  armed, work still running
-⏻ 42s to shutdown            counting down
-⏻ Executing power action     command committed, no longer cancellable
-⏻ Failed                     non-zero exit; open the panel for the reason
-```
+![The scheduling page](docs/page.png)
 
-Click it, pick a mode, press the action button. While a reservation is live the same button becomes **Cancel**.
+From top to bottom the page shows the current state (not scheduled / waiting · N tasks running / counting down / executing / failed), the live load, the power action, the countdown background, the flow and the notes.
 
-The panel also states:
+- **Schedule / Cancel schedule** sits in the action bar at the bottom, next to a one-line plan ("20 s idle → 60 s countdown → shutdown") and named after the selected power action, so the commit button never leaves the choices behind.
+- **State on the rail** — while a reservation is live the power glyph grows a small dot; during the countdown that dot turns red and blinks. The dot survives the rail collapsing to icons.
+- **Countdown background** — three preview tiles that draw the countdown window each preset produces (solid / frosted glass / gaussian blur), applied immediately and persisted on the Host.
+- **A solid surface can be recoloured** — with the solid preset selected, a colour row offers the theme, six presets (four dark, two light) and the system colour picker; the ink switches between black and white by luminance.
+- **A reservation keeps the machine awake** — an idle desktop turns the display off, then locks, then sleeps, and a **suspended Host never reaches the end of its countdown**: that is exactly why "the shutdown stopped working after the lock screen". While a reservation is pending the plugin holds `SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED)`, so it neither sleeps nor blanks the display (and therefore never auto-locks), and releases it the moment the reservation ends or the command is committed. The switch lives in the "Stay awake" section and is on by default.
+- **The waiting phase can take the screen too** — with "Whole screen → Full screen while waiting" on, arming goes straight to a fullscreen waiting screen: what is still running, the quiet-window progress, and Cancel. When the quiet window passes it hands the screen to the countdown without ever leaving fullscreen. `Esc` takes the whole presentation away (fullscreen included) and keeps the reservation; the countdown screen cannot be dismissed.
 
-- **Countdown background** — solid / frosted glass / gaussian blur, applied immediately and persisted on the Host.
-- **How it runs** — `20 s continuously idle → 60 s cancellable countdown`, plus "closing this page does not cancel; other apps and Hosts are not monitored".
-- **What is running** — running agents, queued messages and background jobs are listed separately instead of one opaque total.
+![The waiting screen](docs/wait.png)
+- **Countdown preview** — the Preview button in that section runs the real countdown component for ten seconds with the current colour, background and mode. Nothing is armed, no route is called, and it closes itself at zero.
+
+![Countdown preview](docs/preview.png)
+- **How it runs** — `20 s continuously idle → 60 s cancellable countdown → run`, plus "closing this page does not cancel; only this Host is monitored".
+- **What is running** — running agents, queued messages and background jobs are listed separately, with a total.
 - **Connection state** — "Loading status…" before the first answer, "Cannot reach the plugin Host" with controls disabled when the connection drops, "Submitting…" while a request is in flight so a button cannot be pressed twice.
 - **Failure state** — if cancelling the countdown fails, the dialog stays and says cancellation is unconfirmed instead of pretending it worked.
 
-Keyboard: `Esc` closes the panel or cancels the countdown, `↑`/`↓`/`Home`/`End` move between modes, and `Tab` cycles between the cancel and multi-screen buttons inside the countdown instead of escaping the dialog.
-
-Collapsed to the 56 px rail the entry degrades to an icon. On Windows the entire sidebar foot is hidden while collapsed (host behaviour) — expand the sidebar (`Ctrl+B`) to reach it.
+Keyboard: on the **waiting screen** `Esc` closes the whole presentation (fullscreen and overlay together) and keeps the reservation; the **countdown screen** cannot be dismissed — `Esc` leaves fullscreen first (the countdown keeps running) and a second press cancels; windowed, `Esc` cancels directly; modes, backgrounds and colours are native radio groups (a radio inside a `<label>` card), so the arrow keys move and select; `Tab` cycles through every button inside the dialog instead of escaping it.
 
 ## Configuration
 
@@ -144,23 +146,29 @@ Set these on the plugin row in your profile's `cordis.patch.yml`:
 | `quietSeconds` | `20` | Required quiet period, clamped to 3–3600 |
 | `defaultMode` | `'shutdown'` | `'hibernate'` or `'shutdown'` |
 | `backgroundStyle` | `'solid'` | Countdown background: `'solid'` / `'glass'` / `'blur'`; an unknown value falls back to `'solid'` |
+| `countdownColor` | `null` | Custom solid colour as `#rrggbb`; `null` follows the Host theme, and an invalid value falls back to `null` |
+| `fullscreenOnWait` | `false` | Whether a reservation takes the whole screen from the **waiting** phase; the "Whole screen → Full screen while waiting" switch writes it back to the Host |
+| `stayAwake` | `true` | Whether a pending reservation blocks sleep and the lock screen; the "Stay awake" switch writes it back |
 | `shutdownCommand` | `'shutdown'` | Power command; resolved via PATH when the plugin loads |
 
 A mode or background you pick in the UI is remembered by the Host (it survives a page reload) and resets to `defaultMode` / `backgroundStyle` when the Host restarts.
 
 ## HTTP routes
 
-The browser half talks to the Host over five authenticated routes. Each route checks Host and Origin, `sec-fetch-site`, and the auth cookie. Rejected requests receive `403` or `401`. If the connection service is unavailable, the routes return `503`.
+The browser half talks to the Host over six authenticated routes. Every one checks Host, Origin, `sec-fetch-site` and the auth cookie first, answering `403` or `401`; when the connection service is unavailable every route answers `503`.
 
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/idle-power/state` | mode, phase, remaining seconds, background style, live task counts |
 | `POST` | `/idle-power/arm` | reserve; body `{ "mode": "hibernate" \| "shutdown" }` |
 | `POST` | `/idle-power/cancel` | cancel a reservation or a running countdown |
-| `POST` | `/idle-power/mode` | change the mode while no reservation is active |
+| `POST` | `/idle-power/mode` | change the mode when nothing is reserved |
 | `POST` | `/idle-power/background` | change the background only; body `{ "backgroundStyle": "solid" \| "glass" \| "blur" }` |
+| `POST` | `/idle-power/color` | change the solid colour only; body `{ "color": "#rrggbb" \| null }` |
+| `POST` | `/idle-power/fullscreen` | change the waiting fullscreen only; body `{ "onWait": true \| false }` |
+| `POST` | `/idle-power/awake` | change the stay-awake behaviour only; body `{ "on": true \| false }` |
 
-Once the power command is committed, `/arm`, `/cancel`, `/mode` and `/background` all answer `409 execution-in-progress`. A stale arm or a `/mode` request while a reservation is active returns `409 reservation-changed`. To change the mode of an active reservation, use `/arm` to start a new quiet period.
+Once the power command is committed, `/arm`, `/cancel`, `/mode`, `/background`, `/color`, `/fullscreen` and `/awake` all answer `409 execution-in-progress`. A superseded arm, and any `/mode` sent while a reservation is live, answers `409 reservation-changed`; to change the action of an existing reservation, arm again so the quiet window restarts.
 
 `/background` is a pure appearance preference and **deliberately does not touch the reservation state machine**: it never bumps the internal revision, so changing the background can never make an in-flight arm look superseded.
 
@@ -180,9 +188,9 @@ npm test
 Two dependency-free harnesses drive the real code with stand-ins, so the suite can run on any machine without powering anything off:
 
 - `test/host.test.mjs` — the state machine against fake agents, fake jobs and a subprocess that records `argv` instead of executing. Covers the busy predicate, a missing registry, quiet behaviour, countdown voiding, both command lines, cancellation, failure reporting, the mode and background routes, background config fallback for unknown values, and the races: mutations refused once execution is committed, a background change that must not disturb a pending arm, a cancel beating a slow arm upload, a stale lookup unable to overwrite a cancellation, and a suspend that overshoots the deadline re-arming instead of firing.
-- `test/client.test.cjs` — renders the real `client.js` components with a minimal React stand-in and asserts on the produced tree: both entry layouts, every panel state (loading / offline / registry unavailable / executing / failed), the per-kind task breakdown, the three background presets and their disabled states, the full-screen countdown's information hierarchy and progressbar semantics, the emitted `data-background` with fallback for unknown values, the progress ring's geometry and edge cases, multi-screen detection and mirror degradation, dismissal, cancel-failure feedback, expanded-state ARIA, and `prefers-reduced-motion` coverage.
+- `test/client.test.cjs` — renders the real `client.js` components with a minimal React stand-in and asserts on the produced tree: the rail glyph and its pending dot, every page state (loading / offline / registry unavailable / executing / failed), the live load and per-kind task breakdown, mode and background selection with their disabled states, the flow and notes, the full-screen countdown's information hierarchy and progressbar semantics, the emitted `data-background` with fallback for unknown values, the progress ring's geometry and edge cases, multi-screen detection and mirror degradation, cancel-failure feedback, and `prefers-reduced-motion` coverage.
 
-The Host tests also cover trust-check failures, unavailable connection services, stale mode changes, and a suspend while the executable lookup is in flight. The client tests cover keyboard access to all countdown controls.
+The host tests also cover a failed trust check, an unavailable connection service, mode changes during a reservation, and waking up during the executable lookup; the client tests cover keyboard access to every countdown control plus the fullscreen request and the two-step `Esc`.
 
 ### Cross-platform testing
 
@@ -193,11 +201,11 @@ The plugin **only takes effect on Windows**, but the state machine and the brows
 
 The host suite used to carry an `if (process.platform !== 'win32')` skip, which meant the whole suite **only passed on Windows**. Linux and macOS runners now execute the same assertions for real instead of skipping them.
 
-For an interactive motion preview, open `docs/preview.html?panel=1&live=1` in a browser. It uses local mock state for mode/background selection, scheduling and cancellation, and offers a simulated countdown. It sends no Host requests and never executes a power command.
+For an interactive motion preview, open `docs/preview.html?page=1&live=1` in a browser. It uses local mock state for mode/background selection, scheduling and cancellation, and offers a simulated countdown. It sends no Host requests and never executes a power command.
 
-The motion takes inspiration from [DesignBookmark Motion](https://designbookmark.com/motion): the panel settles open from its trigger; mode and background highlights travel between Host-confirmed selections; checkmarks draw in. Countdown digits update in place on a fixed baseline, with no per-second displacement or flashing, and stay readable during the final red warning. The progress rail uses `transform` rather than changing layout width. All decorative motion respects `prefers-reduced-motion`, while time and cancellation keep working.
+The motion takes inspiration from [DesignBookmark Motion](https://designbookmark.com/motion): mode cards and background tiles mark the selection with an accent ring and a checkmark that draws in only after the Host confirms it. Countdown digits update in place on a fixed baseline, with no per-second displacement or flashing, and stay readable during the final red warning. The progress rail uses `transform` rather than changing layout width. All decorative motion respects `prefers-reduced-motion`, while time and cancellation keep working.
 
-`docs/preview.html` without `live=1` is a dependency-free static preview: it renders the real `client.js` components and real stylesheet in a browser without triggering a power action. Query parameters switch states, e.g. `?s=6&mode=shutdown&multi=1` for the urgent state and the multi-screen controls, `?bg=glass` / `?bg=blur` for the backgrounds, `?panel=1` for the panel, `?dark=1` for the dark theme; `docs/backgrounds.html` puts frosted glass and gaussian blur side by side on one page.
+`docs/preview.html` without `live=1` is a dependency-free static preview: it renders the real `client.js` components and real stylesheet in a browser without triggering a power action. Query parameters switch states, e.g. `?s=6&mode=shutdown&multi=1` for the urgent state and the multi-screen controls, `?bg=glass` / `?bg=blur` for the backgrounds, `?page=1` for the page, `?dark=1` for the dark theme; `docs/backgrounds.html` puts frosted glass and gaussian blur side by side on one page.
 
 Neither suite replaces looking at the page, and neither proves that `shutdown` really powers the machine off — that needs a human clicking the button.
 

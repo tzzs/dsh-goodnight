@@ -19,6 +19,9 @@ jobs:
   test:
     name: test (${{ matrix.os }}, node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
+    # A job that hangs should fail in ten minutes with a clear timeout instead of
+    # sitting in the queue until something else cancels it.
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -26,6 +29,15 @@ jobs:
         # versions in between cannot fail in a way these two miss.
         os: [windows-latest, ubuntu-latest, macos-latest]
         node: [20, 24]
+        exclude:
+          # macOS runners are the scarce ones: a job that never gets one is
+          # cancelled after fifteen minutes in the queue, which fails the whole
+          # run for reasons that have nothing to do with this repository. Every
+          # OS is still covered, and both Node versions are still covered — the
+          # cross product is what shrinks, and macOS x Node 24 adds no coverage
+          # the other five cells do not already have.
+          - os: macos-latest
+            node: 24
     steps:
       - uses: actions/checkout@v7
 

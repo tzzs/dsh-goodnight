@@ -86,12 +86,21 @@ const ctx = {
   slots: {
     inject(name, callback) { callback(); return () => {} },
     register(options, component) {
-      registered.push({ name: options.name, id: options.id, component, inject: options.inject })
+      registered.push({
+        name: options.name,
+        id: options.id,
+        key: options.key,
+        order: options.order,
+        label: options.label,
+        component,
+        inject: options.inject,
+      })
       return () => {}
     },
   },
 }
 moduleObj.apply(ctx)
+
 
 /** Render one element tree, invoking function components with fresh hooks. */
 function renderNode(node) {
@@ -182,18 +191,18 @@ function check(label, condition, detail) {
 }
 
 const byId = (id) => registered.find((entry) => entry.id === id)
+const byKey = (key) => registered.find((entry) => entry.key === key)
 
 /** Render one registered entry with its injected props. */
 function renderEntry(entry, storeValue, actions = {}, ownerProps = {}) {
   const props = {
     usePower: (selector) => (selector ? selector(storeValue) : storeValue),
     t: (key) => key,
-    open: () => {},
-    close: () => {},
     arm: async () => true,
     cancel: async () => true,
     setMode: async () => true,
     setBackground: async () => true,
+    refresh: async () => true,
     ...ownerProps,
     ...actions,
   }
@@ -202,398 +211,595 @@ function renderEntry(entry, storeValue, actions = {}, ownerProps = {}) {
   return { root, tree: renderNode(root) }
 }
 
-const button = byId('dsh-idle-power')
-const panel = byId('dsh-idle-power.panel')
+const rail = byId('idle-power')
+const page = byKey('idle-power')
 const countdown = byId('dsh-idle-power.countdown')
 
 console.log('=== registrations ===')
-for (const entry of registered) console.log(' ', entry.name, '|', entry.id)
-check('sidebar button registered', button?.name === 'sidebar.footer.action', button?.name)
-check('panel registered in shell.overlay', panel?.name === 'shell.overlay', panel?.name)
+for (const entry of registered) console.log(' ', entry.name, '|', entry.id ?? entry.key ?? '')
+check('rail entry registered', rail?.name === 'sidebar.panellist', rail?.name)
+check('rail entry sits directly under 自动化任务 (order 15)', rail?.order === 15, String(rail?.order))
+check('rail entry exposes a label', rail?.label?.() === 't(rail.label)', String(rail?.label?.()))
+check('rail entry can receive the live store', typeof rail?.inject?.()?.hooks?.power?.getSnapshot === 'function')
+check('page registered in main', page?.name === 'main', page?.name)
+check('page key matches the rail id', page?.key === 'idle-power', page?.key)
+// Drift guard: whatever the page destructures must be injected, so a new
+// action can never be rendered without the prop that makes it work.
+const pageActions = (/function PowerPage\(\{([\s\S]*?)\}\)/.exec(String(page?.component))?.[1] ?? '')
+  .split(',')
+  .map((part) => part.trim().split(':')[0].trim())
+  .filter((name) => name !== '' && name !== 'usePower' && name !== 't')
+check('the page destructures at least the known actions', pageActions.length >= 7, String(pageActions.length))
+check('page receives every action it destructures', pageActions.every((name) => typeof page?.inject?.()[name] === 'function'), pageActions.join(','))
 check('countdown registered in shell.overlay', countdown?.name === 'shell.overlay', countdown?.name)
 
-console.log('\n=== sidebar button: expanded (wide) ===')
+/** Depth-first visit of rendered elements. */
+function walkElements(tree, visit) {
+  if (tree === null || tree === undefined) return
+  if (Array.isArray(tree)) { for (const child of tree) walkElements(child, visit); return }
+  if (tree.kind !== 'element') return
+  visit(tree)
+  for (const child of tree.children) walkElements(child, visit)
+}
+const rolesOf = (tree, role) => {
+  const found = []
+  walkElements(tree, (node) => { if (node.props.role === role) found.push(node) })
+  return found
+}
+const byClass = (tree, name) => findElement(tree, (node) => typeof node.props.className === 'string' && node.props.className.includes(name))
+const countClass = (tree, name) => {
+  let total = 0
+  walkElements(tree, (node) => { if (typeof node.props.className === 'string' && node.props.className.split(' ').includes(name)) total += 1 })
+  return total
+}
+const pageState = (data, extra = {}) => ({ data, ready: true, offline: false, busy: false, note: null, ...extra })
+const bgOptions = (tree) => {
+  const found = []
+  walkElements(tree, (node) => { if (node.props.className === 'ipa-preset') found.push(node) })
+  return found
+}
+/** Every native radio input in the tree, in source order. */
+const radiosOf = (tree) => {
+  const found = []
+  walkElements(tree, (node) => { if (node.tag === 'input' && node.props.type === 'radio') found.push(node) })
+  return found
+}
+/** The native control inside a choice card / preset label. */
+const inputOf = (label) => (label === undefined ? undefined : label.children.find((child) => child !== null && child !== undefined && child.kind === 'element' && child.tag === 'input'))
+/** Mode radios only: the page also has one radio per background preset. */
+const modeRadiosOf = (tree) => radiosOf(tree).filter((node) => node.props.name === 'ipa-mode')
+const presetDisabled = (tree) => bgOptions(tree).map((label) => inputOf(label)?.props.disabled)
+
+console.log('\n=== rail glyph: the only always-visible signal ===')
 {
-  // The expanded sidebar must show a readable row, not a bare glyph: the glyph
-  // alone was invisible next to the plugin button.
-  const idle = renderEntry(button, { data: baseState, offline: false }, {}, { wide: true })
-  const idleTree = renderNode(idle.root)
-  check('wide renders a row, not the icon', idle.root.props.className === 'ipa-entry', idle.root.props.className)
-  // The label must name hibernate, not shutdown: shutdown is not the default.
-  check('row names hibernate by default', textsOf(idleTree).join('|').includes('mode.hibernate.short'), textsOf(idleTree).join('|'))
-  check('row never says plain shutdown while hibernate is selected', !textsOf(idleTree).join('|').includes('mode.shutdown.short'), textsOf(idleTree).join('|'))
-  check('row offers to schedule', textsOf(idleTree).join('|').includes('entry.schedulePrefix'))
-  check('row still renders the power glyph', findElement(idleTree, (n) => n.tag === 'svg') !== undefined)
-  check('row exposes the same label to a11y', idle.root.props['aria-label'] === 'entry.schedulePrefixmode.hibernate.short', idle.root.props['aria-label'])
+  const idle = renderEntry(rail, { data: baseState, offline: false })
+  const idleSvg = findElement(idle.tree, (n) => n.tag === 'svg')
+  check('renders an svg glyph', idleSvg !== undefined)
+  check('exposes the phase for styling', idleSvg?.props['data-phase'] === 'idle', idleSvg?.props['data-phase'])
+  check('no pending dot while idle', !classesOf(idle.tree).some((c) => c.includes('ipa-railDot')), classesOf(idle.tree).join(','))
+  check('defaults to the rail glyph size', idleSvg?.props.width === 18, String(idleSvg?.props.width))
+  check('idle stroke is the thin rail weight', idleSvg?.props.strokeWidth === 1.6, String(idleSvg?.props.strokeWidth))
+  check('glyph is decorative for a11y', idleSvg?.props['aria-hidden'] === true)
 
-  const shutdownIdle = renderEntry(button, { data: { ...baseState, mode: 'shutdown' }, offline: false }, {}, { wide: true })
-  const shutdownText = textsOf(renderNode(shutdownIdle.root)).join('|')
-  check('row names shutdown once that mode is chosen', shutdownText.includes('mode.shutdown.short'), shutdownText)
-  check('row drops hibernate wording then', !shutdownText.includes('mode.hibernate.short'), shutdownText)
+  const selected = renderEntry(rail, { data: baseState }, {}, { active: true })
+  check('the selected entry thickens the stroke', findElement(selected.tree, (n) => n.tag === 'svg')?.props.strokeWidth === 1.9)
+  const counting = renderEntry(rail, { data: { ...baseState, phase: 'counting', remainingSeconds: 30 } })
+  const countingSvg = findElement(counting.tree, (n) => n.tag === 'svg')
+  check('counting marks the phase', countingSvg?.props['data-phase'] === 'counting', countingSvg?.props['data-phase'])
+  check('counting keeps the dot', classesOf(counting.tree).some((c) => c.includes('ipa-railDot')))
+  const armed = renderEntry(rail, { data: { ...baseState, phase: 'armed' } })
+  check('armed draws the pending dot', classesOf(armed.tree).some((c) => c.includes('ipa-railDot')), classesOf(armed.tree).join(','))
+  const failed = renderEntry(rail, { data: { ...baseState, phase: 'failed' } })
+  check('a failed action drops the dot', !classesOf(failed.tree).some((c) => c.includes('ipa-railDot')))
+  check('a host-provided size is honoured', findElement(renderEntry(rail, { data: baseState }, {}, { size: 16 }).tree, (n) => n.tag === 'svg')?.props.width === 16)
 
-  const armed = renderEntry(button, { data: { ...baseState, phase: 'armed', busy: { ...baseState.busy, total: 3 } }, offline: false }, {}, { wide: true })
-  const armedText = textsOf(renderNode(armed.root)).join('|')
-  check('row reports waiting', armedText.includes('status.waiting'), armedText)
-  check('row reports the task count', armedText.includes('3'), armedText)
-  check('row is marked active', armed.root.props['data-active'] === true, String(armed.root.props['data-active']))
-
-  const counting = renderEntry(button, { data: { ...baseState, phase: 'counting', remainingSeconds: 42, deadline: Date.now() + 42000 }, offline: false }, {}, { wide: true })
-  const countingText = textsOf(renderNode(counting.root)).join('|')
-  check('row shows remaining seconds', countingText.includes('42'), countingText)
-  check('countdown names the action', countingText.includes('mode.hibernate.short'), countingText)
-  check('row carries the phase attribute', counting.root.props['data-phase'] === 'counting')
-  const countingShutdown = renderEntry(button, { data: { ...baseState, phase: 'counting', mode: 'shutdown', remainingSeconds: 30 }, offline: false }, {}, { wide: true })
-  check('countdown names shutdown when that mode is chosen', textsOf(renderNode(countingShutdown.root)).join('|').includes('mode.shutdown.short'), textsOf(renderNode(countingShutdown.root)).join('|'))
+  // The host may render the entry as a bare icon; the module store still feeds it.
+  beginComponent()
+  const bare = renderNode(rail.component({ size: 16 }))
+  check('renders without injected props', bare !== null && findElement(bare, (n) => n.tag === 'svg') !== undefined)
 }
 
-console.log('\n=== sidebar button: collapsed (rail) ===')
+console.log('\n=== page: idle ===')
 {
-  const idle = renderEntry(button, { data: baseState, offline: false }, {}, { wide: false })
-  check('rail renders the compact icon', idle.root.props.className === 'ipa-fab', idle.root.props.className)
-  const tree = renderNode(idle.root)
-  check('rail renders a button element', findElement(tree, (n) => n.tag === 'button') !== undefined || idle.root.type === 'button')
-  check('no status dot when idle', !classesOf(tree).some((c) => c.includes('ipa-dot')), classesOf(tree).join(','))
-  check('rail aria-label is the schedule hint', idle.root.props['aria-label'] === 'button.tip', idle.root.props['aria-label'])
-  check('rail renders the power glyph as svg', findElement(tree, (n) => n.tag === 'svg') !== undefined)
-
-  const armed = renderEntry(button, { data: { ...baseState, phase: 'armed', busy: { ...baseState.busy, total: 2 } }, offline: false }, {}, { wide: false })
-  check('rail status dot shows', classesOf(renderNode(armed.root)).some((c) => c.includes('ipa-dot')), classesOf(renderNode(armed.root)).join(','))
-  check('rail marked active', armed.root.props['data-active'] === true, String(armed.root.props['data-active']))
-  check('rail aria-label reports waiting', armed.root.props['aria-label'] === 'status.waiting', armed.root.props['aria-label'])
-}
-
-console.log('\n=== sidebar button: offline and unsupported ===')
-{
-  const offlineWide = renderEntry(button, { data: baseState, offline: true }, {}, { wide: true })
-  check('offline label surfaces when wide', textsOf(renderNode(offlineWide.root)).join('|').includes('status.offline'), textsOf(renderNode(offlineWide.root)).join('|'))
-
-  const unsupportedWide = renderEntry(button, { data: { ...baseState, supported: false, platform: 'linux' }, offline: false }, {}, { wide: true })
-  check('unsupported label surfaces when wide', textsOf(renderNode(unsupportedWide.root)).join('|').includes('status.unsupported'))
-
-  const offlineRail = renderEntry(button, { data: baseState, offline: true }, {}, { wide: false })
-  check('offline label surfaces in the rail', offlineRail.root.props['aria-label'] === 'status.offline', offlineRail.root.props['aria-label'])
-
-  const unsupportedRail = renderEntry(button, { data: { ...baseState, supported: false }, offline: false }, {}, { wide: false })
-  check('unsupported label surfaces in the rail', unsupportedRail.root.props['aria-label'] === 'status.unsupported', unsupportedRail.root.props['aria-label'])
-}
-
-console.log('\n=== panel: closed ===')
-{
-  const { root } = renderEntry(panel, { data: baseState, panelOpen: false })
-  check('closed panel renders null', root === null, String(root))
-}
-
-console.log('\n=== panel: open ===')
-{
-  const open = { data: baseState, ready: true, offline: false, busy: false, note: null, panelOpen: true }
-  const { tree } = renderEntry(panel, open)
-  const dialog = findElement(tree, (n) => n.props.role === 'dialog')
-  check('renders a dialog', dialog !== undefined)
-  check('labels the dialog', dialog?.props['aria-label'] === 'panel.title', dialog?.props['aria-label'])
-  check('has a radiogroup', findElement(tree, (n) => n.props.role === 'radiogroup') !== undefined)
-  const texts = textsOf(tree)
-  check('offers hibernate', texts.includes('panel.hibernate'), texts.join('|'))
-  check('offers shutdown', texts.includes('panel.shutdown'), texts.join('|'))
-  check('describes hibernate', texts.includes('panel.hibernateDesc'), texts.join('|'))
-  check('status reads idle', texts.includes('status.idle'), texts.join('|'))
-  check('shows the arm button', texts.includes('panel.arm'), texts.join('|'))
-  const radios = []
-  ;(function walk(node) {
-    if (node === null) return
-    if (Array.isArray(node)) { node.forEach(walk); return }
-    if (node.kind !== 'element') return
-    if (node.props.role === 'radio') radios.push(node)
-    node.children.forEach(walk)
-  })(tree)
-  check('renders two mode radios', radios.length === 2, radios.length)
-  check('hibernate is checked by default', radios[0]?.props['aria-checked'] === true, String(radios[0]?.props['aria-checked']))
-}
-
-console.log('\n=== panel: armed ===')
-{
-  const armed = { data: { ...baseState, phase: 'armed', quietRemainingSeconds: 12 }, ready: true, offline: false, busy: false, note: null, panelOpen: true }
-  const { tree } = renderEntry(panel, armed)
+  const { tree } = renderEntry(page, pageState(baseState))
   const texts = textsOf(tree)
   const joined = texts.join('|')
-  check('shows the quiet countdown copy', joined.includes('status.quietPrefix'), joined)
-  check('shows the remaining quiet seconds', joined.includes('12'), joined)
-  check('offers cancel when armed', texts.includes('panel.cancel'), joined)
-  // Regression: showing 预约 and 取消预约 together made an armed reservation
-  // look like nothing had happened.
-  check('does NOT still offer 预约 while armed', !texts.includes('panel.arm'), joined)
-  const primary = findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-cancel'))
-  check('cancel is the primary action', primary !== undefined)
-  check('only one action button is rendered', texts.filter((s) => s === 'panel.arm' || s === 'panel.cancel').length === 1, joined)
+  check('renders the page shell', countClass(tree, 'ipa-page') === 1)
+  check('has exactly one h1', countClass(tree, 'ipa-pageTitle') === 1 && findElement(tree, (n) => n.tag === 'h1')?.children[0].text === 'page.title')
+  check('shows the eyebrow', texts.includes('page.eyebrow'), joined)
+  check('shows the subtitle', texts.includes('page.subtitle'), joined)
+  check('status reads idle', texts.includes('status.idle'), joined)
+  check('explains the idle state', texts.includes('body.idle'), joined)
+  check('offers the action that names the chosen mode', texts.includes('page.armHibernate') || texts.includes('page.armShutdown'), joined)
+  check('does not offer cancel when idle', !texts.includes('page.cancel'), joined)
+  const primary = findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-button') && n.props['data-variant'] === 'primary')
+  check('预约 is the primary action', primary !== undefined)
+  check('预约 is enabled when ready', primary?.props.disabled === false, String(primary?.props.disabled))
+  check('offers a refresh control', byClass(tree, 'ipa-iconButton') !== undefined)
+
+  // Four metrics read as one instrument, not four cards.
+  check('renders four metrics', countClass(tree, 'ipa-metric') === 4, String(countClass(tree, 'ipa-metric')))
+  check('names running agents', texts.includes('metric.agents'), joined)
+  check('names queued messages', texts.includes('metric.inbox'), joined)
+  check('names background jobs', texts.includes('metric.jobs'), joined)
+  check('shows zero counts while idle', texts.filter((s) => s === '0').length >= 4, joined)
+
+  const radios = modeRadiosOf(tree)
+  check('renders two native mode radios', radios.length === 2, String(radios.length))
+  check('hibernate is checked by default', radios[0]?.props.checked === true)
+  check('shutdown is not checked by default', radios[1]?.props.checked === false)
+  check('mode radios share one group name', radios[0]?.props.name === 'ipa-mode' && radios[1]?.props.name === 'ipa-mode')
+  check('mode radios live in a radiogroup', findElement(tree, (n) => n.props.role === 'radiogroup') !== undefined)
+  // The visible card is the label, so the whole card is the hit area and the
+  // description reaches the control as a description, not as part of its name.
+  const modeLabels = []
+  walkElements(tree, (node) => { if (node.props.className === 'ipa-modeCard') modeLabels.push(node) })
+  check('each mode card is a label wrapping its control', modeLabels.length === 2 && modeLabels.every((label) => inputOf(label) !== undefined))
+  check('mode controls name themselves by their title', radios[0]?.props['aria-label'] === 'mode.hibernate', String(radios[0]?.props['aria-label']))
+  check('mode controls point at their description', typeof radios[0]?.props['aria-describedby'] === 'string' && radios[0].props['aria-describedby'].length > 0)
+  check('the description element exists', findElement(tree, (n) => n.props.id === radios[0]?.props['aria-describedby']) !== undefined)
+  check('describes both modes', texts.includes('mode.hibernateDesc') && texts.includes('mode.shutdownDesc'), joined)
+  check('shows the hibernate note for the selected mode', texts.includes('note.hibernate'), joined)
+
+  const options = bgOptions(tree)
+  check('renders exactly three background presets', options.length === 3, String(options.length))
+  check('solid is checked by default', inputOf(options[0])?.props.checked === true)
+  check('the other presets are unchecked', inputOf(options[1])?.props.checked === false && inputOf(options[2])?.props.checked === false)
+  check('presets are a native radio group', findElement(tree, (n) => n.props.role === 'radiogroup' && n.props['aria-label'] === 'section.background') !== undefined)
+  check('describes the active preset', texts.includes('background.solidDesc'), joined)
+  check('does not describe an inactive preset', !texts.includes('background.blurDesc'), joined)
+
+  check('renders the three flow steps', countClass(tree, 'ipa-flowStep') === 3, String(countClass(tree, 'ipa-flowStep')))
+  check('states the quiet window', texts.some((s) => s.includes('flow.idle')), joined)
+  check('states the countdown window', texts.some((s) => s.includes('flow.countdown')), joined)
+  check('names the action that will run', texts.includes('mode.hibernate'), joined)
+  check('lists the notes', countClass(tree, 'ipa-noteItem') === 4, String(countClass(tree, 'ipa-noteItem')))
+  check('states what is not monitored', texts.includes('note.scope'), joined)
+  check('states that a Host restart cancels', texts.includes('note.hostRestart'), joined)
+  check('footer repeats the phase', byClass(tree, 'ipa-footInner') !== undefined)
+  check('no dialog is used for a page', rolesOf(tree, 'dialog').length === 0)
 }
 
-console.log('\n=== panel: armed with running work ===')
+console.log('\n=== page: armed with running work ===')
 {
-  const armed = { data: { ...baseState, phase: 'armed', busy: { agentsRunning: 3, inboxPending: 0, jobsRunning: 2, total: 5 } }, ready: true, offline: false, busy: false, note: null, panelOpen: true }
-  const { tree } = renderEntry(panel, armed)
-  const texts = textsOf(tree)
+  const armed = renderEntry(page, pageState({ ...baseState, phase: 'armed', busy: { available: true, agentsRunning: 3, inboxPending: 1, jobsRunning: 2, total: 6 } }))
+  const texts = textsOf(armed.tree)
   const joined = texts.join('|')
-  check('reports how many tasks are running', joined.includes('5'), joined)
-  check('still offers cancel, not 预约', texts.includes('panel.cancel') && !texts.includes('panel.arm'), joined)
+  check('reports the running task count', joined.includes('6'), joined)
+  check('explains why it waits', texts.includes('body.waiting'), joined)
+  check('offers cancel', texts.includes('page.cancel'), joined)
+  check('does not still offer 预约', !texts.includes('page.armHibernate') && !texts.includes('page.armShutdown'), joined)
+  const danger = findElement(armed.tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-button') && n.props['data-variant'] === 'danger')
+  check('cancel is the header action', danger !== undefined)
+  check('cancel is enabled', danger?.props.disabled === false, String(danger?.props.disabled))
+  check('breakdown reaches the metrics', ['3', '1', '2'].every((n) => texts.includes(n)), joined)
+  check('no hero digits while tasks run', byClass(armed.tree, 'ipa-heroNum') === undefined)
 }
 
-console.log('\n=== panel: idle still offers 预约 ===')
+console.log('\n=== page: armed and quiet ===')
 {
-  const idle = { data: baseState, ready: true, offline: false, busy: false, note: null, panelOpen: true }
-  const { tree } = renderEntry(panel, idle)
-  const texts = textsOf(tree)
-  check('shows 预约 when idle', texts.includes('panel.arm'), texts.join('|'))
-  check('does not show cancel when idle', !texts.includes('panel.cancel'), texts.join('|'))
+  const quiet = renderEntry(page, pageState({ ...baseState, phase: 'armed', quietRemainingSeconds: 12, busy: { ...baseState.busy, total: 0 } }))
+  const texts = textsOf(quiet.tree)
+  check('explains the idle confirmation', texts.includes('body.quiet'), texts.join('|'))
+  check('counts the remaining idle seconds', byClass(quiet.tree, 'ipa-heroNum')?.children[0].text === '12', textsOf(byClass(quiet.tree, 'ipa-heroNum')).join(''))
+  check('shows a progress ring for the idle window', byClass(quiet.tree, 'ipa-heroRingValue') !== undefined)
 }
 
-console.log('\n=== panel: placement above the trigger ===')
+console.log('\n=== page: counting down ===')
 {
-  // Regression: the panel used a fixed bottom offset and opened ON TOP of the
-  // foot row, hiding the very entry it belongs to.
-  const anchored = {
-    data: baseState, ready: true, offline: false, busy: false, note: null, panelOpen: true,
-    anchor: { top: 840, bottom: 876, left: 10, right: 340 },
-  }
-  const { tree } = renderEntry(panel, anchored)
-  const card = findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-panel'))
-  check('panel renders', card !== undefined)
-  // window.innerHeight (900) - anchor.top (840) + 8 = 68px from the bottom,
-  // which puts the card's lower edge above the trigger's upper edge.
-  check('panel sits above the trigger top', card?.props.style?.bottom === '68px', JSON.stringify(card?.props.style))
-  check('panel aligns to the trigger left edge', card?.props.style?.left === '10px', JSON.stringify(card?.props.style))
+  const counting = renderEntry(page, pageState({ ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null }))
+  const texts = textsOf(counting.tree)
+  const joined = texts.join('|')
+  check('names the countdown', joined.includes('status.counting'), joined)
+  check('shows the remaining seconds', byClass(counting.tree, 'ipa-heroNum')?.children[0].text === '45')
+  check('explains auto-void', texts.includes('body.counting'), joined)
+  check('offers cancel while counting', texts.includes('page.cancel'), joined)
+  const value = byClass(counting.tree, 'ipa-heroRingValue')
+  const circumference = 2 * Math.PI * 42
+  check('ring circumference matches the radius', Math.abs(Number(value?.props['stroke-dasharray']) - circumference) < 0.01, String(value?.props['stroke-dasharray']))
+  check('ring sweep reflects the time left', Math.abs(Number(value?.props['stroke-dashoffset']) - circumference * 0.25) < 0.01, String(value?.props['stroke-dashoffset']))
 
-  const nearEdge = {
-    data: baseState, ready: true, offline: false, busy: false, note: null, panelOpen: true,
-    anchor: { top: 500, bottom: 536, left: 1200, right: 1400 },
-  }
-  const edgeTree = renderEntry(panel, nearEdge).tree
-  const edgeCard = findElement(edgeTree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-panel'))
-  check('panel stays inside the viewport on the right', parseInt(edgeCard?.props.style?.left ?? '9999', 10) <= 1104, edgeCard?.props.style?.left)
+  const clockT = (key) => (key === 'status.scheduledAt' ? '预计 %s 执行' : key)
+  const clockTexts = textsOf(renderEntry(page, pageState({ ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null }), { t: clockT }).tree)
+  check('shows the wall-clock execution time', clockTexts.some((s) => /\d{2}:\d{2}:\d{2}/.test(s)), clockTexts.join('|'))
 
-  // Without a captured rect the panel must still be usable.
-  const noAnchor = { data: baseState, ready: true, offline: false, busy: false, note: null, panelOpen: true, anchor: null }
-  const fbTree = renderEntry(panel, noAnchor).tree
-  const fbCard = findElement(fbTree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-panel'))
-  check('falls back to a sane position without an anchor', fbCard !== undefined && fbCard.props.style.bottom === '150px', JSON.stringify(fbCard?.props.style))
+  const urgent = renderEntry(page, pageState({ ...baseState, phase: 'counting', remainingSeconds: 4, countdownSeconds: 60, deadline: null }))
+  check('marks the last seconds as urgent', byClass(urgent.tree, 'ipa-heroDial')?.props['data-urgent'] === true)
 }
 
-console.log('\n=== panel: dismissal ===')
+console.log('\n=== page: announcements and progress semantics ===')
 {
-  const open = {
-    data: baseState, ready: true, offline: false, busy: false, note: null, panelOpen: true,
-    anchor: { top: 840, bottom: 876, left: 10, right: 340 },
-  }
-  let closes = 0
-  listeners.keydown.length = 0
-  listeners.pointerdown.length = 0
-  const rendered = renderEntry(panel, open, { close: () => { closes += 1 } })
-  check('registers a keydown listener', listeners.keydown.length === 1, listeners.keydown.length)
-  check('registers an outside-press listener', listeners.pointerdown.length === 1, listeners.pointerdown.length)
+  const idle = renderEntry(page, pageState(baseState))
+  const status = findElement(idle.tree, (n) => n.props.role === 'status')
+  check('exposes one polite status region', status !== undefined)
+  check('the status region is visually hidden', typeof status?.props.className === 'string' && status.props.className.includes('ipa-srOnly'), String(status?.props.className))
+  check('idle announces the idle phase', textsOf(status).join('') === 'status.idle', textsOf(status).join(''))
+  check('the visible phase text is not itself a live region', findElement(idle.tree, (n) => n.props.className === 'ipa-heroPhase')?.props.role === undefined)
 
-  fire('keydown', { key: 'Escape' })
-  check('Escape dismisses the panel', closes === 1, closes)
+  const counting = renderEntry(page, pageState({ ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null }))
+  const countingStatus = findElement(counting.tree, (n) => n.props.role === 'status')
+  check('counting announces the phase without the seconds', textsOf(countingStatus).join('') === 'status.counting', textsOf(countingStatus).join(''))
+  const bar = findElement(counting.tree, (n) => n.props.role === 'progressbar')
+  check('the ring is a progressbar', bar !== undefined)
+  check('progressbar reports the remaining value', bar?.props['aria-valuenow'] === 45, String(bar?.props['aria-valuenow']))
+  check('progressbar reports the window as its max', bar?.props['aria-valuemax'] === 60, String(bar?.props['aria-valuemax']))
+  check('progressbar has a label', bar?.props['aria-label'] === 'hero.progress', String(bar?.props['aria-label']))
+  check('progressbar has a value text', typeof bar?.props['aria-valuetext'] === 'string' && bar.props['aria-valuetext'].length > 0)
+  check('no progressbar while idle', findElement(idle.tree, (n) => n.props.role === 'progressbar') === undefined)
 
-  closes = 0
-  fire('keydown', { key: 'a' })
-  check('other keys do not dismiss', closes === 0, closes)
-
-  // A press inside the card must not dismiss it.
-  const card = findElement(rendered.tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-panel'))
-  fire('pointerdown', { target: card })
-  check('press inside the card keeps it open', closes === 0, closes)
-
-  // A press on the trigger must not dismiss it, or the click would close and
-  // immediately reopen the panel.
-  const triggerTarget = { closest: (selector) => (selector === '[data-ipa-trigger]' ? {} : null) }
-  fire('pointerdown', { target: triggerTarget })
-  check('press on the trigger keeps it open', closes === 0, closes)
-
-  // A press anywhere else dismisses it.
-  fire('pointerdown', { target: { closest: () => null } })
-  check('outside press dismisses the panel', closes === 1, closes)
+  // Counters are a description list, so each label/value pairing is real.
+  check('metrics are a description list', findElement(idle.tree, (n) => n.tag === 'dl' && typeof n.props.className === 'string' && n.props.className.includes('ipa-metrics')) !== undefined)
+  check('each metric pairs a term with a value', countClass(idle.tree, 'ipa-metricLabel') === 4 && countClass(idle.tree, 'ipa-metricValue') === 4)
 }
 
-console.log('\n=== panel: choosing a mode reaches the Host ===')
+console.log('\n=== page: mode and appearance reach the Host ===')
 {
-  // Regression: the mode used to be component-local, so clicking 关机 left the
-  // sidebar entry still naming 预约休眠.
-  const open = { data: { ...baseState, mode: 'hibernate' }, ready: true, offline: false, busy: false, note: null, panelOpen: true }
   const calls = { setMode: [], arm: [] }
-  const { tree } = renderEntry(panel, open, {
-    setMode: async (m) => { calls.setMode.push(m); return true },
-    arm: async (m) => { calls.arm.push(m); return true },
+  const idle = renderEntry(page, pageState(baseState), {
+    setMode: async (value) => { calls.setMode.push(value); return true },
+    arm: async (value) => { calls.arm.push(value); return true },
   })
-  const radios = []
-  ;(function walk(node) {
-    if (node === null) return
-    if (Array.isArray(node)) { node.forEach(walk); return }
-    if (node.kind !== 'element') return
-    if (node.props.role === 'radio') radios.push(node)
-    node.children.forEach(walk)
-  })(tree)
-  check('two mode radios render', radios.length === 2, radios.length)
-  // radios[0] is hibernate, radios[1] is shutdown.
-  radios[1].props.onClick()
-  check('selecting shutdown asks the Host to store it', calls.setMode.length === 1 && calls.setMode[0] === 'shutdown', JSON.stringify(calls.setMode))
+  const radios = modeRadiosOf(idle.tree)
+  radios[1].props.onChange()
+  check('selecting shutdown stores it on the Host', calls.setMode.length === 1 && calls.setMode[0] === 'shutdown', JSON.stringify(calls.setMode))
   check('selecting a mode while idle does not arm', calls.arm.length === 0, JSON.stringify(calls.arm))
+  radios[0].props.onChange()
+  check('choosing the already-selected mode is a no-op', calls.setMode.length === 1, JSON.stringify(calls.setMode))
 
-  const sameCalls = { setMode: [], arm: [] }
-  const sameRender = renderEntry(panel, open, {
-    setMode: async (m) => { sameCalls.setMode.push(m); return true },
-    arm: async (m) => { sameCalls.arm.push(m); return true },
+  const armedCalls = { setMode: [], arm: [] }
+  const armed = renderEntry(page, pageState({ ...baseState, phase: 'armed' }), {
+    setMode: async (value) => { armedCalls.setMode.push(value); return true },
+    arm: async (value) => { armedCalls.arm.push(value); return true },
   })
-  const sameRadios = []
-  ;(function walk(node) {
-    if (node === null) return
-    if (Array.isArray(node)) { node.forEach(walk); return }
-    if (node.kind !== 'element') return
-    if (node.props.role === 'radio') sameRadios.push(node)
-    node.children.forEach(walk)
-  })(sameRender.tree)
-  sameRadios[0].props.onClick()
-  check('clicking the already-selected mode is a no-op', sameCalls.setMode.length === 0 && sameCalls.arm.length === 0, JSON.stringify(sameCalls))
+  modeRadiosOf(armed.tree)[1].props.onChange()
+  check('changing mode while armed re-arms', armedCalls.arm.length === 1 && armedCalls.arm[0] === 'shutdown', JSON.stringify(armedCalls.arm))
+  check('the armed path does not use the idle write', armedCalls.setMode.length === 0, JSON.stringify(armedCalls.setMode))
+
+  const bgCalls = []
+  const appearance = renderEntry(page, pageState(baseState), { setBackground: async (value) => { bgCalls.push(value); return true } })
+  const presets = bgOptions(appearance.tree)
+  inputOf(presets[1]).props.onChange()
+  inputOf(presets[2]).props.onChange()
+  check('choosing a preset reaches the Host', bgCalls.length === 2 && bgCalls[0] === 'glass' && bgCalls[1] === 'blur', JSON.stringify(bgCalls))
+  check('presets are a native radio group', byClass(appearance.tree, 'ipa-bgOptions')?.props.role === 'radiogroup')
+
+  const opened = []
+  const previewable = renderEntry(page, pageState(baseState), { openPreview: () => { opened.push(1) } })
+  const previewButton = findElement(previewable.tree, (n) => n.tag === 'button' && textsOf(n).join('').includes('preview.button'))
+  check('the appearance section offers a preview button', previewButton !== undefined)
+  previewButton?.props.onClick?.()
+  check('the preview button opens the rehearsal', opened.length === 1, String(opened.length))
+
+  const refreshed = []
+  const refreshable = renderEntry(page, pageState(baseState), { refresh: async () => { refreshed.push(1); return true } })
+  byClass(refreshable.tree, 'ipa-iconButton').props.onClick()
+  check('the refresh control asks the Host again', refreshed.length === 1)
 }
 
-console.log('\n=== panel: mode change while armed re-arms ===')
+console.log('\n=== page: states that must not look idle ===')
 {
-  const armed = { data: { ...baseState, phase: 'armed', mode: 'hibernate' }, ready: true, offline: false, busy: false, note: null, panelOpen: true }
-  const calls = { setMode: [], arm: [] }
-  const { tree } = renderEntry(panel, armed, {
-    setMode: async (m) => { calls.setMode.push(m); return true },
-    arm: async (m) => { calls.arm.push(m); return true },
+  const loading = renderEntry(page, { data: baseState, ready: false, offline: false, busy: false, note: null })
+  check('says it is loading before the first state', textsOf(loading.tree).includes('page.loading'), textsOf(loading.tree).join('|'))
+  check('cannot arm before the first state', findElement(loading.tree, (n) => n.props['data-variant'] === 'primary')?.props.disabled === true)
+
+  const offline = renderEntry(page, pageState(baseState, { offline: true }))
+  check('surfaces the offline status', textsOf(offline.tree).includes('status.offline'), textsOf(offline.tree).join('|'))
+  check('cannot arm while offline', findElement(offline.tree, (n) => n.props['data-variant'] === 'primary')?.props.disabled === true)
+  check('marks the hero as an error', byClass(offline.tree, 'ipa-hero')?.props['data-tone'] === 'error')
+
+  const unsupported = renderEntry(page, pageState({ ...baseState, supported: false, platform: 'linux' }))
+  check('explains the platform limit', textsOf(unsupported.tree).includes('status.unsupported'), textsOf(unsupported.tree).join('|'))
+  check('cannot arm on another platform', findElement(unsupported.tree, (n) => n.props['data-variant'] === 'primary')?.props.disabled === true)
+
+  const registry = renderEntry(page, pageState({ ...baseState, busy: { available: false, agentsRunning: 0, inboxPending: 0, jobsRunning: 0, total: 0 } }))
+  check('explains the paused countdown', textsOf(registry.tree).includes('status.registryUnavailable'), textsOf(registry.tree).join('|'))
+  check('refuses to arm without a registry', findElement(registry.tree, (n) => n.props['data-variant'] === 'primary')?.props.disabled === true)
+
+  const executing = renderEntry(page, pageState({ ...baseState, phase: 'executing' }))
+  check('reports the running power action', textsOf(executing.tree).includes('status.executing'), textsOf(executing.tree).join('|'))
+  check('cannot stack another action', findElement(executing.tree, (n) => n.props['data-variant'] === 'primary')?.props.disabled === true)
+  check('locks the mode cards while executing', radiosOf(executing.tree).every((node) => node.props.disabled === true))
+  check('locks the appearance presets while executing', presetDisabled(executing.tree).every((disabled) => disabled === true))
+
+  const failed = renderEntry(page, pageState({ ...baseState, phase: 'failed', error: 'shutdown exited 1' }))
+  check('shows the failure', textsOf(failed.tree).includes('status.failed'), textsOf(failed.tree).join('|'))
+  check('includes the error detail', textsOf(failed.tree).some((s) => s.includes('shutdown exited 1')), textsOf(failed.tree).join('|'))
+  check('marks the hero as an error after a failure', byClass(failed.tree, 'ipa-hero')?.props['data-tone'] === 'error')
+}
+
+console.log('\n=== page: refusals are shown in the reader\'s language ===')
+{
+  const refused = renderEntry(page, pageState(baseState, { note: 'command not found' }))
+  check('surfaces the refusal note', textsOf(refused.tree).some((s) => s.includes('command not found')), textsOf(refused.tree).join('|'))
+  check('announces the refusal', rolesOf(refused.tree, 'alert').length === 1)
+
+  const coded = renderEntry(page, pageState(baseState, { note: 'the power command is already executing', noteCode: 'execution-in-progress' }), {
+    t: (key) => (key === 'error.execution-in-progress' ? '电源操作已经开始执行，无法再取消。' : key),
   })
-  const radios = []
-  ;(function walk(node) {
-    if (node === null) return
-    if (Array.isArray(node)) { node.forEach(walk); return }
-    if (node.kind !== 'element') return
-    if (node.props.role === 'radio') radios.push(node)
-    node.children.forEach(walk)
-  })(tree)
-  radios[1].props.onClick()
-  check('armed mode change re-arms with the new mode', calls.arm.length === 1 && calls.arm[0] === 'shutdown', JSON.stringify(calls.arm))
-  check('armed mode change does not use the idle path', calls.setMode.length === 0, JSON.stringify(calls.setMode))
-}
-
-console.log('\n=== panel: failure ===')
-{
-  const failed = { data: { ...baseState, phase: 'failed', error: 'shutdown exited 1' }, ready: true, offline: false, busy: false, note: null, panelOpen: true }
-  const { tree } = renderEntry(panel, failed)
-  const texts = textsOf(tree)
-  check('shows failure text', texts.some((s) => s.includes('status.failed')), texts.join('|'))
-  check('includes the error detail', texts.some((s) => s.includes('shutdown exited 1')), texts.join('|'))
-  const errorTone = findElement(tree, (n) => n.props['data-tone'] === 'error')
-  check('marks the status as an error', errorTone !== undefined)
-}
-
-console.log('\n=== panel: arm refusal note ===')
-{
-  const refused = { data: baseState, ready: true, offline: false, busy: false, note: 'command not found', panelOpen: true }
-  const { tree } = renderEntry(panel, refused)
-  check('surfaces the refusal note', textsOf(tree).some((s) => s.includes('command not found')), textsOf(tree).join('|'))
-
-  // A known Host error code is shown in the reader's language, not as raw server text.
-  const coded = {
-    data: baseState, ready: true, offline: false, busy: false,
-    note: 'the power command is already executing', noteCode: 'execution-in-progress', panelOpen: true,
-  }
-  const codedT = (key) => (key === 'error.execution-in-progress' ? '电源操作已经开始执行，无法再取消。' : key)
-  const codedTexts = textsOf(renderEntry(panel, coded, { t: codedT }).tree)
+  const codedTexts = textsOf(coded.tree)
   check('localizes a known Host error code', codedTexts.some((s) => s.includes('无法再取消')), codedTexts.join('|'))
   check('does not leak the raw message for a known code', !codedTexts.some((s) => s.includes('already executing')), codedTexts.join('|'))
+
+  const busy = renderEntry(page, pageState(baseState, { busy: true }))
+  check('cannot stack submissions', findElement(busy.tree, (n) => n.props['data-variant'] === 'primary')?.props.disabled === true)
+  check('labels the pending submission', textsOf(busy.tree).includes('page.saving'), textsOf(busy.tree).join('|'))
 }
 
-console.log('\n=== panel: loading and offline states ===')
-{
-  const loading = { data: baseState, ready: false, offline: false, busy: false, note: null, panelOpen: true }
-  const loadingTree = renderEntry(panel, loading).tree
-  check('says it is still loading before the first state', textsOf(loadingTree).includes('status.loading'), textsOf(loadingTree).join('|'))
-  const loadingPrimary = findElement(loadingTree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-primary'))
-  check('cannot arm before the first state arrives', loadingPrimary?.props.disabled === true, String(loadingPrimary?.props.disabled))
 
-  const offline = { data: baseState, ready: true, offline: true, busy: false, note: null, panelOpen: true }
-  const offlineTree = renderEntry(panel, offline).tree
-  check('surfaces the offline status', textsOf(offlineTree).includes('status.offline'), textsOf(offlineTree).join('|'))
-  check('marks offline as an error tone', findElement(offlineTree, (n) => n.props['data-tone'] === 'error') !== undefined)
-  const offlinePrimary = findElement(offlineTree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-primary'))
-  check('cannot arm while offline', offlinePrimary?.props.disabled === true, String(offlinePrimary?.props.disabled))
-}
-
-console.log('\n=== panel: missing agent registry cannot look idle ===')
+console.log('\n=== page: solid colour ===')
 {
-  const unavailable = {
-    data: { ...baseState, busy: { available: false, agentsRunning: 0, inboxPending: 0, jobsRunning: 0, total: 0 } },
-    ready: true, offline: false, busy: false, note: null, panelOpen: true,
+  const colorOptions = (tree) => {
+    const found = []
+    walkElements(tree, (node) => {
+      if (typeof node.props.className === 'string' && node.props.className.split(' ').includes('ipa-colorOption')) found.push(node)
+    })
+    return found
   }
-  const { tree } = renderEntry(panel, unavailable)
-  check('explains the paused countdown', textsOf(tree).includes('status.registryUnavailable'), textsOf(tree).join('|'))
-  const primary = findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-primary'))
-  check('refuses to arm without a registry', primary?.props.disabled === true, String(primary?.props.disabled))
+
+  const solid = renderEntry(page, pageState(baseState))
+  const options = colorOptions(solid.tree)
+  check('offers the theme option, six presets and a custom picker', options.length === 8, String(options.length))
+  check('the theme option is chosen by default', inputOf(options[0])?.props.checked === true)
+  check('presets are unchecked by default', options.slice(1, 7).every((option) => inputOf(option)?.props.checked === false))
+  check('the row is a radio group', findElement(solid.tree, (n) => n.props.role === 'radiogroup' && n.props['aria-label'] === 'color.label') !== undefined)
+  check('a custom colour input exists', findElement(solid.tree, (n) => n.tag === 'input' && n.props.type === 'color') !== undefined)
+  check('explains the automatic ink', textsOf(solid.tree).includes('color.hint'), textsOf(solid.tree).join('|'))
+
+  const glass = renderEntry(page, pageState({ ...baseState, backgroundStyle: 'glass' }))
+  check('the colour row is hidden for the other presets', colorOptions(glass.tree).length === 0, String(colorOptions(glass.tree).length))
+
+  const calls = []
+  const interactive = renderEntry(page, pageState(baseState), { setColor: async (value) => { calls.push(value); return true } })
+  const live = colorOptions(interactive.tree)
+  inputOf(live[2]).props.onChange()
+  check('choosing a preset reaches the Host', calls.length === 1 && /^#[0-9a-f]{6}$/.test(calls[0]), JSON.stringify(calls))
+  const custom = findElement(interactive.tree, (n) => n.tag === 'input' && n.props.type === 'color')
+  custom.props.onChange({ currentTarget: { value: '#123456' } })
+  check('the custom picker reaches the Host', calls.length === 2 && calls[1] === '#123456', JSON.stringify(calls))
+  custom.props.onChange({ currentTarget: { value: 'not-a-colour' } })
+  check('an invalid pick is ignored', calls.length === 2, JSON.stringify(calls))
+
+  const preset = renderEntry(page, pageState({ ...baseState, countdownColor: '#1c2a44' }), { setColor: async () => true })
+  check('the stored colour is the checked preset', colorOptions(preset.tree).filter((option) => inputOf(option)?.props.checked === true).map((option) => inputOf(option).props.value).join() === '#1c2a44')
 }
 
-console.log('\n=== panel: busy breakdown ===')
+console.log('\n=== countdown: pinned colour and ink ===')
 {
-  const armed = {
-    data: { ...baseState, phase: 'armed', busy: { available: true, agentsRunning: 2, inboxPending: 1, jobsRunning: 3, total: 6 } },
-    ready: true, offline: false, busy: false, note: null, panelOpen: true,
-  }
-  const { tree } = renderEntry(panel, armed)
-  const texts = textsOf(tree)
-  check('names running agents', texts.includes('status.agents'), texts.join('|'))
-  check('names queued messages', texts.includes('status.inbox'), texts.join('|'))
-  check('names background jobs', texts.includes('status.jobs'), texts.join('|'))
-  check('shows every count', ['2', '1', '3'].every((n) => texts.includes(n)), texts.join('|'))
-  const details = findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-details'))
-  check('renders the breakdown list', details !== undefined)
+  const paint = (data) => findElement(renderEntry(countdown, { data, offline: false, busy: false, note: null }).tree, (n) => n.props['aria-modal'] === true)
+  const counting = { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null }
+
+  const dark = paint({ ...counting, backgroundStyle: 'solid', countdownColor: '#16233a' })
+  check('a dark pick gets light ink', dark?.props['data-ink'] === 'light', String(dark?.props['data-ink']))
+  check('the colour is pinned as the card surface token', dark?.props.style?.['--dsw-alias-bg-overlay'] === '#16233a', JSON.stringify(dark?.props.style))
+
+  const light = paint({ ...counting, backgroundStyle: 'solid', countdownColor: '#f2e9d8' })
+  check('a light pick gets dark ink', light?.props['data-ink'] === 'dark', String(light?.props['data-ink']))
+
+  const themed = paint({ ...counting, backgroundStyle: 'solid', countdownColor: null })
+  check('following the theme pins no ink', themed?.props['data-ink'] === undefined, String(themed?.props['data-ink']))
+  check('following the theme pins no colour', themed?.props.style === undefined, JSON.stringify(themed?.props.style))
+
+  const glass = paint({ ...counting, backgroundStyle: 'glass', countdownColor: '#16233a' })
+  check('a pinned colour cannot leak onto the other presets', glass?.props['data-ink'] === undefined && glass?.props.style === undefined)
 }
 
-console.log('\n=== panel: scheduling flow is stated ===')
+console.log('\n=== page: whole-screen switch ===')
 {
-  const { tree } = renderEntry(panel, { data: baseState, ready: true, offline: false, busy: false, note: null, panelOpen: true })
-  const flow = findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-flow'))
-  check('renders the flow block', flow !== undefined)
-  const joined = textsOf(tree).join('|')
-  check('states the quiet window and the countdown', joined.includes('panel.quiet') && joined.includes('panel.countdown'), joined)
-  check('states what is not monitored', joined.includes('panel.scope'), joined)
-}
+  const off = renderEntry(page, pageState(baseState))
+  const toggle = findElement(off.tree, (n) => n.tag === 'input' && n.props.type === 'checkbox')
+  check('the page offers a whole-screen switch', toggle !== undefined)
+  check('it is off by default', toggle?.props.checked === false, String(toggle?.props.checked))
+  check('the switch explains itself', textsOf(off.tree).join('|').includes('fullscreen.onWaitDesc'))
 
-console.log('\n=== countdown: cancel failure is visible ===')
-{
-  const failedCancel = {
-    data: { ...baseState, phase: 'counting', remainingSeconds: 30, countdownSeconds: 60, deadline: Date.now() + 30000 },
-    offline: true, busy: false, note: null,
-  }
-  const { tree } = renderEntry(countdown, failedCancel)
-  const alert = findElement(tree, (n) => n.props.role === 'alert')
-  check('renders the failure alert', alert !== undefined)
-  check('does not claim cancellation succeeded', textsOf(tree).includes('countdown.offline'), textsOf(tree).join('|'))
-
-  const withNote = renderEntry(countdown, {
-    data: failedCancel.data, offline: false, busy: false, note: 'HTTP 409',
+  const calls = []
+  const on = renderEntry(page, pageState({ ...baseState, fullscreenOnWait: true }), {
+    setFullscreenOnWait: async (value) => { calls.push(value); return true },
   })
-  check('surfaces the rejection detail', textsOf(withNote.tree).some((s) => s.includes('HTTP 409')), textsOf(withNote.tree).join('|'))
-
-  const busyCancel = renderEntry(countdown, { data: failedCancel.data, offline: false, busy: true, note: null })
-  const cta = findElement(busyCancel.tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-cta'))
-  check('marks cancel busy while the request runs', cta?.props['aria-disabled'] === true, String(cta?.props['aria-disabled']))
-  check('labels the pending cancel', textsOf(busyCancel.tree).includes('countdown.cancelling'), textsOf(busyCancel.tree).join('|'))
+  const input = findElement(on.tree, (n) => n.tag === 'input' && n.props.type === 'checkbox')
+  check('it reflects the Host value', input?.props.checked === true)
+  input?.props.onChange()
+  check('turning it off reaches the Host', calls.length === 1 && calls[0] === false, JSON.stringify(calls))
 }
 
-console.log('\n=== countdown: shutdown warns about unsaved work ===')
+console.log('\n=== page: stay-awake switch ===')
 {
-  const shutdown = { data: { ...baseState, phase: 'counting', mode: 'shutdown', remainingSeconds: 30, countdownSeconds: 60, deadline: null } }
-  const { tree } = renderEntry(countdown, shutdown)
-  check('repeats the unsaved-work warning', textsOf(tree).includes('panel.shutdownNote'), textsOf(tree).join('|'))
-  const hibernate = { data: { ...baseState, phase: 'counting', mode: 'hibernate', remainingSeconds: 30, countdownSeconds: 60, deadline: null } }
-  check('does not show it for hibernate', !textsOf(renderEntry(countdown, hibernate).tree).includes('panel.shutdownNote'))
+  // The page has two switches now; pick the one inside the stay-awake section so
+  // the assertions cannot silently drift onto the whole-screen switch.
+  const switchIn = (tree, titleKey) => {
+    const sections = []
+    walkElements(tree, (node) => {
+      if (node.tag === 'section' && textsOf(node).join('').includes(titleKey)) sections.push(node)
+    })
+    const section = sections[0]
+    if (section === undefined) return undefined
+    return findElement(section, (node) => node.tag === 'input' && node.props.type === 'checkbox')
+  }
+
+  const defaults = renderEntry(page, pageState(baseState))
+  check('stay-awake is on by default', switchIn(defaults.tree, 'section.awake')?.props.checked === true)
+  check('the whole-screen switch stays off by default', switchIn(defaults.tree, 'section.fullscreen')?.props.checked === false)
+
+  const calls = []
+  const armed = { stayAwake: true }
+  const on = renderEntry(page, pageState({ ...baseState, ...armed }), {
+    setStayAwake: async (value) => { calls.push(value); return true },
+  })
+  switchIn(on.tree, 'section.awake')?.props.onChange?.()
+  check('turning it off reaches the Host', calls.length === 1 && calls[0] === false, JSON.stringify(calls))
+
+  const alreadyOff = renderEntry(page, pageState({ ...baseState, stayAwake: false }), {
+    setStayAwake: async (value) => { calls.push(value); return true },
+  })
+  check('the switch reflects a disabled setting', switchIn(alreadyOff.tree, 'section.awake')?.props.checked === false)
+  check('explains what a suspended Host costs', textsOf(defaults.tree).join('|').includes('awake.onDesc'))
 }
 
-console.log('\n=== trigger: expanded state is exposed ===')
+console.log('\n=== wait screen: the whole screen while waiting ===')
 {
-  const wide = renderEntry(button, { data: baseState, offline: false, panelOpen: true }, {}, { wide: true })
-  check('wide trigger advertises the dialog', wide.root.props['aria-haspopup'] === 'dialog')
-  check('wide trigger reports expanded', wide.root.props['aria-expanded'] === true, String(wide.root.props['aria-expanded']))
-  const rail = renderEntry(button, { data: baseState, offline: false, panelOpen: false }, {}, { wide: false })
-  check('rail trigger reports collapsed', rail.root.props['aria-expanded'] === false, String(rail.root.props['aria-expanded']))
+  const waitEntry = byId('dsh-idle-power.wait')
+  check('wait overlay is registered', waitEntry?.name === 'shell.overlay', waitEntry?.name)
+
+  const load = { available: true, agentsRunning: 2, inboxPending: 3, jobsRunning: 1, total: 6 };
+  const armed = {
+    ...baseState,
+    phase: 'armed',
+    quietSeconds: 20,
+    quietRemainingSeconds: 12,
+    fullscreenOnWait: true,
+    busy: load,
+  };
+  // The overlay reads the live counts off the snapshot, like the countdown does.
+  const waitingStore = { data: armed, busy: load };
+
+  check('nothing renders while the Host has it off', renderEntry(waitEntry, { data: { ...armed, fullscreenOnWait: false }, busy: load }).root === null)
+  check('nothing renders outside the waiting phase', renderEntry(waitEntry, { data: { ...armed, phase: 'counting' }, busy: load }).root === null)
+
+  const waiting = renderEntry(waitEntry, waitingStore)
+  const texts = textsOf(waiting.tree)
+  const joined = texts.join('|')
+  check('says what it is waiting for', joined.includes('wait.title') && joined.includes('wait.subtitle'), joined)
+  const progress = findElement(waiting.tree, (n) => n.props.role === 'progressbar')
+  check('shows the quiet window as a progress bar', progress !== undefined && progress.props['aria-valuemax'] === 20, JSON.stringify(progress?.props))
+  check('the bar tracks the elapsed quiet time', progress?.props['aria-valuenow'] === 8, String(progress?.props['aria-valuenow']))
+  check('lists what is still running', joined.includes('wait.agents') && joined.includes('wait.inbox') && joined.includes('wait.jobs'), joined)
+  check('shows the live counts', ['2', '3', '1'].every((count) => texts.includes(count)), joined)
+  check('offers the way out', joined.includes('wait.cancel'))
+  check('is calmer than the countdown: no digit timer', findElement(waiting.tree, (n) => n.props.role === 'timer') === undefined)
+  check('keeps the countdown notes', joined.includes('note.scope'))
+
+  let cancelled = 0
+  const interactive = renderEntry(waitEntry, waitingStore, { cancel: async () => { cancelled += 1; return true } })
+  const cta = findElement(interactive.tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-cta'))
+  check('the waiting screen has a cancel button', cta !== undefined)
+  cta?.props.onClick?.()
+  check('cancel reaches the Host from the waiting screen', cancelled === 1, String(cancelled))
+}
+
+console.log('\n=== wait screen: Escape closes the presentation, not the reservation ===')
+{
+  const waitEntry = byId('dsh-idle-power.wait')
+  const load = { available: true, agentsRunning: 1, inboxPending: 0, jobsRunning: 0, total: 1 }
+  const armed = {
+    ...baseState,
+    phase: 'armed',
+    quietSeconds: 20,
+    quietRemainingSeconds: 14,
+    fullscreenOnWait: true,
+    busy: load,
+  }
+
+  check('a dismissed presentation renders nothing', renderEntry(waitEntry, { data: armed, busy: load, waitDismissed: true }).root === null)
+
+  let dismissed = 0
+  let cancelled = 0
+  const { tree } = renderEntry(waitEntry, { data: armed, busy: load, waitDismissed: false }, {
+    dismiss: () => { dismissed += 1 },
+    cancel: async () => { cancelled += 1; return true },
+  })
+  check('the waiting screen is on screen before Escape', findElement(tree, (n) => n.props.className === 'ipa-scrim ipa-scrimWait') !== undefined)
+
+  fire('keydown', { key: 'Escape', preventDefault() {} })
+  check('Escape closes the whole presentation', dismissed === 1, String(dismissed))
+  check('Escape does not cancel the reservation', cancelled === 0, String(cancelled))
+
+  const cta = findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-cta'))
+  check('the cancel button no longer claims Escape', !textsOf(cta ?? { children: [] }).includes('Esc'))
+  check('the screen explains what Escape does', textsOf(tree).join('|').includes('wait.escHint'), textsOf(tree).join('|'))
+}
+
+console.log('\n=== countdown: the two-step Escape is explained ===')
+{
+  const counting = { data: { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null } }
+  let fullscreenElement = null
+  documentStub.documentElement = { requestFullscreen: () => Promise.resolve() }
+  Object.defineProperty(documentStub, 'fullscreenElement', { configurable: true, get: () => fullscreenElement })
+
+  const windowed = renderEntry(countdown, counting)
+  check('no Escape explanation while windowed', !textsOf(windowed.tree).join('|').includes('countdown.escFullscreen'))
+
+  fullscreenElement = { tagName: 'HTML' }
+  const full = renderEntry(countdown, counting)
+  check('fullscreen explains the two-step Escape', textsOf(full.tree).join('|').includes('countdown.escFullscreen'), textsOf(full.tree).join('|'))
+
+  delete documentStub.documentElement
+  delete documentStub.fullscreenElement
+}
+
+console.log('\n=== countdown: whole-screen fullscreen ===')
+{
+  // The fake document has no fullscreen API, so this block lends it one and
+  // takes it back: the same component has to work with and without the API.
+  const counting = { data: { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null } }
+  const fullscreenButtons = (tree) => {
+    const found = []
+    walkElements(tree, (node) => {
+      if (node.tag === 'button' && textsOf(node).join('').includes('countdown.fullscreen')) found.push(node)
+    })
+    return found
+  }
+
+  check('no fullscreen button without the API', fullscreenButtons(renderEntry(countdown, counting).tree).length === 0)
+
+  const calls = []
+  const listeners = new Set()
+  let fullscreenElement = null
+  documentStub.documentElement = {
+    requestFullscreen: (options) => { calls.push(options ?? {}); return Promise.resolve() },
+  }
+  Object.defineProperty(documentStub, 'fullscreenElement', { configurable: true, get: () => fullscreenElement })
+  documentStub.addEventListener = (type, fn) => { if (type === 'fullscreenchange') listeners.add(fn) }
+  documentStub.removeEventListener = (type, fn) => { if (type === 'fullscreenchange') listeners.delete(fn) }
+  documentStub.exitFullscreen = () => Promise.resolve()
+
+  const attempt = renderEntry(countdown, counting)
+  check('asks for the whole screen as soon as the countdown opens', calls.length === 1, String(calls.length))
+  check('hides the window chrome while entering', calls[0]?.navigationUI === 'hide', JSON.stringify(calls[0]))
+  check('listens for the engine reporting back', listeners.size === 1, String(listeners.size))
+  const button = fullscreenButtons(attempt.tree)[0]
+  check('offers a manual fullscreen button', button !== undefined)
+  check('the button explains what it does', button?.props.title === 'countdown.fullscreenHint', String(button?.props.title))
+  button?.props.onClick?.()
+  check('the button retries the same request', calls.length === 2, String(calls.length))
+  calls.length = 0
+  const already = renderEntry(countdown, counting)
+  check('a refused request leaves the button in place', fullscreenButtons(already.tree).length === 1)
+
+  fullscreenElement = { tagName: 'HTML' }
+  calls.length = 0
+  const inFullscreen = renderEntry(countdown, counting)
+  check('no request while the screen is already ours', calls.length === 0, String(calls.length))
+  check('the button disappears in fullscreen', fullscreenButtons(inFullscreen.tree).length === 0)
+  check('a fullscreen countdown says it covers the screen', textsOf(inFullscreen.tree).includes('countdown.scopeTagFull'), textsOf(inFullscreen.tree).join('|'))
+  check('a windowed countdown is honest about its scope', textsOf(attempt.tree).includes('countdown.scopeTag'))
+
+  delete documentStub.documentElement
+  delete documentStub.fullscreenElement
+  delete documentStub.addEventListener
+  delete documentStub.removeEventListener
+  delete documentStub.exitFullscreen
+}
+
+console.log('\n=== preview: a rehearsal, not a countdown ===')
+{
+  const previewEntry = byId('dsh-idle-power.preview')
+  check('preview overlay is registered', previewEntry?.name === 'shell.overlay', previewEntry?.name)
+
+  const closed = renderEntry(previewEntry, { data: baseState, preview: false })
+  check('nothing renders while the preview is closed', closed.root === null)
+
+  let closes = 0
+  const open = renderEntry(previewEntry, { data: { ...baseState, mode: 'shutdown' }, preview: true }, { close: () => { closes += 1 } })
+  const texts = textsOf(open.tree)
+  const joined = texts.join('|')
+  check('renders the countdown component', findElement(open.tree, (n) => n.props['aria-modal'] === true) !== undefined)
+  check('labels itself as a preview', joined.includes('preview.title') && joined.includes('preview.subtitle'), joined)
+  check('says nothing will run', joined.includes('preview.noAction') && joined.includes('preview.hint'), joined)
+  check('the escape hatch is the preview close action', joined.includes('preview.close'), joined)
+  check('a preview leaves the real countdown copy alone', !joined.includes('countdown.quietDone'), joined)
+  const cancelButton = findElement(open.tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-cta'))
+  cancelButton?.props.onClick?.()
+  check('closing the preview does not touch the Host', closes === 1, String(closes))
+  check('the preview does not rewrite the window title', !String(documentStub.title ?? '').includes('preview'))
 }
 
 console.log('\n=== countdown: hidden unless counting ===')
@@ -676,11 +882,12 @@ console.log('\n=== motion: reduced-motion coverage in CSS ===')
   const css = fs.readFileSync(process.argv[2] ?? require('node:path').join(__dirname, '..', 'client.js'), 'utf8')
   check('respects prefers-reduced-motion', css.includes('prefers-reduced-motion:reduce'))
   const reduceBlock = css.slice(css.lastIndexOf('prefers-reduced-motion:reduce'))
-  for (const sel of ['ipa-panel', 'ipa-count', 'ipa-ringValue', 'ipa-entry']) {
+  for (const sel of ['ipa-page', 'ipa-scrim', 'ipa-card']) {
     check(`reduced motion disables ${sel}`, reduceBlock.includes(sel), sel)
   }
-  check('animations declare keyframes', css.includes('@keyframes ipa-pop') && css.includes('@keyframes ipa-dial-in'))
+  check('animations declare keyframes', css.includes('@keyframes ipa-fade') && css.includes('@keyframes ipa-dial-in') && css.includes('@keyframes ipa-blink'))
 }
+
 
 console.log('\n=== countdown: urgent near zero ===')
 {
@@ -723,7 +930,7 @@ console.log('\n=== countdown: full-window layout and richer information ===')
   check('states how long the quiet period ran', joined.includes('countdown.quietDone'), joined)
   check('states the cancellation window', joined.includes('countdown.window'), joined)
   check('states the scheduled time', joined.includes('countdown.scheduledAt'), joined)
-  check('restates the monitoring scope', joined.includes('panel.scope'), joined)
+  check('restates the monitoring scope', joined.includes('note.scope'), joined)
   check('labels which window is covered', joined.includes('countdown.scopeTag'), joined)
 
   const rail = findElement(tree, (n) => n.props.role === 'progressbar')
@@ -749,17 +956,27 @@ console.log('\n=== countdown: scheduled clock time is real copy ===')
   check('renders a HH:MM:SS wall-clock time', texts.some((s) => /\d{2}:\d{2}:\d{2}/.test(s)), texts.join('|'))
 }
 
-console.log('\n=== CSS: full-viewport and multi-screen layout ===')
+console.log('\n=== CSS: page shell and full-viewport countdown layout ===')
 {
   const css = require('node:fs').readFileSync(process.argv[2] ?? require('node:path').join(__dirname, '..', 'client.js'), 'utf8')
+  check('page is a container for its own column width', css.includes('container:ipa-page / inline-size'))
+  check('page reflows against the column, not the viewport', css.includes('@container ipa-page (max-width:760px)'))
+  check('page scrolls inside the main column', css.includes('.ipa-scroll{flex:1;min-height:0;overflow:auto'))
+  check('page fills the main column height', css.includes('height:100%;min-height:0;overflow:hidden'))
   check('card fills the viewport with dvh', css.includes('min-height:100dvh'))
   check('hero scales with vmin', css.includes('52vmin'))
   check('edge rail is pinned to the viewport', css.includes('.ipa-rail{position:fixed'))
   check('short-viewport rules exist', css.includes('@media (max-height:620px)'))
   check('narrow-viewport rules exist', css.includes('@media (max-width:720px)'))
   check('left/right alignment rules exist', css.includes('[data-align=left]') && css.includes('[data-align=right]'))
-  check('reduced motion covers the rail and scrim', css.includes('.ipa-ringValue,.ipa-railFill{transition:none}') && css.includes('.ipa-scrim,.ipa-card'))
+  check('page type scale is rem, not px', !/font-size:\s*[0-9.]+px/.test(css.slice(css.indexOf('/* ---- page shell'), css.indexOf('/* ---- countdown'))))
+  check('high contrast mode keeps borders and selection visible', css.includes('@media (forced-colors:active)') && css.includes('border-color:CanvasText') && css.includes('outline:2px solid Highlight'))
+  check('the outline hover cannot repaint a filled button', css.includes('.ipa-button:not([data-variant]):hover:not(:disabled)'))
+  check('filled and danger buttons own their hover state', css.includes('.ipa-button[data-variant=primary]:hover:not(:disabled)') && css.includes('.ipa-button[data-variant=danger]:hover:not(:disabled)'))
+  check('the switch shows its state without moving the layout', css.includes('.ipa-toggle:has(> :checked) .ipa-toggleTrack') && css.includes('.ipa-toggle:has(> :checked) .ipa-toggleThumb'))
+  check('the waiting orb breathes and respects reduced motion', css.includes('.ipa-waitOrbRing') && css.includes('@keyframes ipa-orbit') && css.includes('@media (prefers-reduced-motion:reduce){.ipa-waitOrbRing{animation:none}}'))
 }
+
 
 console.log('\n=== multi-screen: controls appear only with a second display ===')
 {
@@ -840,66 +1057,31 @@ console.log('\n=== multi-screen: pure placement helpers ===')
   check('missing dimensions never produce NaN', Number.isFinite(api.mirrorGeometry({ screens: [{ left: -800 }] })[0].width))
 }
 
-function bgOptions(tree) {
-  const found = []
-  ;(function walk(node) {
-    if (node === null) return
-    if (Array.isArray(node)) { node.forEach(walk); return }
-    if (node.kind !== 'element') return
-    if (node.props.className === 'ipa-bgOption') found.push(node)
-    node.children.forEach(walk)
-  })(tree)
-  return found
-}
-
-console.log('\n=== background presets: panel control ===')
+console.log('\n=== background presets: page control ===')
 {
-  const open = { data: baseState, ready: true, offline: false, busy: false, note: null, panelOpen: true }
-  const calls = []
-  const { tree } = renderEntry(panel, open, { setBackground: async (value) => { calls.push(value); return true } })
-  const texts = textsOf(tree)
+  const appearance = renderEntry(page, pageState(baseState))
+  const texts = textsOf(appearance.tree)
   const joined = texts.join('|')
-  check('names the appearance section', joined.includes('panel.background'), joined)
+  check('names the appearance section', joined.includes('section.background'), joined)
   check('offers solid', texts.includes('background.solid'), joined)
   check('offers frosted glass', texts.includes('background.glass'), joined)
   check('offers gaussian blur', texts.includes('background.blur'), joined)
   check('describes the active preset', texts.includes('background.solidDesc'), joined)
   check('does not describe an inactive preset', !texts.includes('background.blurDesc'), joined)
 
-  const options = bgOptions(tree)
-  check('renders exactly three presets', options.length === 3, String(options.length))
-  check('solid is pressed by default', options[0]?.props['aria-pressed'] === true)
-  check('glass and blur are not pressed', options[1]?.props['aria-pressed'] === false && options[2]?.props['aria-pressed'] === false)
-  options[1].props.onClick()
-  options[2].props.onClick()
-  check('choosing a preset reaches the Host', calls.length === 2 && calls[0] === 'glass' && calls[1] === 'blur', JSON.stringify(calls))
-  check('presets are toggle buttons inside a group', findElement(tree, (n) => n.props.className === 'ipa-bgOptions')?.props.role === 'group')
-  let radios = 0
-  ;(function walk(node) {
-    if (node === null) return
-    if (Array.isArray(node)) { node.forEach(walk); return }
-    if (node.kind !== 'element') return
-    if (node.props.role === 'radio') radios += 1
-    node.children.forEach(walk)
-  })(tree)
-  check('the two mode radios are unchanged', radios === 2, String(radios))
-}
+  const glass = renderEntry(page, pageState({ ...baseState, backgroundStyle: 'glass' }))
+  check('describes the configured preset', textsOf(glass.tree).includes('background.glassDesc'), textsOf(glass.tree).join('|'))
+  check('glass is the checked option', bgOptions(glass.tree).filter((label) => inputOf(label)?.props.checked === true).map((label) => inputOf(label).props.value).join() === 'glass')
+  const unknown = renderEntry(page, pageState({ ...baseState, backgroundStyle: 'neon' }))
+  check('an unknown Host value falls back to solid', textsOf(unknown.tree).includes('background.solidDesc'), textsOf(unknown.tree).join('|'))
 
-console.log('\n=== background presets: active value and disabled states ===')
-{
-  const open = (data, extra = {}) => ({ data, ready: true, offline: false, busy: false, note: null, panelOpen: true, ...extra })
-  const glassTree = renderEntry(panel, open({ ...baseState, backgroundStyle: 'glass' })).tree
-  check('describes the configured preset', textsOf(glassTree).includes('background.glassDesc'), textsOf(glassTree).join('|'))
-  check('glass is the pressed option', bgOptions(glassTree).filter((n) => n.props['aria-pressed'] === true).map((n) => n.props['aria-label']).join() === 'background.glass')
-  const unknown = renderEntry(panel, open({ ...baseState, backgroundStyle: 'neon' })).tree
-  check('an unknown Host value falls back to solid', textsOf(unknown).includes('background.solidDesc'), textsOf(unknown).join('|'))
-
-  const offline = renderEntry(panel, open(baseState, { offline: true })).tree
-  check('cannot change appearance while offline', bgOptions(offline).length === 3 && bgOptions(offline).every((n) => n.props.disabled === true))
-  const locked = renderEntry(panel, open({ ...baseState, phase: 'executing' })).tree
-  check('cannot change appearance during execution', bgOptions(locked).every((n) => n.props.disabled === true))
-  const busy = renderEntry(panel, open(baseState, { busy: true })).tree
-  check('cannot stack appearance writes', bgOptions(busy).every((n) => n.props.disabled === true))
+  const offline = renderEntry(page, pageState(baseState, { offline: true }))
+  check('cannot change appearance while offline', presetDisabled(offline.tree).length === 3 && presetDisabled(offline.tree).every((disabled) => disabled === true))
+  const locked = renderEntry(page, pageState({ ...baseState, phase: 'executing' }))
+  check('cannot change appearance during execution', presetDisabled(locked.tree).every((disabled) => disabled === true))
+  const busy = renderEntry(page, pageState(baseState, { busy: true }))
+  check('cannot stack appearance writes', presetDisabled(busy.tree).every((disabled) => disabled === true))
+  check('the two mode radios are unchanged', modeRadiosOf(appearance.tree).length === 2)
 }
 
 console.log('\n=== background presets: countdown carries the style ===')
@@ -919,19 +1101,21 @@ console.log('\n=== background presets: countdown carries the style ===')
 console.log('\n=== background presets: CSS and runtime wiring ===')
 {
   const css = require('node:fs').readFileSync(process.argv[2] ?? require('node:path').join(__dirname, '..', 'client.js'), 'utf8')
-  check('glass preset is defined', css.includes('[data-background=glass]'))
-  check('blur preset is defined', css.includes('[data-background=blur]'))
+  check('glass preset is defined', css.includes('.ipa-scrim[data-background=glass]'))
+  check('blur preset is defined', css.includes('.ipa-scrim[data-background=blur]'))
+  check('each tile previews its own countdown window', css.includes('.ipa-preset[data-preset=glass] .ipa-presetPanel') && css.includes('.ipa-preset[data-preset=blur] .ipa-presetPanel'))
   check('glass blurs the backdrop', css.includes('backdrop-filter:blur(22px)'))
   check('blur uses a heavier gaussian radius', css.includes('backdrop-filter:blur(34px)'))
   check('translucency uses color-mix with a solid fallback', css.includes('color-mix(in srgb,var(--dsw-alias-bg-overlay) 66%,transparent)'))
-  check('the active preset is visible without relying on layer token differences', css.includes('box-shadow:inset 0 0 0 1px var(--dsw-alias-brand-primary)'))
+  check('the active preset is drawn with a ring, not a layer-token difference', css.includes('.ipa-preset:has(> :checked){border-color:var(--ipa-accent);box-shadow:0 0 0 1px var(--ipa-accent)}'))
   check('blur scopes its dark tokens to the overlay subtree', css.includes('--dsw-alias-label-primary:#f3f5f9'))
   check('all three presets are recognized', JSON.stringify(moduleObj.internals.BACKGROUND_STYLES) === '["solid","glass","blur"]')
   check('normalizeBackground rejects unknown values', moduleObj.internals.normalizeBackground('neon') === 'solid' && moduleObj.internals.normalizeBackground('blur') === 'blur')
-  const injected = byId('dsh-idle-power.panel').inject()
-  check('panel receives the setBackground action', typeof injected.setBackground === 'function')
-  check('panel still receives setMode', typeof injected.setMode === 'function')
+  const injected = byKey('idle-power').inject()
+  check('page receives the setBackground action', typeof injected.setBackground === 'function')
+  check('page still receives setMode', typeof injected.setMode === 'function')
 }
+
 
 ;(async () => {
   console.log('\n=== multi-screen: best-effort mirror windows ===')

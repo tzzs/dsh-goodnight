@@ -20,6 +20,9 @@ const ARM_PATH = '/idle-power/arm'
 const CANCEL_PATH = '/idle-power/cancel'
 const MODE_PATH = '/idle-power/mode'
 const BACKGROUND_PATH = '/idle-power/background'
+const COLOR_PATH = '/idle-power/color'
+const FULLSCREEN_PATH = '/idle-power/fullscreen'
+const AWAKE_PATH = '/idle-power/awake'
 
 const PHASE_IDLE = 'idle'
 const PHASE_ARMED = 'armed'
@@ -58,6 +61,66 @@ function boundedInteger(value, fallback, min, max) {
  */
 function normalizedBackground(value, fallback) {
 	return BACKGROUND_STYLES.includes(value) ? value : fallback
+}
+
+const COLOR_PATTERN = /^#[0-9a-f]{6}$/
+
+/**
+ * A custom countdown colour is optional: `null` keeps the overlay on the Host
+ * theme tokens, which stay correct in both themes and forced-colours mode.
+ * Only a plain opaque hex is accepted, so the client can always compute a
+ * readable ink from it.
+ */
+function normalizedColor(value, fallback = null) {
+	if (value === null || value === undefined) return fallback
+	if (typeof value !== 'string') return fallback
+	const lowered = value.trim().toLowerCase()
+	return COLOR_PATTERN.test(lowered) ? lowered : fallback
+}
+
+/**
+ * Request-body colour parsing: `null` clears the override, a hex sets it, and
+ * anything else is a 400. Kept separate from `normalizedColor` because a body
+ * that omits the field must be rejected, not defaulted.
+ */
+function parseColorInput(value) {
+	if (value === null) return { ok: true, color: null }
+	if (typeof value !== 'string') return { ok: false }
+	const lowered = value.trim().toLowerCase()
+	return COLOR_PATTERN.test(lowered) ? { ok: true, color: lowered } : { ok: false }
+}
+
+/**
+ * Windows drops to the lock screen after the display idles out, and an idle
+ * timeout can suspend the whole machine. A suspended Host cannot fire its own
+ * countdown, so a pending reservation has to keep the machine awake.
+ *
+ * `SetThreadExecutionState` is per-thread and clears when that thread ends, so
+ * this has to be a process that outlives a single call: the helper asserts the
+ * state once, re-asserts on a timer, and is terminated the moment it is no
+ * longer needed. The flags are ES_CONTINUOUS | ES_SYSTEM_REQUIRED |
+ * ES_DISPLAY_REQUIRED (0x80000003 = 2147483651): no sleep, and no display-off —
+ * which is what raises the lock screen in the first place.
+ */
+const AWAKE_REFRESH_MS = 20 * 1000
+
+function awakeCommand(platform) {
+	if (platform === 'win32') {
+		const script = [
+			"Add-Type -Namespace DshIdlePower -Name Native -MemberDefinition '[System.Runtime.InteropServices.DllImport(\"kernel32.dll\")] public static extern uint SetThreadExecutionState(uint esFlags);'",
+			// Windows PowerShell 5.1 parses 0x80000003 as a negative Int32, which the
+			// uint parameter refuses; the decimal form cast to uint32 works everywhere.
+			'[void][DshIdlePower.Native]::SetThreadExecutionState([uint32]2147483651)',
+			'while ($true) { Start-Sleep -Milliseconds ' + AWAKE_REFRESH_MS + '; [void][DshIdlePower.Native]::SetThreadExecutionState([uint32]2147483651) }',
+		].join('\n')
+		return { program: 'powershell', args: ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', script] }
+	}
+	if (platform === 'darwin') return { program: 'caffeinate', args: ['-d', '-i', '-m', '-s'] }
+	// Linux: the inhibitor holds an idle/sleep lock for as long as it runs.
+	return {
+		program: 'systemd-inhibit',
+		args: ['--what=idle:sleep', '--why=dsh-idle-power: a reservation is pending', 'sleep', 'infinity'],
+	}
 }
 
 /** One plain-JSON reply. Live state is never cached. */
@@ -128,6 +191,14 @@ export function apply(ctx, config, environment = {}) {
 		// Default is the opaque surface: its contrast never depends on what is
 		// behind the window. The panel can override it for this Host's lifetime.
 		backgroundStyle: normalizedBackground(config?.backgroundStyle, BACKGROUND_SOLID),
+		// `null` means "follow the Host theme"; a hex pins the solid surface.
+		countdownColor: normalizedColor(config?.countdownColor, null),
+		// Off by default: a reservation that hijacks the whole screen while the
+		// user is still working is a surprise, so it has to be asked for.
+		fullscreenOnWait: config?.fullscreenOnWait === true,
+		// On by default: without it a pending reservation can be lost to the lock
+		// screen, which is the exact failure this plugin exists to prevent.
+		stayAwake: config?.stayAwake !== false,
 		shutdownCommand:
 			typeof config?.shutdownCommand === 'string' && config.shutdownCommand.length > 0
 				? config.shutdownCommand
@@ -141,6 +212,10 @@ export function apply(ctx, config, environment = {}) {
 	let phase = PHASE_IDLE
 	let mode = options.defaultMode
 	let backgroundStyle = options.backgroundStyle
+	let countdownColor = options.countdownColor
+	let fullscreenOnWait = options.fullscreenOnWait
+	let awakeHandle = null
+	let awakeStarting = false
 	let quietSince = null
 	let deadline = null
 	let error = null
@@ -199,6 +274,9 @@ export function apply(ctx, config, environment = {}) {
 			phase,
 			mode,
 			backgroundStyle,
+			countdownColor,
+			fullscreenOnWait,
+			stayAwake: options.stayAwake,
 			countdownSeconds: options.countdownSeconds,
 			quietSeconds: options.quietSeconds,
 			remainingSeconds: deadline === null ? 0 : Math.max(0, Math.ceil((deadline - now) / 1000)),
@@ -211,6 +289,61 @@ export function apply(ctx, config, environment = {}) {
 		}
 	}
 
+	/** Whether the machine should be held awake right now. */
+	function awakeWanted() {
+		return options.stayAwake && (phase === PHASE_ARMED || phase === PHASE_COUNTING)
+	}
+
+	/**
+	 * Start or stop the keep-awake helper so it matches the current phase. Called
+	 * after every transition; it is a no-op when the state already matches, which
+	 * matters because the watcher runs this once a second.
+	 */
+	async function syncAwake() {
+		if (!awakeWanted()) {
+			const handle = awakeHandle
+			awakeHandle = null
+			if (handle !== null) {
+				try {
+					await handle.terminate()
+				} catch {
+					/* it already exited */
+				}
+			}
+			return
+		}
+		if (awakeHandle !== null || awakeStarting) return
+		awakeStarting = true
+		try {
+			const spec = awakeCommand(options.platform)
+			const executable = await ctx.subprocess.resolveExecutable(spec.program)
+			// The reservation can end while PATH resolution yields.
+			if (disposed || !awakeWanted()) return
+			const handle = ctx.subprocess.spawn({
+				argv: [executable, ...spec.args],
+				cwd: process.cwd(),
+				stdio: { stdin: 'ignore', stdout: 'ignore', stderr: 'ignore' },
+				graceMs: 2000,
+			})
+			// It runs until we terminate it; a failure here must not surface as an
+			// unhandled rejection in the Host.
+			Promise.resolve(handle.done).catch(() => {})
+			if (disposed || !awakeWanted()) {
+				try {
+					await handle.terminate()
+				} catch {
+					/* nothing to clean up */
+				}
+				return
+			}
+			awakeHandle = handle
+		} catch {
+			awakeHandle = null
+		} finally {
+			awakeStarting = false
+		}
+	}
+
 	/** Leave every waiting phase and forget the reservation. */
 	function reset() {
 		revision += 1
@@ -218,6 +351,7 @@ export function apply(ctx, config, environment = {}) {
 		quietSince = null
 		deadline = null
 		error = null
+		void syncAwake()
 	}
 
 	/**
@@ -284,6 +418,7 @@ export function apply(ctx, config, environment = {}) {
 			}
 			phase = PHASE_EXECUTING
 			deadline = null
+			void syncAwake()
 			const argv =
 				actionMode === MODE_HIBERNATE
 					? [executable, '/h', '/f']
@@ -363,6 +498,9 @@ export function apply(ctx, config, environment = {}) {
 		deadline = null
 		error = null
 		ctx.logger.info(`dsh-idle-power: armed for ${mode} after ${options.quietSeconds}s quiet`)
+		// Keep the machine awake for as long as this reservation is pending; a
+		// sleeping Host cannot fire its own countdown.
+		void syncAwake()
 		return { ok: true }
 	}
 
@@ -518,6 +656,136 @@ export function apply(ctx, config, environment = {}) {
 		},
 	}), `dsh-idle-power: POST ${BACKGROUND_PATH}`)
 
+	/**
+	 * The same cosmetic-preference rules as the background style: shared by every
+	 * window on this Host, never bumps `revision`, refused once executing.
+	 */
+	ctx.effect(() => ctx.webServer.register({
+		kind: 'exact',
+		path: COLOR_PATH,
+		handler: async (req, res) => {
+			if (rejected(req, res)) return
+			if (req.method !== 'POST') {
+				sendMethodNotAllowed(res, 'POST')
+				return
+			}
+			const essence = String(req.headers['content-type'] ?? '').split(';', 1)[0]?.trim().toLowerCase()
+			if (essence !== 'application/json') {
+				sendJson(res, 415, { code: 'unsupported-media-type', message: 'content-type must be application/json' })
+				return
+			}
+			const text = await readBoundedBody(req)
+			if (text === null) {
+				sendJson(res, 413, { code: 'payload-too-large', message: 'request body is too large' })
+				return
+			}
+			let parsed
+			try {
+				parsed = JSON.parse(text)
+			} catch {
+				parsed = undefined
+			}
+			if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+				sendJson(res, 400, { code: 'bad-request', message: 'body must be {"color":"#rrggbb"|null}' })
+				return
+			}
+			const next = parseColorInput(parsed.color)
+			if (!next.ok) {
+				sendJson(res, 400, { code: 'bad-request', message: 'color must be "#rrggbb" or null' })
+				return
+			}
+			if (phase === PHASE_EXECUTING) {
+				sendJson(res, 409, executionConflict())
+				return
+			}
+			countdownColor = next.color
+			sendJson(res, 200, stateSnapshot())
+		},
+	}), `dsh-idle-power: POST ${COLOR_PATH}`)
+
+	/**
+	 * Whether the waiting phase also takes the whole screen. Same cosmetic rules as
+	 * the style and colour routes: shared per Host, refused while executing, no
+	 * revision bump.
+	 */
+	ctx.effect(() => ctx.webServer.register({
+		kind: 'exact',
+		path: FULLSCREEN_PATH,
+		handler: async (req, res) => {
+			if (rejected(req, res)) return
+			if (req.method !== 'POST') {
+				sendMethodNotAllowed(res, 'POST')
+				return
+			}
+			const essence = String(req.headers['content-type'] ?? '').split(';', 1)[0]?.trim().toLowerCase()
+			if (essence !== 'application/json') {
+				sendJson(res, 415, { code: 'unsupported-media-type', message: 'content-type must be application/json' })
+				return
+			}
+			const text = await readBoundedBody(req)
+			if (text === null) {
+				sendJson(res, 413, { code: 'payload-too-large', message: 'request body is too large' })
+				return
+			}
+			let parsed
+			try {
+				parsed = JSON.parse(text)
+			} catch {
+				parsed = undefined
+			}
+			if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || typeof parsed.onWait !== 'boolean') {
+				sendJson(res, 400, { code: 'bad-request', message: 'body must be {"onWait":boolean}' })
+				return
+			}
+			if (phase === PHASE_EXECUTING) {
+				sendJson(res, 409, executionConflict())
+				return
+			}
+			fullscreenOnWait = parsed.onWait
+			sendJson(res, 200, stateSnapshot())
+		},
+	}), `dsh-idle-power: POST ${FULLSCREEN_PATH}`)
+
+	/** Whether a pending reservation keeps the machine awake. Cosmetic rules as above. */
+	ctx.effect(() => ctx.webServer.register({
+		kind: 'exact',
+		path: AWAKE_PATH,
+		handler: async (req, res) => {
+			if (rejected(req, res)) return
+			if (req.method !== 'POST') {
+				sendMethodNotAllowed(res, 'POST')
+				return
+			}
+			const essence = String(req.headers['content-type'] ?? '').split(';', 1)[0]?.trim().toLowerCase()
+			if (essence !== 'application/json') {
+				sendJson(res, 415, { code: 'unsupported-media-type', message: 'content-type must be application/json' })
+				return
+			}
+			const text = await readBoundedBody(req)
+			if (text === null) {
+				sendJson(res, 413, { code: 'payload-too-large', message: 'request body is too large' })
+				return
+			}
+			let parsed
+			try {
+				parsed = JSON.parse(text)
+			} catch {
+				parsed = undefined
+			}
+			if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || typeof parsed.on !== 'boolean') {
+				sendJson(res, 400, { code: 'bad-request', message: 'body must be {"on":boolean}' })
+				return
+			}
+			if (phase === PHASE_EXECUTING) {
+				sendJson(res, 409, executionConflict())
+				return
+			}
+			options.stayAwake = parsed.on
+			void syncAwake()
+			sendJson(res, 200, stateSnapshot())
+		},
+	}), `dsh-idle-power: POST ${AWAKE_PATH}`)
+
 	ctx.effect(() => ctx.webServer.register({
 		kind: 'exact',
 		path: CANCEL_PATH,
@@ -539,11 +807,23 @@ export function apply(ctx, config, environment = {}) {
 	// The one authoritative clock, plus event nudges so a countdown is voided as
 	// soon as work reappears rather than up to a second later.
 	ctx.effect(() => {
-		const timer = setInterval(() => evaluate(), 1000)
+		const timer = setInterval(() => {
+			evaluate()
+			void syncAwake()
+		}, 1000)
 		return () => {
 			disposed = true
 			revision += 1
 			clearInterval(timer)
+			const handle = awakeHandle
+			awakeHandle = null
+			if (handle !== null) {
+				try {
+					void handle.terminate()
+				} catch {
+					/* the Host is going away */
+				}
+			}
 		}
 	}, 'dsh-idle-power: watcher')
 

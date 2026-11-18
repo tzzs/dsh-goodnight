@@ -6,3 +6,6 @@
         quietSeconds: 20
         defaultMode: shutdown
         backgroundStyle: solid
+        countdownColor: null
+        fullscreenOnWait: false
+        stayAwake: true

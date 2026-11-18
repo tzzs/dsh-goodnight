@@ -11,71 +11,134 @@ window.__ModuleLoader__.load({
     const ROUTE_CANCEL = 'idle-power/cancel';
     const ROUTE_MODE = 'idle-power/mode';
     const ROUTE_BACKGROUND = 'idle-power/background';
+    const ROUTE_COLOR = 'idle-power/color';
+    const ROUTE_FULLSCREEN = 'idle-power/fullscreen';
+    const ROUTE_AWAKE = 'idle-power/awake';
 
     // ---------------------------------------------------------------- locale
     const zh = {
-      'button.tip': '空闲后休眠或关机',
-      'entry.schedulePrefix': '预约',
-      'entry.secondsTo': ' 秒后',
-      'entry.quietSuffix': ' 秒后开始倒计时',
-      'mode.hibernate.short': '休眠',
-      'mode.shutdown.short': '关机',
-      'panel.title': '空闲后休眠或关机',
-      'panel.subtitle': '等待当前 DSH Host 的任务结束，再执行一次电源操作。',
-      'panel.flow': '执行流程',
-      'panel.quiet': '秒持续空闲',
-      'panel.countdown': '秒可取消倒计时',
-      'panel.scope': '关闭页面不会取消预约；不监测其他应用或其他 Host。',
-      'panel.mode': '电源操作',
-      'status.loading': '正在读取状态…',
-      'status.saving': '正在提交…',
-      'status.executing': '正在执行电源操作',
-      'status.agents': '运行中的智能体',
-      'status.inbox': '排队消息',
-      'status.jobs': '后台任务',
-      'countdown.cancelling': '正在取消…',
-      'countdown.offline': '连接已断开，预约可能仍在执行。取消尚未确认，请重试。',
-      'error.execution-in-progress': '电源操作已经开始执行，无法再取消。',
-      'error.reservation-changed': '预约状态刚刚发生了变化，请重新操作。',
-      'error.command-unavailable': '找不到可执行的电源命令，请检查 shutdownCommand 配置。',
-      'error.agents-unavailable': '智能体注册表不可用，暂时无法预约。',
-      'error.unsupported-platform': '此插件只支持 Windows。',
-      'panel.hibernate': '休眠',
-      'panel.hibernateDesc': '内存快照落盘，等于断电；下次开机原样恢复窗口和未保存的内容。',
-      'panel.shutdown': '关机',
-      'panel.shutdownDesc': '倒计时结束后关闭 Windows，DSH 对话记录仍然保留。',
-      'panel.shutdownNote': '会强制关闭应用，未保存的内容可能丢失。请先保存其他应用的工作。',
-      'panel.hibernateNote': '休眠后按电源键会把整机内存读回来，开着的窗口都还在。',
-      'panel.arm': '预约',
-      'panel.cancel': '取消预约',
-      'panel.close': '关闭',
+      'rail.label': '预约关机',
+      'page.eyebrow': '空闲电源',
+      'page.title': '预约关机',
+      'page.subtitle': '等当前 DSH Host 的任务全部结束，再执行一次电源操作。',
+      'page.refresh': '刷新状态',
+      'page.retry': '重试',
+      'page.armShutdown': '预约关机',
+      'page.armHibernate': '预约休眠',
+      'page.cancel': '取消预约',
+      'foot.plan': '预约后：空闲 %s 秒 → 倒计时 %s 秒 → %s',
+      'page.saving': '正在提交…',
+      'page.loading': '正在读取状态…',
       'status.idle': '未预约',
       'status.waiting': '等待中',
-      'status.tasksSuffix': ' 个任务在跑',
-      'status.quietPrefix': '任务已停下，',
-      'status.quietSuffix': ' 秒后开始倒计时',
       'status.counting': '倒计时中',
+      'status.executing': '正在执行电源操作',
       'status.failed': '执行失败',
       'status.offline': '连不上插件 Host',
       'status.unsupported': '此插件只支持 Windows',
       'status.registryUnavailable': '智能体注册表不可用，已暂停倒计时',
+      'status.tasksSuffix': ' 个任务在跑',
+      'status.quietSuffix': ' 秒后开始倒计时',
+      'status.countingSuffix': ' 秒后执行',
+      'status.scheduledAt': '预计 %s 执行',
+      'body.idle': '还没有预约。现在预约，会一直等到所有任务结束。',
+      'body.waiting': '任务全部停下后开始倒计时。',
+      'body.quiet': '任务已经停下，正在确认这段空闲。',
+      'body.counting': '倒计时期间出现新任务会自动作废。',
+      'body.executing': '电源操作已经发出，无法取消。',
+      'body.failed': '电源操作没有成功，可以重新预约。',
+      'body.offline': '状态读取失败，预约可能仍在执行；确认连接后再操作。',
+      'body.registry': '找不到智能体注册表，无法判断任务是否结束，倒计时已暂停。',
+      'body.unsupported': '只有 Windows 提供休眠和关机命令。',
+      'section.mode': '电源操作',
+      'section.modeHint': '倒计时归零后执行选中的操作。',
+      'section.flow': '执行流程',
+      'section.flowHint': '三步依次发生；倒计时期间出现新任务会自动作废。',
+      'section.background': '倒计时背景',
+      'section.backgroundHint': '只影响倒计时窗口的外观。',
+      'section.fullscreen': '整屏展示',
+      'section.fullscreenHint': '预约后要不要直接占满整块屏幕。',
+      'fullscreen.onWait': '等待时也整屏',
+      'fullscreen.onWaitDesc': '从预约开始到倒计时结束都用整屏：等待中显示任务与安静期进度，倒计时时显示秒数。',
+      'section.awake': '保持唤醒',
+      'section.awakeHint': '预约期间不要让它睡过去。',
+      'awake.on': '预约期间保持唤醒',
+      'awake.onDesc': '阻止系统休眠与锁屏。电脑一旦睡过去，Host 也会被挂起，倒计时就没法按时执行了。',
+      'awake.platform': '使用 SetThreadExecutionState 申请；取消预约或命令提交后立即释放。',
+      'wait.title': '等待任务结束',
+      'wait.subtitle': '安静期内没有再出现任务，才会开始倒计时',
+      'wait.meta': '安静期 %s 秒',
+      'wait.headline': '还没有进入倒计时',
+      'wait.quiet': '已连续空闲 %s / %s 秒',
+      'wait.quietProgress': '安静期进度',
+      'wait.orb': '等待中',
+      'wait.cancel': '取消预约',
+      'wait.cancelling': '正在取消…',
+      'wait.agents': '智能体',
+      'wait.inbox': '排队消息',
+      'wait.jobs': '后台任务',
+      'wait.hint': '任何新任务都会让安静期归零重来。',
+      'wait.escHint': 'Esc 退出大屏展示；预约仍然有效，可以在页面上取消。',
+      'section.notes': '说明',
+      'mode.hibernate': '休眠',
+      'mode.hibernateDesc': '内存快照落盘，等于断电；下次开机原样恢复窗口和未保存的内容。',
+      'mode.shutdown': '关机',
+      'mode.shutdownDesc': '倒计时结束后关闭 Windows，DSH 对话记录仍然保留。',
+      'flow.idle': '持续空闲 %s 秒',
+      'flow.idleDesc': '智能体、排队消息和后台任务都停下之后，再连续空闲这么久。',
+      'flow.countdown': '可取消倒计时 %s 秒',
+      'flow.countdownDesc': '占满整块屏幕的倒计时，按 Esc 或点取消都能停下。',
+      'flow.act': '执行电源操作',
+      'flow.actDesc': '倒计时归零后执行休眠或关机，开始执行后无法再取消。',
+      'metric.agents': '运行中的智能体',
+      'metric.inbox': '排队消息',
+      'metric.jobs': '后台任务',
+      'metric.total': '任务合计',
+      'hero.progress': '剩余时间',
+      'note.scope': '关闭页面不会取消预约；只监测当前 Host，不监测其他应用或其他 Host。',
+      'note.autoVoid': '倒计时期间任何新任务都会让本次预约自动作废。',
+      'note.platform': '只有 Windows 提供休眠和关机命令。',
+      'note.hostRestart': 'Host 重启会取消预约：重启说明有人回到了机器前。',
+      'note.shutdown': '会强制关闭应用，未保存的内容可能丢失。请先保存其他应用的工作。',
+      'note.hibernate': '休眠后按电源键会把整机内存读回来，开着的窗口都还在。',
+      'preview.button': '预览',
+      'preview.title': '倒计时预览',
+      'preview.subtitle': '只是预览，不会执行任何电源操作',
+      'preview.noAction': '10 秒后自动结束',
+      'preview.close': '结束预览',
+      'preview.hint': '这是预览：倒计时归零后什么都不会发生。',
+      'preview.scope': '真实的倒计时会占满整个屏幕，并在这台机器上执行电源操作。',
+      'color.label': '纯色背景',
+      'color.auto': '跟随主题',
+      'color.custom': '自定义',
+      'color.hint': '文字会自动选黑或白，保证在这个底色上可读。',
+      'background.solid': '纯色',
+      'background.solidDesc': '不透明底色，文字对比度最高。',
+      'background.glass': '毛玻璃',
+      'background.glassDesc': '半透明 + 模糊，隐约透出背后的窗口。',
+      'background.blur': '高斯模糊',
+      'background.blurDesc': '重度模糊 + 暗底，沉浸式深色提示。',
       'countdown.title': '所有任务已完成',
       'countdown.hibernate': '将进入休眠',
       'countdown.shutdown': '将关机',
       'countdown.suffix': '秒',
       'countdown.cancel': '取消',
       'countdown.hint': '有任何新任务开始，倒计时会自动作废。',
+      'countdown.escFullscreen': 'Esc 先退出全屏（倒计时继续），再按一次才会取消。',
       'countdown.quietDone': '已通过 %s 秒持续空闲',
       'countdown.scheduledAt': '预计 %s 执行（本机时间）',
       'countdown.window': '倒计时窗口 %s 秒',
       'countdown.remaining': '剩余 %s 秒',
       'countdown.progress': '倒计时进度',
       'countdown.scopeTag': '仅覆盖当前 Harness 窗口',
+      'countdown.scopeTagFull': '覆盖整个屏幕',
       'countdown.multiNote': '检测到多块屏幕：倒计时只会出现在 Harness 窗口所在的屏幕。若窗口跨了两块屏，可把计时器固定在其中一侧。',
       'countdown.alignLabel': '计时器位置',
       'countdown.alignLeft': '靠左',
       'countdown.alignCenter': '居中',
       'countdown.alignRight': '靠右',
+      'countdown.fullscreen': '全屏显示',
+      'countdown.fullscreenHint': '让倒计时覆盖整个屏幕，而不只是 Harness 窗口。',
       'countdown.mirrors': '在其它屏幕也显示',
       'countdown.mirrorRetry': '重新显示',
       'countdown.mirrorWorking': '正在打开…',
@@ -84,77 +147,137 @@ window.__ModuleLoader__.load({
       'countdown.mirrorPlain': '已打开一个镜像窗口，请把它拖到另一块屏幕。',
       'countdown.beaconTitle': '关机倒计时 · 镜像窗口',
       'countdown.beaconHint': '在任意窗口取消，都会停止本次电源操作。',
-      'panel.background': '倒计时背景',
-      'background.solid': '纯色',
-      'background.solidDesc': '不透明底色，文字对比度最高。',
-      'background.glass': '毛玻璃',
-      'background.glassDesc': '半透明 + 模糊，隐约透出背后的窗口。',
-      'background.blur': '高斯模糊',
-      'background.blurDesc': '重度模糊 + 暗底，沉浸式深色提示。',
+      'countdown.cancelling': '正在取消…',
+      'countdown.offline': '连接已断开，预约可能仍在执行。取消尚未确认，请重试。',
+      'error.execution-in-progress': '电源操作已经开始执行，无法再取消。',
+      'error.reservation-changed': '预约状态刚刚发生了变化，请重新操作。',
+      'error.command-unavailable': '找不到可执行的电源命令，请检查 shutdownCommand 配置。',
+      'error.agents-unavailable': '智能体注册表不可用，暂时无法预约。',
+      'error.unsupported-platform': '此插件只支持 Windows。',
     };
     const en = {
-      'button.tip': 'Hibernate or power off when idle',
-      'entry.schedulePrefix': 'Schedule ',
-      'entry.secondsTo': 's to ',
-      'entry.quietSuffix': 's to countdown',
-      'mode.hibernate.short': 'hibernate',
-      'mode.shutdown.short': 'shut down',
-      'panel.title': 'Hibernate or power off when idle',
-      'panel.subtitle': 'Run one power action after tasks in this DSH Host finish.',
-      'panel.flow': 'How it runs',
-      'panel.quiet': 's continuously idle',
-      'panel.countdown': 's cancellable countdown',
-      'panel.scope': 'Closing this page does not cancel. Other apps and Hosts are not monitored.',
-      'panel.mode': 'Power action',
-      'status.loading': 'Loading status…',
-      'status.saving': 'Submitting…',
-      'status.executing': 'Executing power action',
-      'status.agents': 'Running agents',
-      'status.inbox': 'Queued messages',
-      'status.jobs': 'Background jobs',
-      'countdown.cancelling': 'Cancelling…',
-      'countdown.offline': 'Connection lost. The reservation may still run. Cancellation is unconfirmed; please retry.',
-      'error.execution-in-progress': 'The power command is already executing and can no longer be cancelled.',
-      'error.reservation-changed': 'The reservation just changed; please try again.',
-      'error.command-unavailable': 'The power command could not be found; check the shutdownCommand setting.',
-      'error.agents-unavailable': 'The agent registry is unavailable, so nothing can be scheduled right now.',
-      'error.unsupported-platform': 'This plugin supports Windows only.',
-      'panel.hibernate': 'Hibernate',
-      'panel.hibernateDesc': 'Writes a memory snapshot to disk, so the next boot restores every open window and unsaved edit.',
-      'panel.shutdown': 'Shut down',
-      'panel.shutdownDesc': 'Shuts down Windows after the countdown. DSH conversations remain saved.',
-      'panel.shutdownNote': 'Forces apps to close. Unsaved work may be lost; save your work in other apps first.',
-      'panel.hibernateNote': 'After hibernating, pressing the power button reads the memory image back.',
-      'panel.arm': 'Schedule',
-      'panel.cancel': 'Cancel',
-      'panel.close': 'Close',
+      'rail.label': 'Scheduled power',
+      'page.eyebrow': 'IDLE POWER',
+      'page.title': 'Scheduled power',
+      'page.subtitle': 'Run one power action after every task in this DSH Host has finished.',
+      'page.refresh': 'Refresh status',
+      'page.retry': 'Retry',
+      'page.armShutdown': 'Schedule shutdown',
+      'page.armHibernate': 'Schedule hibernation',
+      'page.cancel': 'Cancel schedule',
+      'foot.plan': 'When scheduled: %s s idle → %s s countdown → %s',
+      'page.saving': 'Submitting…',
+      'page.loading': 'Loading status…',
       'status.idle': 'Not scheduled',
       'status.waiting': 'Waiting',
-      'status.tasksSuffix': ' tasks running',
-      'status.quietPrefix': 'All tasks stopped, ',
-      'status.quietSuffix': 's until the countdown',
       'status.counting': 'Counting down',
+      'status.executing': 'Executing power action',
       'status.failed': 'Failed',
       'status.offline': 'Cannot reach the plugin Host',
       'status.unsupported': 'This plugin supports Windows only',
       'status.registryUnavailable': 'Agent registry unavailable; countdown paused',
+      'status.tasksSuffix': ' tasks running',
+      'status.quietSuffix': 's until the countdown',
+      'status.countingSuffix': 's until it runs',
+      'status.scheduledAt': 'Scheduled for %s',
+      'body.idle': 'Nothing is scheduled. Scheduling waits until every task has finished.',
+      'body.waiting': 'The countdown starts once every task has stopped.',
+      'body.quiet': 'Every task stopped; this idle window is being confirmed.',
+      'body.counting': 'Any new task voids this countdown automatically.',
+      'body.executing': 'The power command has been sent and can no longer be cancelled.',
+      'body.failed': 'The power action did not succeed; you can schedule it again.',
+      'body.offline': 'Status could not be read. The reservation may still run; check the connection before acting.',
+      'body.registry': 'The agent registry is missing, so "all tasks finished" cannot be proven; the countdown is paused.',
+      'body.unsupported': 'Only Windows provides the hibernate and shutdown commands.',
+      'section.mode': 'Power action',
+      'section.modeHint': 'What runs when the countdown reaches zero.',
+      'section.flow': 'How it runs',
+      'section.flowHint': 'Three steps in order; a new task during the countdown voids the whole reservation.',
+      'section.background': 'Countdown background',
+      'section.backgroundHint': 'Only changes how the countdown window looks.',
+      'section.fullscreen': 'Whole screen',
+      'section.fullscreenHint': 'Whether a reservation should take the entire display.',
+      'fullscreen.onWait': 'Full screen while waiting',
+      'fullscreen.onWaitDesc': 'Keep the whole screen from arming until the countdown ends: tasks and quiet-window progress while waiting, seconds while counting.',
+      'section.awake': 'Stay awake',
+      'section.awakeHint': 'Do not let the machine sleep through a reservation.',
+      'awake.on': 'Stay awake while a reservation is pending',
+      'awake.onDesc': 'Blocks sleep and the lock screen. A suspended Host cannot fire its countdown on time.',
+      'awake.platform': 'Requested through SetThreadExecutionState and released as soon as the reservation ends or the command is committed.',
+      'wait.title': 'Waiting for tasks to finish',
+      'wait.subtitle': 'The countdown only starts once the quiet window passes',
+      'wait.meta': 'Quiet window %s s',
+      'wait.headline': 'The countdown has not started',
+      'wait.quiet': '%s / %s s of continuous idle',
+      'wait.quietProgress': 'Quiet window progress',
+      'wait.orb': 'Waiting',
+      'wait.cancel': 'Cancel reservation',
+      'wait.cancelling': 'Cancelling…',
+      'wait.agents': 'Agents',
+      'wait.inbox': 'Queued',
+      'wait.jobs': 'Jobs',
+      'wait.hint': 'Any new task restarts the quiet window.',
+      'wait.escHint': 'Esc closes the big screen; the reservation stays and can be cancelled on the page.',
+      'section.notes': 'Notes',
+      'mode.hibernate': 'Hibernate',
+      'mode.hibernateDesc': 'Writes a memory snapshot to disk, so the next boot restores every open window and unsaved edit.',
+      'mode.shutdown': 'Shut down',
+      'mode.shutdownDesc': 'Shuts down Windows after the countdown. DSH conversations remain saved.',
+      'flow.idle': '%s s of continuous idle',
+      'flow.idleDesc': 'Agents, queued messages and background jobs must all stop, then stay stopped for this long.',
+      'flow.countdown': '%s s cancellable countdown',
+      'flow.countdownDesc': 'A countdown that fills the whole screen; Esc or Cancel stops it.',
+      'flow.act': 'Run the power action',
+      'flow.actDesc': 'At zero it hibernates or shuts down. Once it starts it cannot be cancelled.',
+      'metric.agents': 'Running agents',
+      'metric.inbox': 'Queued messages',
+      'metric.jobs': 'Background jobs',
+      'metric.total': 'Tasks total',
+      'hero.progress': 'Time remaining',
+      'note.scope': 'Closing this page does not cancel. Only this Host is monitored; other apps and Hosts are not.',
+      'note.autoVoid': 'Any new task during the countdown voids this reservation.',
+      'note.platform': 'Only Windows provides the hibernate and shutdown commands.',
+      'note.hostRestart': 'A Host restart cancels the reservation: a restart means somebody is back at the machine.',
+      'note.shutdown': 'Forces apps to close. Unsaved work may be lost; save your work in other apps first.',
+      'note.hibernate': 'After hibernating, pressing the power button reads the memory image back.',
+      'preview.button': 'Preview',
+      'preview.title': 'Countdown preview',
+      'preview.subtitle': 'Preview only — no power action runs',
+      'preview.noAction': 'Ends by itself in 10 s',
+      'preview.close': 'End preview',
+      'preview.hint': 'This is a preview: nothing happens when it reaches zero.',
+      'preview.scope': 'A real countdown fills the whole screen and runs the power command on this machine.',
+      'color.label': 'Solid colour',
+      'color.auto': 'Theme',
+      'color.custom': 'Custom',
+      'color.hint': 'Text switches between black and white to stay readable on this colour.',
+      'background.solid': 'Solid',
+      'background.solidDesc': 'Opaque surface with the strongest text contrast.',
+      'background.glass': 'Frosted glass',
+      'background.glassDesc': 'Translucent with a blur; faintly shows the window behind.',
+      'background.blur': 'Gaussian blur',
+      'background.blurDesc': 'Heavy blur and a dark scrim; an immersive dark warning.',
       'countdown.title': 'All tasks finished',
       'countdown.hibernate': 'About to hibernate',
       'countdown.shutdown': 'About to power off',
       'countdown.suffix': 's',
       'countdown.cancel': 'Cancel',
       'countdown.hint': 'Any new task voids this countdown automatically.',
+      'countdown.escFullscreen': 'Esc leaves fullscreen first (the countdown keeps running); a second press cancels.',
       'countdown.quietDone': '%s s of continuous idle passed',
       'countdown.scheduledAt': 'Scheduled for %s (local time)',
       'countdown.window': '%s s cancellation window',
       'countdown.remaining': '%s s remaining',
       'countdown.progress': 'Countdown progress',
       'countdown.scopeTag': 'This Harness window only',
+      'countdown.scopeTagFull': 'The whole screen',
       'countdown.multiNote': 'Multiple screens detected: the countdown only appears on the screen holding the Harness window. If the window spans two screens, pin the timer to one side.',
       'countdown.alignLabel': 'Timer position',
       'countdown.alignLeft': 'Left',
       'countdown.alignCenter': 'Center',
       'countdown.alignRight': 'Right',
+      'countdown.fullscreen': 'Full screen',
+      'countdown.fullscreenHint': 'Cover the whole screen, not just the Harness window.',
       'countdown.mirrors': 'Show on other screens',
       'countdown.mirrorRetry': 'Show again',
       'countdown.mirrorWorking': 'Opening…',
@@ -163,34 +286,230 @@ window.__ModuleLoader__.load({
       'countdown.mirrorPlain': 'Opened one mirror window — drag it to another screen.',
       'countdown.beaconTitle': 'Power-off countdown · mirror',
       'countdown.beaconHint': 'Cancelling in any window stops this power action everywhere.',
-      'panel.background': 'Countdown background',
-      'background.solid': 'Solid',
-      'background.solidDesc': 'Opaque surface with the strongest text contrast.',
-      'background.glass': 'Frosted glass',
-      'background.glassDesc': 'Translucent with a blur; faintly shows the window behind.',
-      'background.blur': 'Gaussian blur',
-      'background.blurDesc': 'Heavy blur and a dark scrim; an immersive dark warning.',
+      'countdown.cancelling': 'Cancelling…',
+      'countdown.offline': 'Connection lost. The reservation may still run. Cancellation is unconfirmed; please retry.',
+      'error.execution-in-progress': 'The power command is already executing and can no longer be cancelled.',
+      'error.reservation-changed': 'The reservation just changed; please try again.',
+      'error.command-unavailable': 'The power command could not be found; check the shutdownCommand setting.',
+      'error.agents-unavailable': 'The agent registry is unavailable, so nothing can be scheduled right now.',
+      'error.unsupported-platform': 'This plugin supports Windows only.',
     };
-
     // ---------------------------------------------------------------- styles
     const CSS = `
 /* A short press, a soft settle, and a readable reveal share the same cadence.
    Keep these tokens local: a plugin must not change the host's motion system. */
-:where(.ipa-panel,.ipa-scrim,.ipa-entry,.ipa-fab){--ipa-ease:cubic-bezier(.2,.7,.2,1);--ipa-settle:cubic-bezier(.22,1.35,.36,1);--ipa-fast:140ms;--ipa-move:300ms}
-.ipa-fab{display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:none;border-radius:var(--dsw-radius-sm);background:0 0;color:var(--dsw-alias-label-secondary);cursor:pointer;position:relative;flex:none}
-@media (hover:hover){.ipa-fab:hover{background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-fab:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color);outline-offset:2px}
-.ipa-fab[data-active]{color:var(--dsw-alias-brand-primary)}
-.ipa-fab .ipa-dot{position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-brand-primary)}
-.ipa-fab[data-phase=counting] .ipa-dot{background:var(--dsw-alias-state-error-primary)}
-.ipa-entry{display:flex;align-items:center;gap:8px;width:100%;min-width:0;height:36px;padding:0 12px;box-sizing:border-box;border:none;border-radius:var(--dsw-radius-md);background:0 0;color:var(--dsw-alias-label-secondary);cursor:pointer;font:inherit;font-size:13px;line-height:22px;text-align:left;position:relative}
-@media (hover:hover){.ipa-entry:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}}
-.ipa-entry:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color);outline-offset:-2px}
-.ipa-entry .ipa-entryText{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ipa-entry[data-active]{color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2);font-weight:500}
-.ipa-entry[data-phase=counting]{color:var(--dsw-alias-state-error-primary)}
-.ipa-entry .ipa-dot{position:static;flex:none;width:6px;height:6px;border-radius:50%;background:currentColor}
-.ipa-entry[data-phase=counting] .ipa-dot{background:currentColor}
+:where(.ipa-page,.ipa-scrim){--ipa-ease:cubic-bezier(.2,.7,.2,1);--ipa-settle:cubic-bezier(.22,1.35,.36,1);--ipa-fast:140ms;--ipa-move:300ms}
+/* ---- rail entry --------------------------------------------------------- */
+/* The rail renders one glyph per panel and the host owns its tooltip, so the
+   reservation state has to live inside the artwork: a dot while a power action
+   is pending, blinking once the countdown is running. */
+.ipa-railGlyph{display:block}
+.ipa-railDot{fill:currentColor}
+.ipa-railGlyph[data-phase=counting] .ipa-railDot{fill:var(--dsw-alias-state-error-primary);animation:ipa-blink 1.6s ease-in-out infinite}
+@keyframes ipa-blink{0%,100%{opacity:1}50%{opacity:.45}}
+/* ---- page shell --------------------------------------------------------- */
+/* One semantic layer over the Host palette: components ask for a role
+   (surface, muted text, control border, accent) instead of a raw palette
+   entry, so the page survives a Host theme change and reads like the rest of
+   the app. Borders are mixed from the foreground, not taken from the Host's
+   hairline token: on a white surface a 10 %-alpha hairline is invisible, and
+   the surface/card distinction has to come from the outline. */
+.ipa-page{
+--ipa-surface:var(--dsw-alias-bg-base,#fff);
+--ipa-card:var(--dsw-alias-bg-layer-1,#fff);
+--ipa-sunken:var(--dsw-alias-bg-layer-2,#f4f5f7);
+--ipa-fg:var(--dsw-alias-label-primary,#191c22);
+--ipa-fg-muted:color-mix(in srgb,var(--ipa-fg) 78%,var(--ipa-surface));
+--ipa-fg-subtle:color-mix(in srgb,var(--ipa-fg) 66%,var(--ipa-surface));
+--ipa-border:color-mix(in srgb,var(--ipa-fg) 16%,transparent);
+--ipa-border-strong:color-mix(in srgb,var(--ipa-fg) 30%,transparent);
+--ipa-divider:color-mix(in srgb,var(--ipa-fg) 9%,transparent);
+--ipa-accent:var(--dsw-alias-brand-primary,#2f66f5);
+--ipa-accent-fg:var(--dsw-alias-label-primary-foreground,#fff);
+--ipa-danger:var(--dsw-alias-state-error-primary,#d93a40);
+--ipa-hover:var(--dsw-alias-interactive-bg-hover,rgba(18,21,28,.06));
+--ipa-ring:var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary,#2f66f5));
+--ipa-radius:var(--dsw-radius-md,12px);
+--ipa-radius-sm:var(--dsw-radius-sm,8px);
+--ipa-radius-xs:var(--dsw-radius-xs,4px);
+box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-direction:column;width:100%;height:100%;min-height:0;overflow:hidden;background:var(--ipa-surface);color:var(--ipa-fg);font-size:.875rem;line-height:1.6;font-variant-numeric:tabular-nums}
+.ipa-page *{box-sizing:border-box}
+.ipa-pageWrap{width:100%;max-width:1120px;margin:0 auto;padding-inline:clamp(18px,3.6cqw,48px)}
+.ipa-pageTop{flex:none;border-bottom:1px solid var(--ipa-divider);background:var(--ipa-surface)}
+.ipa-pageHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-top:clamp(20px,3cqw,32px);padding-bottom:clamp(14px,2cqw,20px)}
+[data-platform=darwin] .ipa-pageHeader{padding-top:calc(32px + var(--dsh-frame-top-clearance,0px))}
+.ipa-pageHead{min-width:0;flex:1}
+.ipa-pageEyebrow{display:block;margin-bottom:6px;color:var(--ipa-fg-subtle);font-size:.6875rem;font-weight:600;line-height:1.6;letter-spacing:.12em}
+.ipa-pageTitle{margin:0;font-size:clamp(1.375rem,3.4cqw,1.75rem);font-weight:650;line-height:1.25;letter-spacing:-.03em;text-wrap:balance}
+.ipa-pageSub{margin:6px 0 0;max-width:62ch;color:var(--ipa-fg-muted);font-size:.84375rem;line-height:1.55;text-wrap:pretty}
+.ipa-pageTools{display:flex;align-items:center;gap:8px;flex:none}
+.ipa-scroll{flex:1;min-height:0;overflow:auto;scrollbar-gutter:stable}
+.ipa-pageBody{display:flex;flex-direction:column;gap:clamp(20px,2.6cqw,28px);padding-top:clamp(18px,2.6cqw,26px);padding-bottom:clamp(24px,3cqw,36px)}
+/* ---- action bar --------------------------------------------------------- */
+/* The one primary action lives here, next to the choices that decide it, not
+   in the header: the reader picks a power action underneath and the button
+   that commits it stays in view. */
+.ipa-pageFoot{flex:none;border-top:1px solid var(--ipa-border);background:var(--ipa-card);box-shadow:0 -8px 24px -20px rgba(0,0,0,.45)}
+.ipa-footInner{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-block:12px}
+.ipa-footStatus{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.ipa-statusDot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--ipa-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--ipa-accent) 18%,transparent)}
+.ipa-statusDot[data-tone=error]{background:var(--ipa-danger);box-shadow:0 0 0 3px color-mix(in srgb,var(--ipa-danger) 18%,transparent)}
+.ipa-footText{display:flex;flex-direction:column;gap:1px;min-width:0}
+.ipa-footPhase{color:var(--ipa-fg);font-size:.8125rem;font-weight:600;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ipa-footMeta{color:var(--ipa-fg-subtle);font-size:.71875rem;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ipa-footActions{display:flex;align-items:center;gap:8px;flex:none}
+.ipa-footActions .ipa-button{min-width:140px;min-height:40px;padding-inline:20px;font-size:.84375rem}
+/* Native radios carry every choice; the card is only their visible label.
+   The input stays focusable and in the accessibility tree, so keyboard users
+   get a real radio group (arrow keys move and select) and screen readers get
+   "n of m" instead of a row of styled buttons. */
+.ipa-choiceInput{position:absolute;inline-size:1px;block-size:1px;margin:0;padding:0;border:0;opacity:0;overflow:hidden;clip-path:inset(50%);pointer-events:none}
+/* Screen-reader-only text: never visible, never focusable. */
+.ipa-srOnly{position:absolute;inline-size:1px;block-size:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+/* ---- controls ----------------------------------------------------------- */
+.ipa-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:none;min-height:36px;padding:7px 14px;border-radius:var(--ipa-radius-sm);border:1px solid var(--ipa-border-strong);background:var(--ipa-card);color:var(--ipa-fg);font:inherit;font-size:.8125rem;font-weight:500;line-height:1.5;cursor:pointer;transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
+/* Hover is scoped to the outline button on purpose: an unscoped .ipa-button:hover
+   outranks .ipa-button[data-variant=primary] (three class-level selectors against
+   two) and would repaint the filled button in the outline hover wash, leaving white
+   text on a near-white surface - it read as disabled. */
+@media (hover:hover){.ipa-button:not([data-variant]):hover:not(:disabled){background:var(--ipa-hover)}}
+.ipa-button[data-variant=primary]{border-color:transparent;background:var(--ipa-accent);color:var(--ipa-accent-fg);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.18)}
+@media (hover:hover){.ipa-button[data-variant=primary]:hover:not(:disabled){filter:brightness(1.08);box-shadow:0 2px 6px rgba(0,0,0,.24)}}
+.ipa-button[data-variant=primary]:active:not(:disabled){filter:brightness(.96)}
+.ipa-button[data-variant=danger]{border-color:var(--ipa-danger);background:0 0;color:var(--ipa-danger);font-weight:600}
+@media (hover:hover){.ipa-button[data-variant=danger]:hover:not(:disabled){background:color-mix(in srgb,var(--ipa-danger) 10%,transparent)}}
+.ipa-button:disabled{opacity:.45;cursor:default}
+.ipa-button:active:not(:disabled){transform:scale(.985)}
+.ipa-iconButton{display:inline-flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;padding:0;border-radius:var(--ipa-radius-sm);border:1px solid var(--ipa-border);background:0 0;color:var(--ipa-fg-muted);cursor:pointer}
+@media (hover:hover){.ipa-iconButton:hover:not(:disabled){background:var(--ipa-hover);color:var(--ipa-fg)}}
+.ipa-iconButton:disabled{opacity:.45;cursor:default}
+.ipa-page :focus-visible{outline:2px solid var(--ipa-ring);outline-offset:2px}
+/* ---- status hero -------------------------------------------------------- */
+.ipa-hero{display:flex;align-items:center;gap:clamp(18px,3cqw,34px);flex-wrap:wrap;padding:clamp(18px,2.6cqw,26px);border:1px solid var(--ipa-border);border-radius:var(--ipa-radius);background:var(--ipa-card)}
+.ipa-heroDial{position:relative;display:grid;place-items:center;flex:none;width:clamp(88px,13cqw,112px);height:clamp(88px,13cqw,112px);border-radius:50%;background:var(--ipa-sunken);box-shadow:inset 0 0 0 1px var(--ipa-divider)}
+.ipa-heroRing{position:absolute;inset:-1px;width:calc(100% + 2px);height:calc(100% + 2px);transform:rotate(-90deg);overflow:visible}
+.ipa-heroRingTrack{fill:none;stroke:var(--ipa-divider);stroke-width:3}
+.ipa-heroRingValue{fill:none;stroke:var(--ipa-accent);stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset .26s linear}
+.ipa-heroDial[data-urgent] .ipa-heroRingValue{stroke:var(--ipa-danger)}
+.ipa-heroValue{display:flex;align-items:baseline;gap:3px;color:var(--ipa-fg)}
+.ipa-heroNum{font-size:clamp(1.5rem,4cqw,2rem);font-weight:650;line-height:1;letter-spacing:-.04em}
+.ipa-heroUnit{color:var(--ipa-fg-muted);font-size:.75rem}
+.ipa-heroGlyph{display:grid;place-items:center;color:var(--ipa-fg-muted)}
+.ipa-heroText{display:flex;flex-direction:column;gap:6px;min-width:min(240px,60%);flex:1}
+.ipa-heroPhase{font-size:clamp(1rem,2.2cqw,1.1875rem);font-weight:600;line-height:1.35}
+.ipa-hero[data-tone=error] .ipa-heroPhase{color:var(--ipa-danger)}
+.ipa-heroBody{margin:0;max-width:64ch;color:var(--ipa-fg-muted);font-size:.8125rem;line-height:1.6}
+.ipa-heroMeta{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap;color:var(--ipa-fg-subtle);font-size:.75rem;line-height:1.5}
+.ipa-chip{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;border:1px solid var(--ipa-border);background:var(--ipa-sunken);color:var(--ipa-fg-muted);font-size:.71875rem;line-height:1.6;white-space:nowrap}
+.ipa-chip[data-tone=accent]{border-color:color-mix(in srgb,var(--ipa-accent) 40%,transparent);background:color-mix(in srgb,var(--ipa-accent) 10%,transparent);color:var(--ipa-accent)}
+/* Four equal cells read as one instrument, not four cards. */
+.ipa-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:10px 0 0;padding:0;border:1px solid var(--ipa-border);border-radius:var(--ipa-radius);overflow:hidden;background:var(--ipa-card)}
+.ipa-metric{display:flex;flex-direction:column;gap:2px;padding:12px 16px;border-inline-end:1px solid var(--ipa-divider)}
+.ipa-metric:last-child{border-inline-end:0}
+.ipa-metricLabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ipa-fg-subtle);font-size:.71875rem;line-height:1.55}
+.ipa-metricValue{margin:0;font-size:1.25rem;font-weight:600;line-height:1.3;letter-spacing:-.02em}
+/* ---- sections ----------------------------------------------------------- */
+.ipa-section{display:flex;flex-direction:column;gap:12px;min-width:0}
+.ipa-sectionHead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.ipa-sectionTitle{margin:0;font-size:1rem;font-weight:600;line-height:1.5;letter-spacing:-.01em}
+.ipa-sectionBody{margin:0;color:var(--ipa-fg-subtle);font-size:.78125rem;line-height:1.5}
+.ipa-sectionActions{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ipa-button[data-size=sm]{min-height:30px;padding:4px 10px;font-size:.75rem;font-weight:500}
+/* ---- mode cards --------------------------------------------------------- */
+.ipa-modeGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+/* A ring rather than a thicker border: emphasis without moving the cards. */
+.ipa-modeCard{position:relative;display:flex;flex-direction:column;gap:10px;min-width:0;padding:16px;border-radius:var(--ipa-radius);border:1px solid var(--ipa-border);background:var(--ipa-card);color:inherit;font:inherit;font-size:.8125rem;text-align:left;cursor:pointer;transition:border-color var(--ipa-fast) var(--ipa-ease),background-color var(--ipa-fast) var(--ipa-ease),box-shadow var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
+@media (hover:hover){.ipa-modeCard:hover:not(:has(> :disabled)):not(:has(> :checked)){border-color:var(--ipa-border-strong);background:var(--ipa-hover)}}
+.ipa-modeCard:has(> :checked){border-color:var(--ipa-accent);background:color-mix(in srgb,var(--ipa-accent) 6%,var(--ipa-card));box-shadow:0 0 0 1px var(--ipa-accent)}
+.ipa-modeCard:has(> :disabled){opacity:.55;cursor:default}
+.ipa-modeCard:active:not(:has(> :disabled)){transform:scale(.995)}
+.ipa-modeCard:has(> :focus-visible){outline:2px solid var(--ipa-ring);outline-offset:3px}
+.ipa-modeCardHead{display:flex;align-items:center;gap:12px}
+.ipa-modeIcon{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:var(--ipa-radius-sm);background:var(--ipa-sunken);box-shadow:inset 0 0 0 1px var(--ipa-divider);color:var(--ipa-fg-muted);transition:background-color var(--ipa-fast) var(--ipa-ease),color var(--ipa-fast) var(--ipa-ease),box-shadow var(--ipa-fast) var(--ipa-ease)}
+.ipa-modeCard:has(> :checked) .ipa-modeIcon{background:var(--ipa-accent);color:var(--ipa-accent-fg);box-shadow:none}
+.ipa-modeCardTitle{flex:1;min-width:0;font-size:.9375rem;font-weight:600;line-height:1.45}
+.ipa-modeMark{display:grid;place-items:center;flex:none;width:20px;height:20px;border:1.5px solid var(--ipa-border-strong);border-radius:50%;color:var(--ipa-accent-fg);transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease)}
+.ipa-modeCard:has(> :checked) .ipa-modeMark{border-color:var(--ipa-accent);background:var(--ipa-accent)}
+.ipa-modeMark path{stroke-dasharray:16;stroke-dashoffset:16;transition:stroke-dashoffset 180ms var(--ipa-ease)}
+.ipa-modeCard:has(> :checked) .ipa-modeMark path{stroke-dashoffset:0}
+.ipa-modeCardDesc{margin:0;color:var(--ipa-fg-muted);font-size:.78125rem;line-height:1.6}
+/* Both notes occupy one grid cell so the section keeps its height when the
+   selected mode changes; nothing below it jumps. */
+.ipa-modeNotes{display:grid;margin-top:-4px}
+.ipa-modeNote{grid-area:1/1;margin:0;visibility:hidden;color:var(--ipa-fg-subtle);font-size:.75rem;line-height:1.55}
+.ipa-modeNote[data-active]{visibility:visible}
+/* ---- appearance --------------------------------------------------------- */
+/* Each preset previews the countdown window it produces, because "frosted
+   glass" and "gaussian blur" are not words a reader can compare from labels
+   alone. The swatches are miniature overlays over a fixed colourful backdrop:
+   they describe the countdown, not the current theme, so their colours are
+   local to this preview. */
+.ipa-bg{display:flex;flex-direction:column;gap:10px}
+.ipa-bgOptions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0;padding:0;border:0}
+.ipa-preset{position:relative;display:flex;flex-direction:column;gap:8px;min-width:0;padding:8px;border-radius:var(--ipa-radius);border:1px solid var(--ipa-border);background:var(--ipa-card);color:var(--ipa-fg);font:inherit;font-size:.8125rem;cursor:pointer;transition:border-color var(--ipa-fast) var(--ipa-ease),box-shadow var(--ipa-fast) var(--ipa-ease),background-color var(--ipa-fast) var(--ipa-ease)}
+@media (hover:hover){.ipa-preset:hover:not(:has(> :disabled)):not(:has(> :checked)){border-color:var(--ipa-border-strong)}}
+.ipa-preset:has(> :checked){border-color:var(--ipa-accent);box-shadow:0 0 0 1px var(--ipa-accent)}
+.ipa-preset:has(> :disabled){opacity:.55;cursor:default}
+.ipa-preset:has(> :focus-visible){outline:2px solid var(--ipa-ring);outline-offset:3px}
+.ipa-presetStage{position:relative;place-items:center;display:grid;height:62px;border-radius:var(--ipa-radius-sm);overflow:hidden;background:#dfe3ea;isolation:isolate}
+.ipa-presetBackdrop{position:absolute;inset:0;background:linear-gradient(135deg,#4d7cf3 0 22%,#e8934a 22% 46%,#3fa88f 46% 70%,#8a6bd8 70% 100%)}
+.ipa-presetPanel{position:relative;display:grid;place-items:center;width:calc(100% - 16px);height:calc(100% - 16px);border-radius:6px;font-size:.8125rem;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.ipa-preset[data-preset=solid] .ipa-presetPanel{background:#14171d;color:#fff}
+.ipa-preset[data-preset=glass] .ipa-presetPanel{background:rgba(22,26,34,.26);color:#fff;-webkit-backdrop-filter:blur(3px) saturate(170%);backdrop-filter:blur(3px) saturate(170%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.26)}
+.ipa-preset[data-preset=blur] .ipa-presetPanel{background:rgba(9,11,16,.52);color:#f3f5f9;-webkit-backdrop-filter:blur(9px) saturate(110%);backdrop-filter:blur(9px) saturate(110%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.ipa-presetCheck{position:absolute;top:6px;right:6px;display:grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--ipa-accent);color:var(--ipa-accent-fg);opacity:0;transform:scale(.8);transition:opacity var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
+.ipa-preset:has(> :checked) .ipa-presetCheck{opacity:1;transform:none}
+.ipa-presetRail{position:absolute;left:8px;right:8px;top:7px;height:3px;border-radius:2px;background:var(--ipa-accent);opacity:.9}
+.ipa-presetLabel{display:flex;align-items:center;justify-content:space-between;gap:6px;padding-inline:2px;color:var(--ipa-fg-muted);font-size:.78125rem;line-height:1.4}
+.ipa-preset:has(> :checked) .ipa-presetLabel{color:var(--ipa-fg);font-weight:600}
+.ipa-bgDesc{margin:0;color:var(--ipa-fg-subtle);font-size:.75rem;line-height:1.55}
+/* A pinned colour belongs to the solid surface only, so the row appears with
+   that preset and disappears with the other two. */
+.ipa-colors{display:flex;flex-direction:column;gap:8px;margin-top:2px}
+.ipa-colorsLabel{color:var(--ipa-fg-subtle);font-size:.71875rem;font-weight:500}
+.ipa-colorRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ipa-colorOption{position:relative;display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:4px 10px 4px 4px;border-radius:999px;border:1px solid var(--ipa-border);background:var(--ipa-card);color:var(--ipa-fg-muted);font-size:.71875rem;cursor:pointer;transition:border-color var(--ipa-fast) var(--ipa-ease),box-shadow var(--ipa-fast) var(--ipa-ease),background-color var(--ipa-fast) var(--ipa-ease)}
+@media (hover:hover){.ipa-colorOption:hover:not(:has(> :disabled)):not([data-active]){border-color:var(--ipa-border-strong)}}
+.ipa-colorOption[data-active]{border-color:var(--ipa-accent);background:color-mix(in srgb,var(--ipa-accent) 7%,var(--ipa-card));box-shadow:0 0 0 1px var(--ipa-accent);color:var(--ipa-fg)}
+.ipa-colorOption:has(> :disabled){opacity:.5;cursor:default}
+.ipa-colorOption:has(> :focus-visible){outline:2px solid var(--ipa-ring);outline-offset:2px}
+.ipa-colorSwatch{display:block;flex:none;width:24px;height:24px;border-radius:50%;background:var(--ipa-swatch);box-shadow:inset 0 0 0 1px rgba(255,255,255,.20),inset 0 0 0 2px rgba(0,0,0,.06)}
+.ipa-colorAutoSwatch{display:block;flex:none;width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#ffffff 0 49%,#14171d 51% 100%);box-shadow:inset 0 0 0 1px var(--ipa-border)}
+.ipa-colorOptionText{white-space:nowrap}
+.ipa-colorCustom{padding-right:10px}
+.ipa-colorInput{appearance:none;flex:none;width:34px;height:24px;padding:0;border:0;border-radius:999px;background:0 0;cursor:pointer}
+.ipa-colorInput::-webkit-color-swatch-wrapper{padding:0}
+.ipa-colorInput::-webkit-color-swatch{border:0;border-radius:999px}
+.ipa-colorsHint{margin:0;color:var(--ipa-fg-subtle);font-size:.71875rem;line-height:1.5}
+/* A switch rather than a checkbox: the state has to read at a glance, and the
+   native input stays in the tree for keyboard and screen-reader users. */
+.ipa-toggle{position:relative;display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:var(--ipa-radius-sm);border:1px solid var(--ipa-border);background:var(--ipa-card);cursor:pointer;transition:border-color var(--ipa-fast) var(--ipa-ease),background-color var(--ipa-fast) var(--ipa-ease)}
+@media (hover:hover){.ipa-toggle:hover:not(:has(> :disabled)){border-color:var(--ipa-border-strong)}}
+.ipa-toggle:has(> :checked){border-color:var(--ipa-accent);background:color-mix(in srgb,var(--ipa-accent) 7%,var(--ipa-card))}
+.ipa-toggle:has(> :disabled){opacity:.5;cursor:default}
+.ipa-toggle:has(> :focus-visible){outline:2px solid var(--ipa-ring);outline-offset:2px}
+.ipa-toggleTrack{position:relative;flex:none;inline-size:38px;block-size:22px;margin-top:1px;border-radius:999px;background:color-mix(in srgb,var(--ipa-fg) 20%,transparent);transition:background-color var(--ipa-fast) var(--ipa-ease)}
+.ipa-toggleThumb{position:absolute;top:3px;left:3px;inline-size:16px;block-size:16px;border-radius:50%;background:var(--ipa-surface);box-shadow:0 1px 2px rgba(0,0,0,.28);transition:transform var(--ipa-fast) var(--ipa-ease)}
+.ipa-toggle:has(> :checked) .ipa-toggleTrack{background:var(--ipa-accent)}
+.ipa-toggle:has(> :checked) .ipa-toggleThumb{transform:translateX(16px)}
+.ipa-toggleCopy{display:flex;flex-direction:column;gap:3px}
+.ipa-toggleLabel{color:var(--ipa-fg);font-size:.8125rem;font-weight:600}
+.ipa-toggleDesc{color:var(--ipa-fg-subtle);font-size:.75rem;line-height:1.55}
+@media (prefers-reduced-motion:reduce){.ipa-toggleTrack,.ipa-toggleThumb{transition:none}}
+/* ---- flow and notes ----------------------------------------------------- */
+.ipa-flowList{display:flex;flex-direction:column;margin:0;padding:0;list-style:none;border:1px solid var(--ipa-border);border-radius:var(--ipa-radius);overflow:hidden;background:var(--ipa-card)}
+.ipa-flowStep{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 14px;padding:14px 16px;border-bottom:1px solid var(--ipa-divider)}
+.ipa-flowStep:last-child{border-bottom:0}
+.ipa-flowNum{grid-row:span 2;display:grid;place-items:center;width:24px;height:24px;margin-top:2px;border-radius:50%;background:var(--ipa-sunken);box-shadow:inset 0 0 0 1px var(--ipa-border);color:var(--ipa-fg-muted);font-size:.71875rem;font-weight:600}
+.ipa-flowTitle{margin:0;font-size:.84375rem;font-weight:600;line-height:1.6}
+.ipa-flowBody{margin:0;max-width:72ch;color:var(--ipa-fg-muted);font-size:.78125rem;line-height:1.6}
+.ipa-noteList{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.ipa-noteItem{position:relative;max-width:86ch;padding-left:14px;color:var(--ipa-fg-subtle);font-size:.78125rem;line-height:1.6;overflow-wrap:anywhere}
+.ipa-noteItem:before{content:'';position:absolute;left:2px;top:.6em;width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.6}
+/* ---- banners ------------------------------------------------------------ */
+.ipa-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;border-radius:var(--ipa-radius-sm);border:1px solid color-mix(in srgb,var(--ipa-danger) 45%,transparent);background:color-mix(in srgb,var(--ipa-danger) 8%,transparent);color:var(--ipa-danger);font-size:.78125rem;line-height:1.6}
+.ipa-bannerText{min-width:0;flex:1}
+.ipa-banner .ipa-button{border-color:currentColor;background:0 0;color:inherit;min-height:30px;padding:3px 10px;font-size:.75rem}
 /* ---- countdown: the whole window is the warning, not a card in the middle ---- */
 /* The scrim is the dialog's positioning and stacking context. The card below is
    opaque and always fills the viewport, so the mask only ever shows in the
@@ -236,6 +555,10 @@ background-color:rgba(9,11,16,.42);
 --dsw-focus-ring-color:#6f9bff;
 }
 .ipa-scrim[data-background=blur] .ipa-card{background-image:none;background-color:var(--dsw-alias-bg-overlay);background-color:color-mix(in srgb,var(--dsw-alias-bg-overlay) 58%,transparent)}
+/* A pinned colour cannot follow the theme, so the ink is pinned with it: the
+   pair is chosen by luminance on the client, never guessed in CSS. */
+.ipa-scrim[data-ink=light]{--dsw-alias-label-primary:#f4f6fa;--dsw-alias-label-primary-foreground:#101318;--dsw-alias-label-secondary:#c6cdd9;--dsw-alias-label-tertiary:#9aa4b4;--dsw-alias-border-l2:rgba(255,255,255,.24);--dsw-alias-border-l3:rgba(255,255,255,.34);--dsw-alias-bg-layer-2:rgba(255,255,255,.10);--dsw-alias-interactive-bg-hover:rgba(255,255,255,.12);--dsw-focus-ring-color:#9db9ff}
+.ipa-scrim[data-ink=dark]{--dsw-alias-label-primary:#14171d;--dsw-alias-label-primary-foreground:#ffffff;--dsw-alias-label-secondary:#454c5a;--dsw-alias-label-tertiary:#666e7d;--dsw-alias-border-l2:rgba(0,0,0,.24);--dsw-alias-border-l3:rgba(0,0,0,.34);--dsw-alias-bg-layer-2:rgba(0,0,0,.07);--dsw-alias-interactive-bg-hover:rgba(0,0,0,.07);--dsw-focus-ring-color:#2f66f5}
 .ipa-top,.ipa-bottom{display:flex;align-items:flex-start;justify-content:space-between;gap:clamp(12px,2.4vmin,40px);flex-wrap:wrap;min-width:0}
 .ipa-bottom{align-items:flex-end}
 .ipa-statusLine{display:flex;align-items:flex-start;gap:10px;min-width:0;max-width:min(70ch,72vw)}
@@ -252,6 +575,17 @@ background-color:rgba(9,11,16,.42);
 /* Wrapping hero: a short/wide window puts the dial beside the copy, a narrow
    one stacks them. Either way Cancel stays above the fold. */
 .ipa-stage{display:flex;align-items:center;justify-content:center;gap:clamp(18px,4vmin,80px);flex-wrap:wrap;min-height:0;padding:clamp(8px,1.5vmin,24px) 0}
+/* The waiting screen reuses the countdown's skeleton but stays calm: brand
+   colour, an orb instead of a counting ring, and no urgency accent. */
+.ipa-waitOrb{position:relative;display:grid;place-items:center;flex:none;width:clamp(150px,34vmin,320px);height:clamp(150px,34vmin,320px);border-radius:50%;background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--dsw-alias-brand-primary) 15%,transparent),transparent 70%)}
+.ipa-waitOrbRing{position:absolute;inset:0;border-radius:50%;border:2px dashed color-mix(in srgb,var(--dsw-alias-brand-primary) 52%,transparent);animation:ipa-orbit 22s linear infinite}
+.ipa-waitOrbText{color:var(--dsw-alias-label-primary);font-size:clamp(15px,2.1vmin,24px);font-weight:600;letter-spacing:.04em}
+.ipa-waitStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(8px,1.4vmin,16px);margin:0;width:100%}
+.ipa-waitStat{display:flex;flex-direction:column;gap:2px;padding:clamp(6px,1vmin,10px) clamp(8px,1.4vmin,14px);border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2)}
+.ipa-waitStatLabel{color:var(--dsw-alias-label-tertiary);font-size:clamp(10px,1.2vmin,13px);line-height:1.4}
+.ipa-waitStatValue{color:var(--dsw-alias-label-primary);font-size:clamp(16px,2.4vmin,26px);font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+@keyframes ipa-orbit{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.ipa-waitOrbRing{animation:none}}
 .ipa-dialWrap{flex:0 0 auto;display:grid;place-items:center;animation:ipa-dial-in 380ms var(--ipa-ease)}
 @keyframes ipa-dial-in{from{opacity:.6;transform:scale(.96)}to{opacity:1;transform:none}}
 .ipa-dial{position:relative;display:grid;place-items:center;width:clamp(190px,52vmin,640px);height:clamp(190px,52vmin,640px)}
@@ -277,81 +611,11 @@ background-color:rgba(9,11,16,.42);
 .ipa-notes{display:flex;flex-direction:column;gap:5px;max-width:min(86ch,72vw)}
 .ipa-notes .ipa-hint{font-size:clamp(11px,1.35vmin,15px);color:var(--dsw-alias-label-tertiary);line-height:1.6;margin:0;overflow-wrap:anywhere}
 .ipa-notes .ipa-hintWarn{color:var(--dsw-alias-label-secondary)}
+/* A hint that sits with the controls rather than in the footer notes. */
+.ipa-stageText .ipa-hintInline{font-size:clamp(11px,1.35vmin,15px);color:var(--dsw-alias-label-tertiary);line-height:1.6;margin:0;max-width:min(56ch,80vw)}
 .ipa-scopeTag{font-size:clamp(10px,1.15vmin,13px);color:var(--dsw-alias-label-tertiary);text-align:right;white-space:nowrap}
 .ipa-feedback{color:var(--dsw-alias-state-error-primary);font-size:clamp(12px,1.5vmin,17px);line-height:1.5;max-width:520px;overflow-wrap:anywhere}
 .ipa-mirrorNote{font-size:clamp(10px,1.15vmin,13px);color:var(--dsw-alias-label-tertiary);line-height:1.5;max-width:44ch}
-/* Motion answers an action: the panel opens from its trigger and a selection
-   travels to its destination. Countdown digits stay still for easy scanning. */
-.ipa-panel{transform-origin:bottom left;animation:ipa-pop var(--ipa-move) var(--ipa-settle)}
-@keyframes ipa-pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
-.ipa-modeOption,.ipa-bgOption,.ipa-primary,.ipa-cancel,.ipa-cta,.ipa-close,.ipa-entry,.ipa-fab,.ipa-mirrors,.ipa-alignBtn{transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease),color var(--ipa-fast) var(--ipa-ease),box-shadow var(--ipa-fast) var(--ipa-ease),transform var(--ipa-fast) var(--ipa-ease)}
-.ipa-modeOption:active:not(:disabled),.ipa-bgOption:active:not(:disabled){transform:scale(.985)}
-.ipa-primary:active:not(:disabled),.ipa-cancel:active:not(:disabled),.ipa-cta:active:not([aria-disabled=true]),.ipa-close:active,.ipa-entry:active,.ipa-fab:active,.ipa-mirrors:active:not(:disabled),.ipa-alignBtn:active{transform:scale(.975)}
-/* Key only on a semantic state change, never on a polling/clock update. No
-   opacity-zero start: warnings and cancellation remain readable immediately. */
-.ipa-stateText,.ipa-modeNote[data-active]{display:block;animation:ipa-label-in 180ms var(--ipa-ease)}
-@keyframes ipa-label-in{from{transform:translateY(3px)}to{transform:none}}
-.ipa-entry[data-phase=counting] .ipa-dot,.ipa-fab[data-phase=counting] .ipa-dot{animation:ipa-blink 1.6s ease-in-out infinite}
-@keyframes ipa-blink{0%,100%{opacity:1}50%{opacity:.45}}
-.ipa-panel{position:fixed;z-index:59;left:12px;bottom:150px;width:min(320px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow-y:auto;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-overlay);border:.5px solid var(--dsw-alias-border-l2);box-shadow:var(--dsw-elevation-prominent);color:var(--dsw-alias-label-primary);font-size:13px}
-.ipa-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
-.ipa-title{font-size:14px;font-weight:600}
-.ipa-close{flex:none;width:22px;height:22px;border:none;background:0 0;color:var(--dsw-alias-label-tertiary);cursor:pointer;border-radius:var(--dsw-radius-xs);font-size:15px;line-height:1}
-@media (hover:hover){.ipa-close:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-sub{color:var(--dsw-alias-label-secondary);line-height:1.55;margin-top:-4px}
-.ipa-modes{position:relative;isolation:isolate;display:grid;grid-template-rows:repeat(2,1fr);gap:8px}
-/* Equal rows let one surface travel between modes without measuring layout.
-   Only Host-confirmed mode changes move it, including changes in other windows. */
-.ipa-modes::before{content:'';position:absolute;z-index:0;pointer-events:none;inset:0 0 auto;height:calc((100% - 8px)/2);box-sizing:border-box;border:1px solid var(--dsw-alias-brand-primary);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-layer-2);transition:transform var(--ipa-move) var(--ipa-settle)}
-.ipa-modes[data-mode=shutdown]::before{transform:translateY(calc(100% + 8px))}
-.ipa-modeOption{position:relative;z-index:1;display:flex;flex-direction:column;gap:3px;text-align:left;padding:9px 11px;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l1);background:transparent;color:inherit;cursor:pointer;font-size:13px}
-@media (hover:hover){.ipa-modeOption:not(:disabled):not([data-active]):hover{background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-modeOption[data-active]{border-color:transparent}
-.ipa-modeOption .ipa-optionTitle{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:600;width:100%}
-.ipa-modeMark{display:grid;place-items:center;flex:none;width:16px;height:16px;border:1px solid var(--dsw-alias-border-l2);border-radius:50%;color:var(--dsw-alias-label-primary-foreground);transition:background-color var(--ipa-fast) var(--ipa-ease),border-color var(--ipa-fast) var(--ipa-ease)}
-.ipa-modeOption[data-active] .ipa-modeMark{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-brand-primary)}
-.ipa-modeMark path{stroke-dasharray:16;stroke-dashoffset:16;transition:stroke-dashoffset 180ms var(--ipa-ease)}
-.ipa-modeOption[data-active] .ipa-modeMark path{stroke-dashoffset:0}
-/* Stack both notes in one cell to reserve their tallest wrapped height. The
-   popover and buttons stay still when the selected warning changes. */
-.ipa-modeNotes{display:grid;margin-top:-6px}
-.ipa-modeNote{grid-area:1/1;visibility:hidden}
-.ipa-modeNote[data-active]{visibility:visible}
-.ipa-modeOption .ipa-optionDesc{color:var(--dsw-alias-label-secondary);line-height:1.5;font-size:12px}
-.ipa-note{color:var(--dsw-alias-label-tertiary);line-height:1.5;font-size:12px}
-.ipa-status{padding-top:10px;border-top:.5px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);line-height:1.5}
-.ipa-status[data-tone=error]{color:var(--dsw-alias-state-error-primary)}
-.ipa-actions{display:flex;gap:8px}
-.ipa-primary{flex:1;padding:9px 12px;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-brand-primary);background:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary-foreground);font-size:13px;font-weight:600;cursor:pointer}
-.ipa-cancel{flex:1;padding:9px 12px;border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-size:13px;font-weight:600;cursor:pointer}
-@media (hover:hover){.ipa-cancel:hover{background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-primary:disabled,.ipa-cancel:disabled{opacity:.5;cursor:default}
-.ipa-modeOption:disabled{opacity:.5;cursor:default}
-.ipa-panel{width:min(360px,calc(100vw - 24px));gap:14px;overscroll-behavior:contain;overflow-wrap:anywhere}
-.ipa-title{font-size:16px;line-height:1.4}
-.ipa-close{width:32px;height:32px;font-size:20px}
-.ipa-modeOption{padding:12px;gap:5px;min-height:44px}
-.ipa-modeOption:focus-visible,.ipa-close:focus-visible,.ipa-primary:focus-visible,.ipa-cancel:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:2px}
-.ipa-primary,.ipa-cancel{min-height:44px}
-/* Compact appearance picker in the popover: a group of toggle buttons (not a
-   second radiogroup) so the mode radios stay the only radios in the panel. */
-.ipa-bg{display:flex;flex-direction:column;gap:6px}
-.ipa-bgHead{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary)}
-.ipa-bgOptions{position:relative;isolation:isolate;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border-radius:var(--dsw-radius-sm);box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}
-.ipa-bgThumb{position:absolute;pointer-events:none;z-index:0;left:4px;top:4px;bottom:4px;width:calc((100% - 16px)/3);border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-layer-2);box-shadow:inset 0 0 0 1px var(--dsw-alias-brand-primary);transition:transform var(--ipa-move) var(--ipa-settle)}
-.ipa-bgOptions[data-background=glass] .ipa-bgThumb{transform:translateX(calc(100% + 4px))}
-.ipa-bgOptions[data-background=blur] .ipa-bgThumb{transform:translateX(calc(200% + 8px))}
-.ipa-bgOption{position:relative;z-index:1;min-width:0;min-height:36px;padding:6px 8px;border:none;border-radius:var(--dsw-radius-xs);background:0 0;color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:500;cursor:pointer}
-@media (hover:hover){.ipa-bgOption:not(:disabled):not([aria-pressed=true]):hover{background:var(--dsw-alias-interactive-bg-hover)}}
-.ipa-bgOption[aria-pressed=true]{color:var(--dsw-alias-brand-primary);font-weight:600}
-.ipa-bgOption:disabled{opacity:.5;cursor:default}
-.ipa-bgOption:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:1px}
-.ipa-bgDesc{font-size:11.5px;line-height:1.5;color:var(--dsw-alias-label-tertiary)}
-.ipa-flow{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-top:1px solid var(--dsw-alias-border-l1);border-bottom:1px solid var(--dsw-alias-border-l1);line-height:1.5;color:var(--dsw-alias-label-secondary)}
-.ipa-flow strong{color:var(--dsw-alias-label-primary);font-weight:500}
-.ipa-details{display:grid;grid-template-columns:1fr auto;gap:5px 12px;margin:0;color:var(--dsw-alias-label-secondary);font-size:12px}
-.ipa-details dd{margin:0;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-primary)}
-.ipa-note{color:var(--dsw-alias-label-secondary)}
 .ipa-cta[aria-disabled=true]{opacity:.6;cursor:wait}
 /* A window stretched across two displays can put the exact centre on the bezel.
    Let the reader pin the hero to the half of the window they are looking at. */
@@ -380,20 +644,57 @@ background-color:rgba(9,11,16,.42);
 .ipa-scopeTag{display:none}
 .ipa-card[data-align=left] .ipa-stage,.ipa-card[data-align=right] .ipa-stage{justify-content:center;padding-left:0;padding-right:0}
 }
-@media (max-width:480px){.ipa-dial{width:clamp(160px,58vmin,260px);height:clamp(160px,58vmin,260px)}.ipa-entry{min-height:44px}.ipa-close{width:44px;height:44px}}
-/* A committed or failed power action must not look like an idle row. */
-.ipa-entry[data-phase=executing]{color:var(--dsw-alias-brand-primary)}
-.ipa-entry[data-phase=failed],.ipa-fab[data-phase=failed]{color:var(--dsw-alias-state-error-primary)}
+@media (max-width:480px){.ipa-dial{width:clamp(160px,58vmin,260px);height:clamp(160px,58vmin,260px)}}
+/* ---- page responsiveness ------------------------------------------------- */
+/* The page is a main-pane view, so it reflows against its own column width
+   instead of the viewport: a narrow window must not squeeze four metrics. */
+@container ipa-page (max-width:760px){
+.ipa-pageHeader{align-items:flex-start}
+.ipa-pageTools{width:100%;justify-content:flex-end}
+.ipa-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+.ipa-metric:nth-child(2){border-inline-end:0}
+.ipa-metric:nth-child(-n+2){border-bottom:1px solid var(--ipa-divider)}
+.ipa-modeGrid{grid-template-columns:minmax(0,1fr)}
+.ipa-heroDial{width:88px;height:88px}
+.ipa-footActions{width:100%}
+.ipa-footActions .ipa-button{width:100%}
+}
+@container ipa-page (max-width:520px){
+.ipa-pageWrap{padding-inline:14px}
+.ipa-footMeta{display:none}
+.ipa-presetStage{height:54px}
+.ipa-presetLabel{font-size:.71875rem}
+.ipa-flowStep{padding:12px}
+}
+/* A coarse pointer (touch, pen) needs a bigger target than a mouse does. */
+@media (pointer:coarse){
+.ipa-button,.ipa-iconButton{min-height:44px}
+.ipa-preset{padding:10px}
+.ipa-modeCard{padding:18px}
+}
+/* Windows High Contrast replaces our palette with system colours, so the
+   forced colours are declared explicitly: a real border on every control and a
+   visible outline on the selected choice, whose tick is a stroke not a fill. */
+@media (forced-colors:active){
+.ipa-button,.ipa-iconButton,.ipa-modeCard,.ipa-hero,.ipa-metrics,.ipa-metric,.ipa-flowList,.ipa-flowStep,.ipa-bgOptions,.ipa-banner{border-color:CanvasText}
+.ipa-button[data-variant=primary],.ipa-button[data-variant=danger]{forced-color-adjust:none;border:1px solid ButtonText;background:ButtonFace;color:ButtonText}
+.ipa-modeCard:has(> :checked),.ipa-preset:has(> :checked){outline:2px solid Highlight;outline-offset:-2px}
+.ipa-modeMark{forced-color-adjust:none;border-color:CanvasText}
+.ipa-modeCard:has(> :checked) .ipa-modeMark{background:Highlight;border-color:Highlight;color:HighlightText}
+.ipa-presetStage,.ipa-colorSwatch,.ipa-colorAutoSwatch,.ipa-colorInput{forced-color-adjust:none;border:1px solid CanvasText}
+.ipa-colorOption[data-active]{outline:2px solid Highlight;outline-offset:-2px}
+.ipa-presetCheck{forced-color-adjust:none;background:Highlight;color:HighlightText}
+.ipa-heroRingTrack{stroke:CanvasText}
+.ipa-heroRingValue{stroke:Highlight}
+.ipa-statusDot{background:Highlight}
+.ipa-statusDot[data-tone=error]{background:Mark}
+}
 /* Keep this last so every decorative transition has an immediate readable
    counterpart. Progress still updates from the Host; only interpolation stops. */
 @media (prefers-reduced-motion:reduce){
-.ipa-panel,.ipa-count,.ipa-dialWrap,.ipa-stateText,.ipa-modeNote[data-active],.ipa-entry[data-phase=counting] .ipa-dot,.ipa-fab[data-phase=counting] .ipa-dot,.ipa-scrim,.ipa-card{animation:none}
-.ipa-ringValue,.ipa-railFill{transition:none}
-.ipa-modes::before,.ipa-bgThumb,.ipa-modeMark,.ipa-modeMark path,.ipa-modeOption,.ipa-bgOption,.ipa-primary,.ipa-cancel,.ipa-cta,.ipa-close,.ipa-entry,.ipa-fab,.ipa-mirrors,.ipa-alignBtn{transition:none}
-.ipa-modeOption:active:not(:disabled),.ipa-bgOption:active:not(:disabled),.ipa-primary:active:not(:disabled),.ipa-cancel:active:not(:disabled),.ipa-cta:active:not([aria-disabled=true]),.ipa-close:active,.ipa-entry:active,.ipa-fab:active,.ipa-mirrors:active:not(:disabled),.ipa-alignBtn:active{transform:none}
+.ipa-page,.ipa-page *,.ipa-page *:before,.ipa-page *:after,.ipa-scrim,.ipa-scrim *,.ipa-card{animation:none!important;transition:none!important}
 }
 `;
-
     // ----------------------------------------------------------------- store
     /** Shallow compare, so an unchanged poll result does not re-render the UI. */
     function shallowEqual(left, right) {
@@ -456,6 +757,9 @@ background-color:rgba(9,11,16,.42);
       phase: 'idle',
       mode: 'shutdown',
       backgroundStyle: 'solid',
+      countdownColor: null,
+      fullscreenOnWait: false,
+      stayAwake: true,
       countdownSeconds: 60,
       quietSeconds: 20,
       remainingSeconds: 0,
@@ -468,13 +772,14 @@ background-color:rgba(9,11,16,.42);
 
     // --------------------------------------------------------------- runtime
     /**
-     * Poll the Host, perform the two mutations, and own the panel's open flag.
-     * One poller serves both slot entries so neither duplicates transport work.
+     * Poll the Host and perform the four mutations. One poller serves every
+     * surface — the rail glyph, the page and the countdown overlay — so none of
+     * them duplicates transport work.
      * @param ctx - Client root context.
-     * @returns store handle, actions, and the poller body.
+     * @returns store handle and the actions every surface shares.
      */
     function createRuntime(ctx) {
-      const store = createStore({ data: EMPTY_STATE, ready: false, offline: false, panelOpen: false, busy: false, note: null, noteCode: null, notePhase: null, anchor: null });
+      const store = createStore({ data: EMPTY_STATE, ready: false, offline: false, busy: false, note: null, noteCode: null, notePhase: null, preview: false, waitDismissed: false });
       const patch = (fields) => store.set((current) => ({ ...current, ...fields }));
 
       let revision = 0;
@@ -500,7 +805,15 @@ background-color:rgba(9,11,16,.42);
           patch({ ready: true, offline: false });
           return;
         }
-        patch({ data: result.value, ready: true, offline: false });
+        const previous = store.getSnapshot();
+        patch({
+          data: result.value,
+          ready: true,
+          offline: false,
+          // A new waiting phase earns the screen back: a dismissal only applies
+          // to the phase the reader dismissed.
+          waitDismissed: previous.data?.phase === result.value.phase ? previous.waitDismissed : false,
+        });
       };
 
       /**
@@ -534,6 +847,12 @@ background-color:rgba(9,11,16,.42);
       // Appearance is Host-owned for the same reason: every window watching this
       // Host must show the same background, including after a page reload.
       const setBackground = (backgroundStyle) => post(ROUTE_BACKGROUND, { backgroundStyle });
+      // `null` hands the solid surface back to the Host theme.
+      const setColor = (color) => post(ROUTE_COLOR, { color });
+      // Whether the waiting phase takes the whole screen too.
+      const setFullscreenOnWait = (onWait) => post(ROUTE_FULLSCREEN, { onWait });
+      // Whether a pending reservation keeps the machine out of sleep and the lock screen.
+      const setStayAwake = (on) => post(ROUTE_AWAKE, { on });
 
       return {
         store,
@@ -542,16 +861,24 @@ background-color:rgba(9,11,16,.42);
         cancel,
         setMode,
         setBackground,
-        // The panel is a popover anchored above its trigger: the foot row is
-        // short, so a fixed offset would sit on top of the very button the user
-        // just pressed. Capture the trigger rect and let the panel position
-        // itself against it.
-        open: (anchor) => patch({ panelOpen: true, anchor: anchor ?? null }),
-        close: () => patch({ panelOpen: false }),
+        setColor,
+        setFullscreenOnWait,
+        setStayAwake,
+        // Escape closes the waiting presentation without touching the
+        // reservation; the countdown itself is never dismissible.
+        dismissWait: () => patch({ waitDismissed: true }),
+        // Previewing the countdown is a client-only state: nothing is armed and
+        // no route is touched.
+        openPreview: () => patch({ preview: true }),
+        closePreview: () => patch({ preview: false }),
       };
     }
 
     const BACKGROUND_STYLES = ['solid', 'glass', 'blur'];
+
+    // Six dark surfaces that suit a warning overlay; the native colour input
+    // covers everything else.
+    const COLOR_PRESETS = ['#14171d', '#1c2a44', '#17332b', '#3a2233', '#f2efe8', '#e6ecf5'];
 
     /** An unknown or stale style from the Host must never blank the overlay. */
     function normalizeBackground(value) {
@@ -561,6 +888,37 @@ background-color:rgba(9,11,16,.42);
     /** Fill a `%s` template without depending on the locale engine's interpolation. */
     function fmt(template, value) {
       return typeof template === 'string' ? template.replace('%s', String(value)) : String(value);
+    }
+
+    const COLOR_PATTERN = /^#[0-9a-f]{6}$/;
+
+    /** A custom solid colour, or null when the surface follows the Host theme. */
+    function normalizeColor(value) {
+      return typeof value === 'string' && COLOR_PATTERN.test(value) ? value.toLowerCase() : null;
+    }
+
+    /**
+     * Relative luminance, so a custom surface always gets a readable ink. The
+     * threshold sits at 0.18 rather than 0.5: a mid-tone surface reads better
+     * with light text than with dark text.
+     */
+    function isDarkColor(hex) {
+      const value = normalizeColor(hex);
+      if (value === null) return true;
+      const channel = (offset) => {
+        const part = parseInt(value.slice(offset, offset + 2), 16) / 255;
+        return part <= 0.03928 ? part / 12.92 : ((part + 0.055) / 1.055) ** 2.4;
+      };
+      const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+      return luminance < 0.18;
+    }
+
+    /** Fill a `%s` template with several values, in order. */
+    function fill(template, ...values) {
+      let index = 0;
+      return typeof template === 'string'
+        ? template.replace(/%s/g, () => String(values[index++] ?? ''))
+        : String(values[0] ?? '');
     }
 
     /** Wall-clock time of the pending power action, in the reader's own timezone. */
@@ -730,305 +1088,897 @@ background-color:rgba(9,11,16,.42);
 
     /** Power glyph; deliberately geometric and theme-neutral. */
     function PowerGlyph({ size }) {
+      const edge = size ?? 16;
       return h('svg', {
         viewBox: '0 0 24 24',
-        width: size ?? 16,
-        height: size ?? 16,
+        width: edge,
+        height: edge,
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: 2,
+        strokeLinecap: 'round',
         'aria-hidden': true,
+        focusable: 'false',
         style: { display: 'block' },
       },
-        h('path', {
-          d: 'M12 3.2v8.1',
-          fill: 'none',
-          stroke: 'currentColor',
-          strokeWidth: 2,
-          strokeLinecap: 'round',
-        }),
-        h('path', {
-          d: 'M6.4 6.6a8.1 8.1 0 1 0 11.2 0',
-          fill: 'none',
-          stroke: 'currentColor',
-          strokeWidth: 2,
-          strokeLinecap: 'round',
-        }),
+        h('path', { d: 'M12 3.2v8.1' }),
+        h('path', { d: 'M6.4 6.6a8.1 8.1 0 1 0 11.2 0' }),
+      );
+    }
+
+    /** Hibernate glyph: a crescent, deliberately plain next to the power glyph. */
+    function HibernateGlyph({ size }) {
+      const edge = size ?? 16;
+      return h('svg', {
+        viewBox: '0 0 24 24',
+        width: edge,
+        height: edge,
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: 1.8,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        'aria-hidden': true,
+        focusable: 'false',
+        style: { display: 'block' },
+      },
+        h('path', { d: 'M20.4 14.6A8.4 8.4 0 0 1 9.4 3.6a8.6 8.6 0 1 0 11 11z' }),
+      );
+    }
+
+    /** Play triangle for the countdown preview. */
+    function PlayGlyph({ size }) {
+      const edge = size ?? 14;
+      return h('svg', {
+        viewBox: '0 0 24 24',
+        width: edge,
+        height: edge,
+        fill: 'currentColor',
+        'aria-hidden': true,
+        focusable: 'false',
+        style: { display: 'block' },
+      },
+        h('path', { d: 'M8 4.8 19 12 8 19.2z' }),
+      );
+    }
+
+    /** Refresh arrow for the page's status control. */
+    function RefreshGlyph({ size }) {
+      const edge = size ?? 15;
+      return h('svg', {
+        viewBox: '0 0 24 24',
+        width: edge,
+        height: edge,
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: 1.8,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        'aria-hidden': true,
+        focusable: 'false',
+        style: { display: 'block' },
+      },
+        h('path', { d: 'M20.2 12a8.2 8.2 0 1 1-2.6-6' }),
+        h('path', { d: 'M20.4 3.9v4.8h-4.8' }),
+      );
+    }
+
+    /** Selection tick drawn inside the mode card's radio mark. */
+    function CheckGlyph() {
+      return h('svg', { viewBox: '0 0 16 16', width: 12, height: 12, fill: 'none', 'aria-hidden': true, focusable: 'false' },
+        h('path', { d: 'M3.5 8l3 3 6-6', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+      );
+    }
+
+    // The rail seat is a plain icon render with no injected props, so the glyph
+    // subscribes to the Host snapshot itself. `apply` owns the one assignment.
+    let powerStore = null;
+
+    /** Subscribe the rail glyph to the snapshot it has to reflect. */
+    function usePowerSnapshot() {
+      const [snapshot, setSnapshot] = useState(() => (powerStore === null ? null : powerStore.getSnapshot()));
+      useEffect(() => {
+        if (powerStore === null) return undefined;
+        return powerStore.subscribe(() => setSnapshot(powerStore.getSnapshot()));
+      }, []);
+      return snapshot;
+    }
+
+    /**
+     * Left-rail entry, sitting directly under the shipped Plugins and
+     * Automation-tasks entries. The rail has room for a glyph and a label only,
+     * so the reservation state is drawn into the artwork: a dot while a power
+     * action is pending, blinking once the countdown is running.
+     */
+    function PowerRailIcon(props) {
+      // The host may hand the rail entry an injected selector hook, or render it
+      // as a plain icon. Both shapes resolve to the same glyph, and the hook
+      // order inside each branch stays constant.
+      if (typeof props.usePower === 'function') {
+        return h(PowerRailGlyph, { ...props, snapshot: props.usePower((current) => current) });
+      }
+      return h(PowerRailGlyphFromStore, props);
+    }
+
+    /** Rail glyph when the host renders the entry without injected props. */
+    function PowerRailGlyphFromStore(props) {
+      return h(PowerRailGlyph, { ...props, snapshot: usePowerSnapshot() });
+    }
+
+    /** The artwork itself: a power glyph plus the pending-reservation dot. */
+    function PowerRailGlyph({ size, active, snapshot }) {
+      const phase = snapshot === null || snapshot === undefined ? 'idle' : snapshot.data.phase;
+      const armed = phase === 'armed' || phase === 'counting';
+      const edge = Number.isFinite(size) && size > 0 ? size : 18;
+      return h('svg', {
+        className: 'ipa-railGlyph',
+        viewBox: '0 0 24 24',
+        width: edge,
+        height: edge,
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: active === true ? 1.9 : 1.6,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        'aria-hidden': true,
+        focusable: 'false',
+        'data-phase': phase,
+        style: { display: 'block' },
+      },
+        h('path', { d: 'M12 3.4v7.4' }),
+        h('path', { d: 'M6.9 6.6a7.3 7.3 0 1 0 10.2 0' }),
+        armed && h('circle', { className: 'ipa-railDot', cx: 18.6, cy: 5.4, r: 2.4, stroke: 'none' }),
       );
     }
 
     /**
-     * Sidebar-foot trigger. Expanded sidebar renders a full-width row with a
-     * readable label, because a bare 28px glyph beside the plugin button is
-     * effectively invisible. A live reservation also changes the row's colour,
-     * so a pending power action can never be forgotten in the corner.
+     * One titled block. The section stays unnamed on purpose: a named <section>
+     * becomes a `region` landmark, and four of those around one page dilute the
+     * real landmarks. The heading alone gives the outline.
      */
-    function PowerButton({ usePower, open, t, wide }) {
-      const { data, offline, panelOpen } = usePower((current) => current);
-      const active = data.phase === 'armed' || data.phase === 'counting';
-      const counting = data.phase === 'counting';
-      // Hand the trigger's own rect to the panel so it opens above this row
-      // instead of over it.
-      const openHere = (event) => {
-        const rect = event?.currentTarget?.getBoundingClientRect?.();
-        open(rect === undefined ? null : { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right });
-      };
-
-      if (!wide) {
-        const dotLabel = !data.supported
-          ? t('status.unsupported')
-          : offline
-            ? t('status.offline')
-            : data.busy?.available === false
-              ? t('status.registryUnavailable')
-              : counting
-              ? t('status.counting')
-              : active
-                ? t('status.waiting')
-                : t('button.tip');
-        return h('button', {
-          type: 'button',
-          className: 'ipa-fab',
-          'data-ipa-trigger': '',
-          'aria-label': dotLabel,
-          'aria-haspopup': 'dialog',
-          'aria-expanded': Boolean(panelOpen),
-          title: dotLabel,
-          'data-active': active || undefined,
-          'data-phase': data.phase,
-          onClick: openHere,
-        },
-          h(PowerGlyph, { size: 16 }),
-          active && h('span', { className: 'ipa-dot', 'aria-hidden': 'true' }),
-        );
-      }
-
-      // Name the action that will actually run. "预约关机" alone was wrong:
-      // hibernate is the default mode, and it is not a shutdown.
-      const modeName = data.mode === 'shutdown' ? t('mode.shutdown.short') : t('mode.hibernate.short');
-      let text;
-      if (!data.supported) text = t('status.unsupported');
-      else if (offline) text = t('status.offline');
-      else if (data.busy?.available === false) text = t('status.registryUnavailable');
-      else if (data.phase === 'failed') text = t('status.failed');
-      else if (data.phase === 'executing') text = t('status.executing');
-      else if (counting) text = `${data.remainingSeconds}${t('entry.secondsTo')}${modeName}`;
-      else if (active && data.busy.total > 0)
-        text = `${t('status.waiting')} · ${data.busy.total}${t('status.tasksSuffix')}`;
-      else if (active) text = `${t('status.waiting')} · ${data.quietRemainingSeconds}${t('entry.quietSuffix')}`;
-      else text = `${t('entry.schedulePrefix')}${modeName}`;
-
-      return h('button', {
-        type: 'button',
-        className: 'ipa-entry',
-        'data-ipa-trigger': '',
-        'aria-label': text,
-        'aria-haspopup': 'dialog',
-        'aria-expanded': Boolean(panelOpen),
-        title: text,
-        'data-active': active || undefined,
-        'data-phase': data.phase,
-        onClick: openHere,
-      },
-        h(PowerGlyph, { size: 15 }),
-        h('span', { className: 'ipa-entryText' }, text),
-        active && h('span', { className: 'ipa-dot', 'aria-hidden': 'true' }),
+    function Section({ title, hint, action, children }) {
+      return h('section', { className: 'ipa-section' },
+        h('div', { className: 'ipa-sectionHead' },
+          h('h2', { className: 'ipa-sectionTitle' }, title),
+          hint === undefined ? null : h('p', { className: 'ipa-sectionBody' }, hint),
+          action === undefined ? null : action,
+        ),
+        children,
       );
     }
 
-    /** The scheduling panel: mode choice, appearance, live status, arm and cancel. */
-    function PowerPanel({ usePower, arm, cancel, setMode, setBackground, close, t }) {
-      const { data, ready, offline, busy, note, noteCode, anchor } = usePower((current) => current);
-      const panelRef = useRef(null);
-      useEffect(() => {
-        const previous = document.activeElement;
-        panelRef.current?.focus?.();
-        const onKey = (event) => {
-          if (event.key === 'Escape') { close(); previous?.focus?.(); }
-        };
-        // A pointer press anywhere outside the card dismisses it, the way every
-        // other popover in this app behaves.
-        const onPress = (event) => {
-          const target = event.target;
-          if (panelRef.current !== null && panelRef.current.contains?.(target) === true) return;
-          if (typeof target?.closest === 'function' && target.closest('[data-ipa-trigger]') !== null) return;
-          close();
-        };
-        window.addEventListener('keydown', onKey);
-        window.addEventListener('pointerdown', onPress, true);
-        return () => {
-          window.removeEventListener('keydown', onKey);
-          window.removeEventListener('pointerdown', onPress, true);
-        };
-      }, [close]);
-
-      // Open above the trigger row. Falling back to the old fixed offset keeps
-      // the panel usable if the rect was never captured.
-      const hasAnchor = anchor !== null && anchor !== undefined && Number.isFinite(anchor.top) && Number.isFinite(anchor.left);
-      const viewportWidth = typeof window === 'undefined' ? 1200 : window.innerWidth;
-      const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight;
-      const placement = hasAnchor
-        ? {
-          left: Math.max(8, Math.min(anchor.left, viewportWidth - 372)),
-          bottom: anchor.top < 360 ? 12 : Math.max(12, viewportHeight - anchor.top + 8),
-        }
-        : { left: 12, bottom: 150 };
-
-      const mode = data.mode;
-      const background = normalizeBackground(data.backgroundStyle);
-      const armed = data.phase === 'armed' || data.phase === 'counting';
+    /**
+     * The main-pane page. It replaced a sidebar popover: an action that can shut
+     * the machine down needs room to say what will happen, in which order, and
+     * how to stop it — and a full page is where the shipped Plugins and
+     * Automation-tasks panels already live.
+     */
+    function PowerPage({ usePower, arm, cancel, setMode, setBackground, setColor, setFullscreenOnWait, setStayAwake, openPreview, refresh, t }) {
+      const { data, ready, offline, busy, note, noteCode } = usePower((current) => current);
+      const counting = data.phase === 'counting';
+      const armed = data.phase === 'armed' || counting;
       const locked = data.phase === 'executing';
+      const registryDown = data.busy?.available === false;
+      const supported = data.supported !== false;
+      const [now, setNow] = useState(() => Date.now());
+
+      // Only the countdown needs a ticking clock; an idle page must not re-render.
+      useEffect(() => {
+        if (!counting) return undefined;
+        const timer = setInterval(() => setNow(Date.now()), 250);
+        return () => clearInterval(timer);
+      }, [counting]);
+
+      const deadline = data.deadline ?? null;
+      const remaining = counting
+        ? deadline === null ? data.remainingSeconds : Math.max(0, Math.ceil((deadline - now) / 1000))
+        : 0;
+      const quietLeft = Math.max(0, data.quietRemainingSeconds ?? 0);
+      const quietTotal = data.quietSeconds > 0 ? data.quietSeconds : quietLeft;
+      const mode = data.mode === 'shutdown' ? 'shutdown' : 'hibernate';
+      const modeName = mode === 'shutdown' ? t('mode.shutdown') : t('mode.hibernate');
+      const background = normalizeBackground(data.backgroundStyle);
+      const customColor = normalizeColor(data.countdownColor);
+      const total = data.busy?.total ?? 0;
+
+      // The hero answers one question — what is going to happen, and how soon —
+      // so every branch fills the same four slots instead of inventing its own.
+      let phaseText;
+      let bodyText;
+      let tone = 'normal';
+      let dialValue = null;
+      let dialTotal = 0;
+      let urgent = false;
+      let scheduledAt = null;
+
+      if (!supported) {
+        phaseText = t('status.unsupported');
+        bodyText = t('body.unsupported');
+        tone = 'error';
+      } else if (offline) {
+        phaseText = t('status.offline');
+        bodyText = t('body.offline');
+        tone = 'error';
+      } else if (registryDown) {
+        phaseText = t('status.registryUnavailable');
+        bodyText = t('body.registry');
+        tone = 'error';
+      } else if (!ready) {
+        phaseText = t('page.loading');
+        bodyText = '';
+      } else if (data.phase === 'failed') {
+        phaseText = t('status.failed');
+        bodyText = describeFailure(null, data.error, t) || t('body.failed');
+        tone = 'error';
+      } else if (counting) {
+        phaseText = `${t('status.counting')} · ${remaining}${t('status.countingSuffix')}`;
+        bodyText = t('body.counting');
+        dialValue = remaining;
+        dialTotal = data.countdownSeconds > 0 ? data.countdownSeconds : remaining;
+        urgent = remaining <= 10;
+        scheduledAt = formatClock(deadline === null ? now + remaining * 1000 : deadline);
+      } else if (armed) {
+        phaseText = total > 0 ? `${t('status.waiting')} · ${total}${t('status.tasksSuffix')}` : t('status.waiting');
+        bodyText = total > 0 ? t('body.waiting') : t('body.quiet');
+        if (total === 0) {
+          dialValue = quietLeft;
+          dialTotal = quietTotal;
+        }
+      } else if (locked) {
+        phaseText = t('status.executing');
+        bodyText = t('body.executing');
+      } else {
+        phaseText = t('status.idle');
+        bodyText = t('body.idle');
+      }
+
+      // One short sentence for assistive tech, derived from the phase alone. It
+      // must not carry the per-second number: a polite live region that changes
+      // every tick is a speech spammer, and the countdown digits are already a
+      // non-live timer.
+      let announcement = '';
+      if (!supported) announcement = t('status.unsupported');
+      else if (offline) announcement = t('status.offline');
+      else if (registryDown) announcement = t('status.registryUnavailable');
+      else if (!ready) announcement = '';
+      else if (data.phase === 'failed') announcement = t('status.failed');
+      else if (counting) announcement = t('status.counting');
+      else if (armed) announcement = t('status.waiting');
+      else if (locked) announcement = t('status.executing');
+      else announcement = t('status.idle');
+
+      const canArm = supported && ready && !offline && !busy && !locked && !registryDown;
+      const bgDisabled = locked || busy || !ready || offline || !supported;
+      const RADIUS = 42;
+      const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+      const fraction = dialValue === null || dialTotal <= 0 ? 0 : Math.min(1, Math.max(0, dialValue / dialTotal));
+
+      const metaItems = [fmt(t('countdown.window'), String(data.countdownSeconds))];
+      if (scheduledAt !== null) metaItems.unshift(fmt(t('status.scheduledAt'), scheduledAt));
+
+      // The action bar repeats the plan in one line, so the reader can confirm
+      // what the button will do without scrolling back through the flow.
+      const footMeta = counting
+        ? (scheduledAt === null ? t('body.counting') : fmt(t('status.scheduledAt'), scheduledAt))
+        : armed
+          ? bodyText
+          : (!supported || offline || registryDown || locked || !ready || data.phase === 'failed')
+            ? bodyText
+            : fill(t('foot.plan'), String(data.quietSeconds), String(data.countdownSeconds), modeName);
+
+      const metric = (labelKey, value) => h('div', { className: 'ipa-metric', key: labelKey },
+        h('dt', { className: 'ipa-metricLabel' }, t(labelKey)),
+        h('dd', { className: 'ipa-metricValue' }, String(value)),
+      );
+
+      const modeDisabled = !supported || !ready || offline || busy || locked || registryDown;
+      // A choice card is a label wrapping the native radio, so the browser owns
+      // the selection, the arrow keys and the "2 of 2" announcement. The card
+      // only draws it: the description is exposed as the control's description
+      // instead of being folded into its name.
+      const modeCard = (value, titleKey, descKey, Icon) => {
+        const descId = `ipa-mode-${value}`;
+        return h('label', {
+          key: value,
+          className: 'ipa-modeCard',
+          'data-active': mode === value || undefined,
+        },
+          h('input', {
+            type: 'radio',
+            className: 'ipa-choiceInput',
+            name: 'ipa-mode',
+            value,
+            checked: mode === value,
+            disabled: modeDisabled,
+            'aria-label': t(titleKey),
+            'aria-describedby': descId,
+            onChange: () => {
+              if (value === mode) return;
+              // While reserved, changing the mode re-arms with it; while idle it
+              // just records what 预约 would do.
+              if (armed) void arm(value);
+              else void setMode(value);
+            },
+          }),
+          h('span', { className: 'ipa-modeCardHead' },
+            h('span', { className: 'ipa-modeIcon', 'aria-hidden': true }, h(Icon, { size: 18 })),
+            h('span', { className: 'ipa-modeCardTitle' }, t(titleKey)),
+            h('span', { className: 'ipa-modeMark', 'aria-hidden': true }, h(CheckGlyph)),
+          ),
+          h('span', { className: 'ipa-modeCardDesc', id: descId }, t(descKey)),
+        );
+      };
+
       const styleChoices = [
         ['solid', 'background.solid', 'background.solidDesc'],
         ['glass', 'background.glass', 'background.glassDesc'],
         ['blur', 'background.blur', 'background.blurDesc'],
       ];
 
-      let statusText;
-      let statusTone = 'normal';
-      if (!data.supported) statusText = t('status.unsupported');
-      else if (note !== null) {
-        statusText = `${t('status.failed')}: ${describeFailure(noteCode, note, t)}`;
-        statusTone = 'error';
-      } else if (offline) { statusText = t('status.offline'); statusTone = 'error'; }
-      else if (!ready) statusText = t('status.loading');
-      else if (data.busy?.available === false) { statusText = t('status.registryUnavailable'); statusTone = 'error'; }
-      else if (data.phase === 'failed') {
-        statusText = `${t('status.failed')}: ${data.error ?? ''}`;
-        statusTone = 'error';
-      } else if (data.phase === 'counting') statusText = `${t('status.counting')} · ${data.remainingSeconds}${t('countdown.suffix')}`;
-      else if (data.phase === 'armed' && data.busy.total > 0)
-        statusText = `${t('status.waiting')} · ${data.busy.total}${t('status.tasksSuffix')}`;
-      else if (data.phase === 'armed')
-        statusText = `${t('status.quietPrefix')}${data.quietRemainingSeconds}${t('status.quietSuffix')}`;
-      else if (data.phase === 'executing') statusText = t('status.executing');
-      else statusText = t('status.idle');
+      const flowSteps = [
+        ['flow.idle', 'flow.idleDesc', fmt(t('flow.idle'), String(data.quietSeconds))],
+        ['flow.countdown', 'flow.countdownDesc', fmt(t('flow.countdown'), String(data.countdownSeconds))],
+        ['flow.act', 'flow.actDesc', modeName],
+      ];
 
-      const option = (value, titleKey, descKey) => h('button', {
-        type: 'button',
-        className: 'ipa-modeOption',
-        'data-active': mode === value || undefined,
-        disabled: locked || busy || !ready || offline || !data.supported || data.busy?.available === false,
-        tabIndex: mode === value ? 0 : -1,
-        onKeyDown: (event) => {
-          if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-          event.preventDefault();
-          const choices = Array.from(event.currentTarget.parentElement.querySelectorAll('[role="radio"]'));
-          const target = event.key === 'Home' ? choices[0] : event.key === 'End' ? choices[1] : choices.find((item) => item !== event.currentTarget);
-          target?.focus();
-          target?.click();
-        },
-        onClick: () => {
-          if (value === data.mode) return;
-          // While reserved, changing the mode re-arms with it; while idle it
-          // just records what 预约 would do, so the entry label follows.
-          if (armed) void arm(value);
-          else void setMode(value);
-        },
-        role: 'radio',
-        'aria-checked': mode === value,
-      },
-        h('span', { className: 'ipa-optionTitle' },
-          t(titleKey),
-          h('span', { className: 'ipa-modeMark', 'aria-hidden': true },
-            h('svg', { viewBox: '0 0 16 16', width: 12, height: 12 },
-              h('path', { d: 'M3.5 8l3 3 6-6', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+      return h('div', { className: 'ipa-page' },
+        h('header', { className: 'ipa-pageTop' },
+          h('div', { className: 'ipa-pageWrap' },
+            h('div', { className: 'ipa-pageHeader' },
+              h('div', { className: 'ipa-pageHead' },
+                h('span', { className: 'ipa-pageEyebrow' }, t('page.eyebrow')),
+                h('h1', { className: 'ipa-pageTitle' }, t('page.title')),
+                h('p', { className: 'ipa-pageSub' }, t('page.subtitle')),
+              ),
+              h('div', { className: 'ipa-pageTools' },
+                h('button', {
+                  type: 'button',
+                  className: 'ipa-iconButton',
+                  'aria-label': t('page.refresh'),
+                  title: t('page.refresh'),
+                  disabled: busy,
+                  onClick: () => { void refresh(); },
+                }, h(RefreshGlyph, { size: 15 })),
+              ),
             ),
           ),
         ),
-        h('span', { className: 'ipa-optionDesc' }, t(descKey)),
+        h('div', { className: 'ipa-scroll' },
+          h('div', { className: 'ipa-pageWrap ipa-pageBody' },
+            // The only live region on the page: phase changes are announced,
+            // counters and seconds are not.
+            h('p', { className: 'ipa-srOnly', role: 'status' }, announcement),
+            note !== null && note !== undefined && h('div', { className: 'ipa-banner', role: 'alert' },
+              h('span', { className: 'ipa-bannerText' }, describeFailure(noteCode, note, t)),
+            ),
+            h('div', { className: 'ipa-hero', 'data-tone': tone === 'error' ? 'error' : undefined },
+              h('div', {
+                className: 'ipa-heroDial',
+                'data-urgent': urgent || undefined,
+                // The ring is real progress, so it exposes a value instead of
+                // being decoration the reader has to infer from the digits.
+                role: dialValue === null ? undefined : 'progressbar',
+                'aria-label': dialValue === null ? undefined : t('hero.progress'),
+                'aria-valuemin': dialValue === null ? undefined : 0,
+                'aria-valuemax': dialValue === null ? undefined : Math.max(1, dialTotal),
+                'aria-valuenow': dialValue === null ? undefined : dialValue,
+                'aria-valuetext': dialValue === null ? undefined : fmt(t('countdown.remaining'), String(dialValue)),
+              },
+                dialValue === null
+                  ? h('span', { className: 'ipa-heroGlyph' }, h(PowerGlyph, { size: 34 }))
+                  : h('svg', { className: 'ipa-heroRing', viewBox: '0 0 100 100', 'aria-hidden': true },
+                    h('circle', { className: 'ipa-heroRingTrack', cx: 50, cy: 50, r: RADIUS }),
+                    h('circle', {
+                      className: 'ipa-heroRingValue',
+                      cx: 50,
+                      cy: 50,
+                      r: RADIUS,
+                      'stroke-dasharray': CIRCUMFERENCE,
+                      'stroke-dashoffset': CIRCUMFERENCE * (1 - fraction),
+                    }),
+                  ),
+                dialValue === null ? null : h('div', { className: 'ipa-heroValue', role: 'timer', 'aria-live': 'off' },
+                  h('span', { className: 'ipa-heroNum' }, String(dialValue)),
+                  h('span', { className: 'ipa-heroUnit' }, t('countdown.suffix')),
+                ),
+              ),
+              h('div', { className: 'ipa-heroText' },
+                h('span', { className: 'ipa-heroPhase' }, phaseText),
+                bodyText === '' ? null : h('p', { className: 'ipa-heroBody' }, bodyText),
+                h('div', { className: 'ipa-heroMeta' },
+                  h('span', { className: 'ipa-chip', 'data-tone': armed ? 'accent' : undefined },
+                    h(mode === 'shutdown' ? PowerGlyph : HibernateGlyph, { size: 12 }),
+                    modeName,
+                  ),
+                  ...metaItems.map((text) => h('span', { key: text }, text)),
+                ),
+              ),
+            ),
+            h('dl', { className: 'ipa-metrics' },
+              metric('metric.agents', data.busy?.agentsRunning ?? 0),
+              metric('metric.inbox', data.busy?.inboxPending ?? 0),
+              metric('metric.jobs', data.busy?.jobsRunning ?? 0),
+              metric('metric.total', total),
+            ),
+            h(Section, { title: t('section.mode'), hint: t('section.modeHint') },
+              h('div', { className: 'ipa-modeGrid', role: 'radiogroup', 'aria-label': t('section.mode') },
+                modeCard('hibernate', 'mode.hibernate', 'mode.hibernateDesc', HibernateGlyph),
+                modeCard('shutdown', 'mode.shutdown', 'mode.shutdownDesc', PowerGlyph),
+              ),
+              // Both notes share one grid cell, so switching mode never moves
+              // the sections below it.
+              h('div', { className: 'ipa-modeNotes' },
+                ...['hibernate', 'shutdown'].map((value) => h('p', {
+                  key: value,
+                  className: 'ipa-modeNote',
+                  'data-active': mode === value || undefined,
+                  'aria-hidden': mode !== value,
+                }, t(value === 'shutdown' ? 'note.shutdown' : 'note.hibernate'))),
+              ),
+            ),
+            h(Section, {
+              title: t('section.background'),
+              hint: t('section.backgroundHint'),
+              action: h('div', { className: 'ipa-sectionActions' },
+                h('button', {
+                  type: 'button',
+                  className: 'ipa-button',
+                  'data-size': 'sm',
+                  onClick: () => openPreview(),
+                }, h(PlayGlyph, { size: 12 }), t('preview.button')),
+              ),
+            },
+              h('div', { className: 'ipa-bg' },
+                h('div', {
+                  className: 'ipa-bgOptions',
+                  role: 'radiogroup',
+                  'aria-label': t('section.background'),
+                },
+                  ...styleChoices.map(([value, labelKey]) => h('label', {
+                    key: value,
+                    className: 'ipa-preset',
+                    'data-preset': value,
+                    'data-active': background === value || undefined,
+                  },
+                    h('input', {
+                      type: 'radio',
+                      className: 'ipa-choiceInput',
+                      name: 'ipa-background',
+                      value,
+                      checked: background === value,
+                      disabled: bgDisabled,
+                      onChange: () => { if (value !== background) void setBackground(value); },
+                    }),
+                    // A miniature countdown window over the same backdrop in all
+                    // three tiles, so the difference between opaque, frosted and
+                    // blurred is visible instead of described.
+                    h('span', { className: 'ipa-presetStage', 'aria-hidden': true },
+                      h('span', { className: 'ipa-presetBackdrop' }),
+                      h('span', { className: 'ipa-presetPanel' },
+                        h('span', { className: 'ipa-presetRail' }),
+                        String(data.countdownSeconds),
+                      ),
+                      h('span', { className: 'ipa-presetCheck' }, h(CheckGlyph)),
+                    ),
+                    h('span', { className: 'ipa-presetLabel' }, t(labelKey)),
+                  )),
+                ),
+                h('p', { className: 'ipa-bgDesc' }, t(`background.${background}Desc`)),
+                // A pinned colour only means something on the opaque surface.
+                background === 'solid' && h('div', { className: 'ipa-colors' },
+                  h('span', { className: 'ipa-colorsLabel' }, t('color.label')),
+                  h('div', { className: 'ipa-colorRow', role: 'radiogroup', 'aria-label': t('color.label') },
+                    h('label', { className: 'ipa-colorOption', 'data-active': customColor === null || undefined },
+                      h('input', {
+                        type: 'radio',
+                        className: 'ipa-choiceInput',
+                        name: 'ipa-countdown-color',
+                        value: 'auto',
+                        checked: customColor === null,
+                        disabled: bgDisabled,
+                        onChange: () => { if (customColor !== null) void setColor(null); },
+                      }),
+                      h('span', { className: 'ipa-colorAutoSwatch', 'aria-hidden': true }),
+                      h('span', { className: 'ipa-colorOptionText' }, t('color.auto')),
+                    ),
+                    ...COLOR_PRESETS.map((preset) => h('label', {
+                      key: preset,
+                      className: 'ipa-colorOption',
+                      'data-active': customColor === preset || undefined,
+                      style: { '--ipa-swatch': preset },
+                    },
+                      h('input', {
+                        type: 'radio',
+                        className: 'ipa-choiceInput',
+                        name: 'ipa-countdown-color',
+                        value: preset,
+                        checked: customColor === preset,
+                        disabled: bgDisabled,
+                        'aria-label': preset,
+                        onChange: () => { if (customColor !== preset) void setColor(preset); },
+                      }),
+                      h('span', { className: 'ipa-colorSwatch', 'aria-hidden': true }),
+                    )),
+                    h('label', {
+                      className: 'ipa-colorOption ipa-colorCustom',
+                      'data-active': customColor !== null && !COLOR_PRESETS.includes(customColor) || undefined,
+                      style: customColor === null ? undefined : { '--ipa-swatch': customColor },
+                    },
+                      h('input', {
+                        type: 'color',
+                        className: 'ipa-colorInput',
+                        value: customColor ?? COLOR_PRESETS[0],
+                        disabled: bgDisabled,
+                        'aria-label': t('color.custom'),
+                        onChange: (event) => {
+                          const next = normalizeColor(event?.currentTarget?.value);
+                          if (next !== null && next !== customColor) void setColor(next);
+                        },
+                      }),
+                      h('span', { className: 'ipa-colorOptionText' }, t('color.custom')),
+                    ),
+                  ),
+                  h('p', { className: 'ipa-colorsHint' }, t('color.hint')),
+                ),
+              ),
+            ),
+            h(Section, { title: t('section.fullscreen'), hint: t('section.fullscreenHint') },
+              h('label', { className: 'ipa-toggle' },
+                h('input', {
+                  type: 'checkbox',
+                  className: 'ipa-choiceInput',
+                  checked: data.fullscreenOnWait === true,
+                  disabled: bgDisabled,
+                  onChange: () => { void setFullscreenOnWait(!(data.fullscreenOnWait === true)); },
+                }),
+                h('span', { className: 'ipa-toggleTrack', 'aria-hidden': true }, h('span', { className: 'ipa-toggleThumb' })),
+                h('span', { className: 'ipa-toggleCopy' },
+                  h('span', { className: 'ipa-toggleLabel' }, t('fullscreen.onWait')),
+                  h('span', { className: 'ipa-toggleDesc' }, t('fullscreen.onWaitDesc')),
+                ),
+              ),
+            ),
+            h(Section, { title: t('section.awake'), hint: t('section.awakeHint') },
+              h('label', { className: 'ipa-toggle' },
+                h('input', {
+                  type: 'checkbox',
+                  className: 'ipa-choiceInput',
+                  checked: data.stayAwake !== false,
+                  disabled: bgDisabled,
+                  onChange: () => { void setStayAwake(data.stayAwake === false); },
+                }),
+                h('span', { className: 'ipa-toggleTrack', 'aria-hidden': true }, h('span', { className: 'ipa-toggleThumb' })),
+                h('span', { className: 'ipa-toggleCopy' },
+                  h('span', { className: 'ipa-toggleLabel' }, t('awake.on')),
+                  h('span', { className: 'ipa-toggleDesc' }, t('awake.onDesc')),
+                ),
+              ),
+              h('p', { className: 'ipa-colorsHint' }, t('awake.platform')),
+            ),
+            h(Section, { title: t('section.flow'), hint: t('section.flowHint') },
+              h('ol', { className: 'ipa-flowList' },
+                ...flowSteps.map(([titleKey, descKey, title], index) => h('li', { className: 'ipa-flowStep', key: titleKey },
+                  h('span', { className: 'ipa-flowNum', 'aria-hidden': true }, String(index + 1)),
+                  h('h3', { className: 'ipa-flowTitle' }, title),
+                  h('p', { className: 'ipa-flowBody' }, t(descKey)),
+                )),
+              ),
+            ),
+            h(Section, { title: t('section.notes') },
+              h('ul', { className: 'ipa-noteList' },
+                ...['note.scope', 'note.autoVoid', 'note.hostRestart', 'note.platform'].map((key) => h('li', { className: 'ipa-noteItem', key }, t(key))),
+              ),
+            ),
+          ),
+        ),
+        h('footer', { className: 'ipa-pageFoot' },
+          h('div', { className: 'ipa-pageWrap ipa-footInner' },
+            h('div', { className: 'ipa-footStatus' },
+              h('span', { className: 'ipa-statusDot', 'data-tone': tone === 'error' ? 'error' : undefined, 'aria-hidden': true }),
+              h('div', { className: 'ipa-footText' },
+                h('span', { className: 'ipa-footPhase' }, phaseText),
+                h('span', { className: 'ipa-footMeta' }, footMeta),
+              ),
+            ),
+            h('div', { className: 'ipa-footActions' },
+              armed
+                ? h('button', {
+                  type: 'button',
+                  className: 'ipa-button',
+                  'data-variant': 'danger',
+                  disabled: busy,
+                  onClick: () => { void cancel(); },
+                }, t(busy ? 'countdown.cancelling' : 'page.cancel'))
+                : h('button', {
+                  type: 'button',
+                  className: 'ipa-button',
+                  'data-variant': 'primary',
+                  disabled: !canArm,
+                  onClick: () => { void arm(mode); },
+                }, h(mode === 'shutdown' ? PowerGlyph : HibernateGlyph, { size: 15 }),
+                t(busy ? 'page.saving' : (mode === 'shutdown' ? t('page.armShutdown') : t('page.armHibernate')))),
+            ),
+          ),
+        ),
       );
+    }
+    const PREVIEW_SECONDS = 10;
+
+    /**
+     * A rehearsal of the countdown: the real component, the real colours, a
+     * fake deadline. Nothing is armed, no route is called, no command runs, and
+     * the overlay closes itself when the demo reaches zero.
+     */
+    function PowerPreview({ snapshot, close, t }) {
+      const started = useMemo(() => Date.now(), []);
+      const deadline = started + PREVIEW_SECONDS * 1000;
+      const demo = {
+        ...snapshot,
+        data: {
+          ...snapshot.data,
+          phase: 'counting',
+          deadline,
+          remainingSeconds: PREVIEW_SECONDS,
+          countdownSeconds: PREVIEW_SECONDS,
+          quietSeconds: snapshot.data.quietSeconds > 0 ? snapshot.data.quietSeconds : 20,
+        },
+      };
+
+      useEffect(() => {
+        const timer = setTimeout(() => close(), PREVIEW_SECONDS * 1000 + 900);
+        return () => clearTimeout(timer);
+      }, [close]);
+
+      const useDemo = (selector) => (typeof selector === 'function' ? selector(demo) : demo);
+      return h(PowerCountdown, { usePower: useDemo, cancel: close, t, preview: true });
+    }
+
+    /**
+     * Fullscreen has one owner at a time but two possible users: the waiting
+     * screen and the countdown. When a reservation crosses from waiting into
+     * counting both change in the same commit, and a plain exit-then-enter
+     * would drop the screen back to a window at the worst possible moment. So
+     * the holder is refcounted and releases are delayed briefly, which lets the
+     * next screen take over without ever leaving fullscreen.
+     */
+    function createScreenKeeper() {
+      const owners = new Set();
+      const listeners = new Set();
+      let watching = false;
+      let entered = false;
+      let exitTimer = null;
+
+      const doc = () => (typeof document === 'undefined' || document === null ? null : document);
+      const root = () => {
+        const element = doc()?.documentElement;
+        return element !== null && element !== undefined && typeof element.requestFullscreen === 'function' ? element : null;
+      };
+      const isFullscreen = () => {
+        const element = doc()?.fullscreenElement;
+        return element !== null && element !== undefined;
+      };
+      const notify = () => {
+        if (!isFullscreen()) entered = false;
+        for (const listener of listeners) listener();
+      };
+      const watch = () => {
+        const host = doc();
+        if (watching || host === null || typeof host.addEventListener !== 'function') return;
+        watching = true;
+        host.addEventListener('fullscreenchange', notify);
+      };
+
+      const enter = () => {
+        const element = root();
+        if (element === null || isFullscreen()) return;
+        watch();
+        try {
+          const attempt = element.requestFullscreen({ navigationUI: 'hide' });
+          if (attempt !== undefined && typeof attempt.then === 'function') {
+            attempt.then(() => {
+              entered = true;
+              for (const listener of listeners) listener();
+            }).catch(() => { entered = false; });
+          }
+        } catch {
+          entered = false;
+        }
+      };
+
+      const leave = () => {
+        const host = doc();
+        if (!entered || !isFullscreen() || host === null || typeof host.exitFullscreen !== 'function') return;
+        entered = false;
+        try {
+          const attempt = host.exitFullscreen();
+          if (attempt !== undefined && typeof attempt.catch === 'function') attempt.catch(() => {});
+        } catch { /* the window is already gone */ }
+      };
+
+      return {
+        supported: () => root() !== null,
+        isFullscreen,
+        subscribe(listener) {
+          watch();
+          listeners.add(listener);
+          return () => { listeners.delete(listener); };
+        },
+        /** Called from a click, so the engine sees a user gesture. */
+        request() {
+          watch();
+          enter();
+        },
+        hold(owner) {
+          watch();
+          owners.add(owner);
+          if (exitTimer !== null) { clearTimeout(exitTimer); exitTimer = null; }
+          enter();
+        },
+        release(owner) {
+          owners.delete(owner);
+          if (owners.size > 0) return;
+          if (exitTimer !== null) clearTimeout(exitTimer);
+          // The gap is only long enough to cover a phase hand-off; the screen
+          // still comes back promptly once nobody wants it.
+          exitTimer = setTimeout(() => {
+            exitTimer = null;
+            if (owners.size === 0) leave();
+          }, 400);
+        },
+      };
+    }
+
+    let screenKeeperInstance = null;
+    function screenKeeper() {
+      if (screenKeeperInstance === null) screenKeeperInstance = createScreenKeeper();
+      return screenKeeperInstance;
+    }
+
+    /** Hold the screen for as long as one overlay is mounted. */
+    function useWholeScreen() {
+      const keeper = screenKeeper();
+      const owner = useRef(null);
+      if (owner.current === null) owner.current = {};
+      const [fullscreen, setFullscreen] = useState(() => keeper.isFullscreen());
+      useEffect(() => {
+        const unsubscribe = keeper.subscribe(() => setFullscreen(keeper.isFullscreen()));
+        keeper.hold(owner.current);
+        return () => {
+          unsubscribe();
+          keeper.release(owner.current);
+        };
+      }, []);
+      return {
+        supported: keeper.supported(),
+        fullscreen,
+        request: () => keeper.request(),
+      };
+    }
+
+    /**
+     * The waiting phase, on the whole screen when the Host asks for it.
+     * Deliberately calmer than the countdown: what is still running, how far the
+     * quiet window has come, and the one way out — no digits counting down,
+     * because nothing is about to happen yet.
+     */
+    function PowerWaitScreen({ usePower, cancel, dismiss, t }) {
+      const { data, busy, offline, note, noteCode } = usePower((current) => current);
+      const screen = useWholeScreen();
+      // `busy` from the snapshot is the in-flight flag; the task counts live in
+      // data.busy, which is where the Host puts them.
+      const [submitting, setSubmitting] = useState(false);
+      const quietTotal = data.quietSeconds > 0 ? data.quietSeconds : 20;
+      const quietLeft = Math.max(0, Math.min(quietTotal, data.quietRemainingSeconds ?? quietTotal));
+      const done = Math.min(1, Math.max(0, 1 - quietLeft / quietTotal));
+      const load = data.busy ?? { available: false, agentsRunning: 0, inboxPending: 0, jobsRunning: 0, total: 0 };
+      // The waiting screen shares the countdown's surface tokens, so a pinned
+      // colour and its ink carry over instead of flashing the theme colour.
+      const surface = normalizeBackground(data.backgroundStyle);
+      const customColor = surface === 'solid' ? normalizeColor(data.countdownColor) : null;
+      const ink = customColor === null ? null : isDarkColor(customColor) ? 'light' : 'dark';
+
+      const stopping = submitting || busy === true;
+      const stop = async () => {
+        if (stopping) return;
+        setSubmitting(true);
+        try {
+          await cancel();
+        } finally {
+          setSubmitting(false);
+        }
+      };
+
+      useEffect(() => {
+        const host = typeof window === 'undefined' ? null : window;
+        if (host === null || typeof host.addEventListener !== 'function') return undefined;
+        const onKey = (event) => {
+          if (event.key !== 'Escape') return;
+          // Escape leaves the big screen entirely: the OS fullscreen and this
+          // overlay go away together, and the reservation stays armed. Leaving
+          // the window fullscreen but keeping the overlay was a half-state —
+          // neither the app nor the fullscreen presentation.
+          event.preventDefault?.();
+          dismiss?.();
+        };
+        host.addEventListener('keydown', onKey);
+        return () => host.removeEventListener('keydown', onKey);
+      }, [stopping, dismiss]);
 
       return h('div', {
-        className: 'ipa-panel',
-        ref: panelRef,
+        className: 'ipa-scrim ipa-scrimWait',
+        'data-background': surface,
+        'data-ink': ink === null ? undefined : ink,
+        'data-phase': data.phase,
+        'data-preview': undefined,
+        style: customColor === null ? undefined : { '--dsw-alias-bg-overlay': customColor },
         role: 'dialog',
-        tabIndex: -1,
-        'aria-label': t('panel.title'),
-        'aria-busy': busy,
-        style: { left: `${placement.left}px`, bottom: `${placement.bottom}px`, maxHeight: `${Math.max(80, viewportHeight - placement.bottom - 12)}px` },
+        'aria-modal': true,
+        'aria-label': t('wait.title'),
       },
-        h('div', { className: 'ipa-head' },
-          h('span', { className: 'ipa-title' }, t('panel.title')),
-          h('button', {
-            type: 'button',
-            className: 'ipa-close',
-            'aria-label': t('panel.close'),
-            onClick: close,
-          }, '\u00d7'),
+        h('div', {
+          className: 'ipa-rail',
+          role: 'progressbar',
+          'aria-valuemin': 0,
+          'aria-valuemax': quietTotal,
+          'aria-valuenow': Math.round(done * quietTotal),
+          'aria-valuetext': fill(t('wait.quiet'), quietLeft, quietTotal),
+          'aria-label': t('wait.quietProgress'),
+        },
+          h('span', { className: 'ipa-railFill', style: { transform: `scaleX(${done})` } }),
         ),
-        h('div', { className: 'ipa-sub' }, t('panel.subtitle')),
-        h('div', { className: 'ipa-modes', 'data-mode': mode, role: 'radiogroup', 'aria-label': t('panel.mode') },
-          option('hibernate', 'panel.hibernate', 'panel.hibernateDesc'),
-          option('shutdown', 'panel.shutdown', 'panel.shutdownDesc'),
-        ),
-        h('div', { className: 'ipa-modeNotes' },
-          ...['hibernate', 'shutdown'].map((value) => h('div', {
-            className: 'ipa-note ipa-modeNote', key: value,
-            'data-active': mode === value || undefined,
-            'aria-hidden': mode !== value,
-          }, t(value === 'shutdown' ? 'panel.shutdownNote' : 'panel.hibernateNote'))),
-        ),
-        h('div', { className: 'ipa-bg' },
-          h('div', { className: 'ipa-bgHead' }, t('panel.background')),
-          h('div', { className: 'ipa-bgOptions', 'data-background': background, role: 'group', 'aria-label': t('panel.background') },
-            h('span', { className: 'ipa-bgThumb', 'aria-hidden': true }),
-            ...styleChoices.map(([value, labelKey]) => h('button', {
-              type: 'button',
-              key: value,
-              className: 'ipa-bgOption',
-              'aria-pressed': background === value,
-              'aria-label': t(labelKey),
-              disabled: locked || busy || !ready || offline || !data.supported,
-              onClick: () => { if (value !== background) void setBackground(value); },
-              onKeyDown: (event) => {
-                if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
-                const parent = event.currentTarget?.parentElement;
-                if (parent === null || parent === undefined || typeof parent.querySelectorAll !== 'function') return;
-                event.preventDefault?.();
-                const choices = Array.from(parent.querySelectorAll('.ipa-bgOption'));
-                const index = choices.indexOf(event.currentTarget);
-                const step = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 1;
-                const target = event.key === 'Home' ? choices[0]
-                  : event.key === 'End' ? choices[choices.length - 1]
-                    : choices[(index + step + choices.length) % choices.length];
-                target?.focus?.();
-                target?.click?.();
+        h('div', { className: 'ipa-card' },
+          h('div', { className: 'ipa-top' },
+            h('div', { className: 'ipa-statusLine' },
+              h('span', { className: 'ipa-stateDot', 'aria-hidden': true }),
+              h('div', { className: 'ipa-eyebrow' },
+                t('wait.title'),
+                h('span', { className: 'ipa-eyebrowSub' }, t('wait.subtitle')),
+              ),
+            ),
+            h('div', { className: 'ipa-topRight' },
+              screen.supported && !screen.fullscreen && h('button', {
+                type: 'button',
+                className: 'ipa-mirrors',
+                title: t('countdown.fullscreenHint'),
+                onClick: () => screen.request(),
+              }, t('countdown.fullscreen')),
+              h('div', { className: 'ipa-meta' }, fmt(t('wait.meta'), String(quietTotal))),
+            ),
+          ),
+          h('div', { className: 'ipa-stage' },
+            h('div', { className: 'ipa-waitOrb', 'aria-hidden': true },
+              h('span', { className: 'ipa-waitOrbRing' }),
+              h('span', { className: 'ipa-waitOrbText' }, t('wait.orb')),
+            ),
+            h('div', { className: 'ipa-stageText' },
+              h('div', { className: 'ipa-mode' }, t('wait.headline')),
+              h('div', { className: 'ipa-metaLine' }, fill(t('wait.quiet'), quietLeft, quietTotal)),
+              h('dl', { className: 'ipa-waitStats' },
+                ...[['wait.agents', load.agentsRunning], ['wait.inbox', load.inboxPending], ['wait.jobs', load.jobsRunning]].map(([key, value]) => h('div', { className: 'ipa-waitStat', key },
+                  h('dt', { className: 'ipa-waitStatLabel' }, t(key)),
+                  h('dd', { className: 'ipa-waitStatValue' }, String(value ?? 0)),
+                )),
+              ),
+              (offline || note) && h('div', { className: 'ipa-feedback', role: 'alert' }, offline ? t('countdown.offline') : `${t('status.failed')}: ${describeFailure(noteCode, note, t)}`),
+              h('button', {
+                type: 'button',
+                className: 'ipa-cta',
+                'aria-disabled': stopping || undefined,
+                onClick: () => { void stop(); },
               },
-            }, t(labelKey))),
+                t(stopping ? 'wait.cancelling' : 'wait.cancel'),
+              ),
+              h('p', { className: 'ipa-hint ipa-hintInline' }, t('wait.escHint')),
+            ),
           ),
-          h('div', { className: 'ipa-bgDesc' },
-            h('span', { className: 'ipa-stateText', key: background }, t(`background.${background}Desc`)),
+          h('div', { className: 'ipa-bottom' },
+            h('div', { className: 'ipa-notes' },
+              h('p', { className: 'ipa-hint' }, t('wait.hint')),
+              h('p', { className: 'ipa-hint' }, t('note.scope')),
+              data.mode === 'shutdown' && h('p', { className: 'ipa-hint ipa-hintWarn' }, t('note.shutdown')),
+            ),
+            h('div', { className: 'ipa-scopeTag' }, t(screen.fullscreen ? 'countdown.scopeTagFull' : 'countdown.scopeTag')),
           ),
-        ),
-        h('div', { className: 'ipa-flow', 'aria-label': t('panel.flow') },
-          h('strong', null, `${data.quietSeconds} ${t('panel.quiet')} → ${data.countdownSeconds} ${t('panel.countdown')}`),
-          h('span', { className: 'ipa-note' }, t('panel.scope')),
-        ),
-        h('div', { className: 'ipa-status', 'data-tone': statusTone, role: 'status' },
-          h('span', { className: 'ipa-stateText', key: `${data.phase}:${statusTone}:${ready}:${offline}` }, statusText),
-        ),
-        armed && data.busy.total > 0 && h('dl', { className: 'ipa-details' },
-          [['agentsRunning', 'status.agents'], ['inboxPending', 'status.inbox'], ['jobsRunning', 'status.jobs']]
-            .flatMap(([key, label]) => [
-              h('dt', { key: `${key}-t` }, t(label)),
-              h('dd', { key: `${key}-d` }, String(data.busy[key] ?? 0)),
-            ]),
-        ),
-        // Exactly one primary action: arm while idle, cancel while reserved.
-        // Showing both at once was the reason an armed reservation still looked
-        // unarmed.
-        h('div', { className: 'ipa-actions' },
-          armed
-            ? h('button', {
-              type: 'button',
-              className: 'ipa-cancel',
-              disabled: busy,
-              onClick: () => { void cancel(); },
-            }, h('span', { className: 'ipa-stateText', key: String(busy) }, t(busy ? 'countdown.cancelling' : 'panel.cancel')))
-            : h('button', {
-              type: 'button',
-              className: 'ipa-primary',
-              disabled: busy || !ready || offline || !data.supported || locked || data.busy?.available === false,
-              onClick: () => { void arm(mode); },
-            }, h('span', { className: 'ipa-stateText', key: `${locked}:${busy}` }, t(locked ? 'status.executing' : busy ? 'status.saving' : 'panel.arm'))),
         ),
       );
     }
@@ -1041,11 +1991,16 @@ background-color:rgba(9,11,16,.42);
      * monitor, and on a window spanning two displays where dead centre can land
      * on the bezel.
      */
-    function PowerCountdown({ usePower, cancel, t }) {
+    function PowerCountdown({ usePower, cancel, t, preview = false }) {
       const { data, busy, offline, note, noteCode } = usePower((current) => current);
       const cancelRef = useRef(null);
+      // The overlay is the tab trap's boundary: a focus list of two controls went
+      // stale as soon as the countdown grew a third button.
       const dialogRef = useRef(null);
       const mirrorsRef = useRef([]);
+      // The keeper holds the screen while this overlay is mounted and hands it
+      // over to the waiting screen (or back to the desktop) when it leaves.
+      const screen = useWholeScreen();
       const [now, setNow] = useState(() => Date.now());
       const [align, setAlign] = useState('center');
       const [mirrorStatus, setMirrorStatus] = useState({ kind: 'idle', count: 0 });
@@ -1081,11 +2036,21 @@ background-color:rgba(9,11,16,.42);
         return () => { if (previous?.isConnected) previous.focus?.(); };
       }, []);
 
+      // Escape cancels from anywhere. Tab cycles through every enabled control in
+      // the dialog so each button stays reachable without escaping the trap.
       useEffect(() => {
         const onKey = (event) => {
-          if (event.key === 'Escape') { event.preventDefault?.(); cancelCountdown(); return; }
+          if (event.key === 'Escape') {
+            // In fullscreen the same key is the browser's way out; cancelling a
+            // reservation because someone wanted their desktop back is a trap.
+            if (typeof document !== 'undefined' && document.fullscreenElement) return;
+            event.preventDefault?.();
+            cancelCountdown();
+            return;
+          }
           if (event.key !== 'Tab') return;
-          const controls = Array.from(dialogRef.current?.querySelectorAll('button:not(:disabled)') ?? []);
+          const controls = Array.from(dialogRef.current?.querySelectorAll?.('button:not(:disabled)') ?? [])
+            .filter((el) => typeof el.focus === 'function' && el.isConnected !== false);
           if (controls.length === 0) { event.preventDefault?.(); cancelRef.current?.focus?.(); return; }
           const active = typeof document === 'undefined' ? null : document.activeElement;
           const index = controls.indexOf(active);
@@ -1136,7 +2101,8 @@ background-color:rgba(9,11,16,.42);
       // The ring and rail use the un-rounded remainder so they move on every
       // 250ms tick; the digits keep the rounded value a person can read.
       const exactRemaining = deadline === null ? remaining : Math.max(0, (deadline - now) / 1000);
-      const urgent = remaining <= 10;
+      // A rehearsal never claims to be urgent: it runs for ten seconds by design.
+      const urgent = !preview && remaining <= 10;
       const total = data.countdownSeconds > 0 ? data.countdownSeconds : remaining;
       const RADIUS = 54;
       const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -1145,13 +2111,20 @@ background-color:rgba(9,11,16,.42);
       const scheduledAt = formatClock(deadline === null ? now + remaining * 1000 : deadline);
       const quietSeconds = data.quietSeconds > 0 ? data.quietSeconds : 20;
       const windowSeconds = total > 0 ? total : remaining;
+      // A pinned colour only applies to the solid surface; the ink is computed
+      // from its luminance so the digits stay readable on light and dark picks.
+      const surface = normalizeBackground(data.backgroundStyle);
+      const customColor = surface === 'solid' ? normalizeColor(data.countdownColor) : null;
+      const ink = customColor === null ? null : isDarkColor(customColor) ? 'light' : 'dark';
       const valueNow = Math.max(0, Math.min(remaining, Math.max(1, windowSeconds)));
       const railScale = `scaleX(${fraction})`;
 
       // Seconds only, so the title changes once a second rather than four times.
+      // A preview leaves the window title alone: it is not a real countdown.
       useEffect(() => {
+        if (preview) return;
         try { document.title = `${remaining}${t('countdown.suffix')} · ${action}`; } catch { /* host owns the title */ }
-      }, [remaining, action, t]);
+      }, [remaining, action, t, preview]);
 
       // Mirrors have no script of their own; this window drives every update.
       useEffect(() => {
@@ -1176,10 +2149,15 @@ background-color:rgba(9,11,16,.42);
       return h('div', {
         className: `ipa-scrim${urgent ? ' ipa-isUrgent' : ''}`,
         ref: dialogRef,
-        'data-background': normalizeBackground(data.backgroundStyle),
+        'data-background': surface,
+        'data-ink': ink === null ? undefined : ink,
+        'data-preview': preview ? '' : undefined,
+        // The card and the CTA both read this token, so pinning it here keeps
+        // the whole overlay consistent with the chosen colour.
+        style: customColor === null ? undefined : { '--dsw-alias-bg-overlay': customColor },
         role: 'alertdialog',
         'aria-modal': true,
-        'aria-label': t('countdown.title'),
+        'aria-label': preview ? t('preview.title') : t('countdown.title'),
       },
         h('div', {
           className: 'ipa-rail',
@@ -1197,11 +2175,19 @@ background-color:rgba(9,11,16,.42);
             h('div', { className: 'ipa-statusLine' },
               h('span', { className: 'ipa-stateDot', 'aria-hidden': true }),
               h('div', { className: 'ipa-eyebrow' },
-                t('countdown.title'),
-                h('span', { className: 'ipa-eyebrowSub' }, fmt(t('countdown.quietDone'), String(quietSeconds))),
+                preview ? t('preview.title') : t('countdown.title'),
+                h('span', { className: 'ipa-eyebrowSub' },
+                  preview ? t('preview.subtitle') : fmt(t('countdown.quietDone'), String(quietSeconds)),
+                ),
               ),
             ),
             h('div', { className: 'ipa-topRight' },
+              screen.supported && !screen.fullscreen && h('button', {
+                type: 'button',
+                className: 'ipa-mirrors',
+                title: t('countdown.fullscreenHint'),
+                onClick: () => screen.request(),
+              }, t('countdown.fullscreen')),
               h('div', { className: 'ipa-meta' },
                 fmt(t('countdown.window'), String(windowSeconds)),
               ),
@@ -1257,7 +2243,7 @@ background-color:rgba(9,11,16,.42);
             ),
             h('div', { className: 'ipa-stageText' },
               h('div', { className: 'ipa-mode' }, action),
-              h('div', { className: 'ipa-metaLine' }, fmt(t('countdown.scheduledAt'), scheduledAt)),
+              h('div', { className: 'ipa-metaLine' }, preview ? t('preview.noAction') : fmt(t('countdown.scheduledAt'), scheduledAt)),
               (offline || note) && h('div', { className: 'ipa-feedback', role: 'alert' }, offline ? t('countdown.offline') : `${t('status.failed')}: ${describeFailure(noteCode, note, t)}`),
               h('button', {
                 type: 'button',
@@ -1267,19 +2253,20 @@ background-color:rgba(9,11,16,.42);
                 onClick: cancelCountdown,
                 autoFocus: true,
               },
-                t(busy ? 'countdown.cancelling' : 'countdown.cancel'),
+                preview ? t('preview.close') : t(busy ? 'countdown.cancelling' : 'countdown.cancel'),
                 h('kbd', { className: 'ipa-kbd' }, 'Esc'),
               ),
             ),
           ),
           h('div', { className: 'ipa-bottom' },
             h('div', { className: 'ipa-notes' },
-              h('p', { className: 'ipa-hint' }, t('countdown.hint')),
-              h('p', { className: 'ipa-hint' }, t('panel.scope')),
+              h('p', { className: 'ipa-hint' }, preview ? t('preview.hint') : t('countdown.hint')),
+              screen.fullscreen && !preview && h('p', { className: 'ipa-hint' }, t('countdown.escFullscreen')),
+              h('p', { className: 'ipa-hint' }, preview ? t('preview.scope') : t('note.scope')),
               extended && h('p', { className: 'ipa-hint' }, t('countdown.multiNote')),
-              data.mode === 'shutdown' && h('p', { className: 'ipa-hint ipa-hintWarn' }, t('panel.shutdownNote')),
+              data.mode === 'shutdown' && h('p', { className: 'ipa-hint ipa-hintWarn' }, t('note.shutdown')),
             ),
-            h('div', { className: 'ipa-scopeTag' }, t('countdown.scopeTag')),
+            h('div', { className: 'ipa-scopeTag' }, t(screen.fullscreen ? 'countdown.scopeTagFull' : 'countdown.scopeTag')),
           ),
         ),
       );
@@ -1293,6 +2280,10 @@ background-color:rgba(9,11,16,.42);
       internals: { fmt, formatClock, normalizeBackground, BACKGROUND_STYLES, hasMultipleScreens, mirrorGeometry, mirrorFeatures, readScreenDetails, openMirrorWindows, createMirrorDocument },
       apply(ctx) {
         const runtime = createRuntime(ctx);
+        // The rail glyph is rendered outside any injected seat, so it reads the
+        // store from here instead of from a prop.
+        powerStore = runtime.store;
+        const t = typeof ctx.locale.bind === 'function' ? ctx.locale.bind(NS) : (key) => key;
 
         ctx.effect(() => {
           const tag = document.createElement('style');
@@ -1305,7 +2296,7 @@ background-color:rgba(9,11,16,.42);
 
         ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-idle-power: dictionaries');
 
-        // One poller for both entries: 1s while armed, a slow 3s otherwise.
+        // One poller for every surface: 1s while a reservation is live, 3s idle.
         ctx.effect(() => {
           let disposed = false;
           let timer;
@@ -1324,18 +2315,23 @@ background-color:rgba(9,11,16,.42);
           };
         }, 'dsh-idle-power: poller');
 
-        ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
-          name: 'sidebar.footer.action',
-          id: 'dsh-idle-power',
-          order: 10,
+        // Rail entry: directly under the shipped 插件 and 自动化任务 panels, so a
+        // scheduled power action reads as one more automation in the same list.
+        ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+          name: 'sidebar.panellist',
+          id: 'idle-power',
+          order: 15,
           locale: NS,
-          inject: () => ({ hooks: { power: runtime.store }, open: runtime.open }),
-        }, PowerButton));
+          label: () => t('rail.label'),
+          // Optional: a host that passes slot props through gives the glyph the
+          // live store; one that renders a bare icon leaves the module store.
+          inject: () => ({ hooks: { power: runtime.store } }),
+        }, PowerRailIcon));
 
-        ctx.slots.inject('shell.overlay', () => ctx.slots.register({
-          name: 'shell.overlay',
-          id: 'dsh-idle-power.panel',
-          order: 10,
+        // The page owns the whole main column while this entry is selected.
+        ctx.slots.inject('main', () => ctx.slots.register({
+          name: 'main',
+          key: 'idle-power',
           locale: NS,
           inject: () => ({
             hooks: { power: runtime.store },
@@ -1343,13 +2339,48 @@ background-color:rgba(9,11,16,.42);
             cancel: runtime.cancel,
             setMode: runtime.setMode,
             setBackground: runtime.setBackground,
-            close: runtime.close,
+            setColor: runtime.setColor,
+            setFullscreenOnWait: runtime.setFullscreenOnWait,
+            setStayAwake: runtime.setStayAwake,
+            openPreview: runtime.openPreview,
+            refresh: runtime.refresh,
           }),
-        }, function PanelWhenOpen({ usePower, ...rest }) {
-          const { panelOpen } = usePower((current) => current);
-          return panelOpen ? h(PowerPanel, { usePower, ...rest }) : null;
+        }, PowerPage));
+
+        // The waiting phase can take the whole screen too, when the Host says so.
+        ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+          name: 'shell.overlay',
+          id: 'dsh-idle-power.wait',
+          order: 98,
+          locale: NS,
+          inject: () => ({
+            hooks: { power: runtime.store },
+            cancel: runtime.cancel,
+            dismiss: runtime.dismissWait,
+          }),
+        }, function WaitWhenArmed({ usePower, cancel, dismiss, t }) {
+          const snapshot = usePower((current) => current);
+          if (snapshot.data.fullscreenOnWait !== true || snapshot.data.phase !== 'armed') return null;
+          if (snapshot.waitDismissed === true) return null;
+          return h(PowerWaitScreen, { usePower, cancel, dismiss, t });
         }));
 
+        // The preview shares the countdown component but never touches the Host.
+        ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+          name: 'shell.overlay',
+          id: 'dsh-idle-power.preview',
+          order: 99,
+          locale: NS,
+          inject: () => ({
+            hooks: { power: runtime.store },
+            close: runtime.closePreview,
+          }),
+        }, function PreviewWhenOpen({ usePower, close, t }) {
+          const snapshot = usePower((current) => current);
+          return snapshot.preview === true ? h(PowerPreview, { snapshot, close, t }) : null;
+        }));
+
+        // The countdown stays a shell overlay: it must cover every page.
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({
           name: 'shell.overlay',
           id: 'dsh-idle-power.countdown',
