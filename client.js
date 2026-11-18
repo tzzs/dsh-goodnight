@@ -13,6 +13,7 @@ window.__ModuleLoader__.load({
     const ROUTE_BACKGROUND = 'idle-power/background';
     const ROUTE_COLOR = 'idle-power/color';
     const ROUTE_FULLSCREEN = 'idle-power/fullscreen';
+    const ROUTE_AWAKE = 'idle-power/awake';
 
     // ---------------------------------------------------------------- locale
     const zh = {
@@ -59,6 +60,11 @@ window.__ModuleLoader__.load({
       'section.fullscreenHint': '预约后要不要直接占满整块屏幕。',
       'fullscreen.onWait': '等待时也整屏',
       'fullscreen.onWaitDesc': '从预约开始到倒计时结束都用整屏：等待中显示任务与安静期进度，倒计时时显示秒数。',
+      'section.awake': '保持唤醒',
+      'section.awakeHint': '预约期间不要让它睡过去。',
+      'awake.on': '预约期间保持唤醒',
+      'awake.onDesc': '阻止系统休眠与锁屏。电脑一旦睡过去，Host 也会被挂起，倒计时就没法按时执行了。',
+      'awake.platform': '使用 SetThreadExecutionState 申请；取消预约或命令提交后立即释放。',
       'wait.title': '等待任务结束',
       'wait.subtitle': '安静期内没有再出现任务，才会开始倒计时',
       'wait.meta': '安静期 %s 秒',
@@ -191,6 +197,11 @@ window.__ModuleLoader__.load({
       'section.fullscreenHint': 'Whether a reservation should take the entire display.',
       'fullscreen.onWait': 'Full screen while waiting',
       'fullscreen.onWaitDesc': 'Keep the whole screen from arming until the countdown ends: tasks and quiet-window progress while waiting, seconds while counting.',
+      'section.awake': 'Stay awake',
+      'section.awakeHint': 'Do not let the machine sleep through a reservation.',
+      'awake.on': 'Stay awake while a reservation is pending',
+      'awake.onDesc': 'Blocks sleep and the lock screen. A suspended Host cannot fire its countdown on time.',
+      'awake.platform': 'Requested through SetThreadExecutionState and released as soon as the reservation ends or the command is committed.',
       'wait.title': 'Waiting for tasks to finish',
       'wait.subtitle': 'The countdown only starts once the quiet window passes',
       'wait.meta': 'Quiet window %s s',
@@ -742,6 +753,7 @@ background-color:rgba(9,11,16,.42);
       backgroundStyle: 'solid',
       countdownColor: null,
       fullscreenOnWait: false,
+      stayAwake: true,
       countdownSeconds: 60,
       quietSeconds: 20,
       remainingSeconds: 0,
@@ -825,6 +837,8 @@ background-color:rgba(9,11,16,.42);
       const setColor = (color) => post(ROUTE_COLOR, { color });
       // Whether the waiting phase takes the whole screen too.
       const setFullscreenOnWait = (onWait) => post(ROUTE_FULLSCREEN, { onWait });
+      // Whether a pending reservation keeps the machine out of sleep and the lock screen.
+      const setStayAwake = (on) => post(ROUTE_AWAKE, { on });
 
       return {
         store,
@@ -835,6 +849,7 @@ background-color:rgba(9,11,16,.42);
         setBackground,
         setColor,
         setFullscreenOnWait,
+        setStayAwake,
         // Previewing the countdown is a client-only state: nothing is armed and
         // no route is touched.
         openPreview: () => patch({ preview: true }),
@@ -1221,7 +1236,7 @@ background-color:rgba(9,11,16,.42);
      * how to stop it — and a full page is where the shipped Plugins and
      * Automation-tasks panels already live.
      */
-    function PowerPage({ usePower, arm, cancel, setMode, setBackground, setColor, setFullscreenOnWait, openPreview, refresh, t }) {
+    function PowerPage({ usePower, arm, cancel, setMode, setBackground, setColor, setFullscreenOnWait, setStayAwake, openPreview, refresh, t }) {
       const { data, ready, offline, busy, note, noteCode } = usePower((current) => current);
       const counting = data.phase === 'counting';
       const armed = data.phase === 'armed' || counting;
@@ -1605,6 +1620,23 @@ background-color:rgba(9,11,16,.42);
                   h('span', { className: 'ipa-toggleDesc' }, t('fullscreen.onWaitDesc')),
                 ),
               ),
+            ),
+            h(Section, { title: t('section.awake'), hint: t('section.awakeHint') },
+              h('label', { className: 'ipa-toggle' },
+                h('input', {
+                  type: 'checkbox',
+                  className: 'ipa-choiceInput',
+                  checked: data.stayAwake !== false,
+                  disabled: bgDisabled,
+                  onChange: () => { void setStayAwake(data.stayAwake === false); },
+                }),
+                h('span', { className: 'ipa-toggleTrack', 'aria-hidden': true }, h('span', { className: 'ipa-toggleThumb' })),
+                h('span', { className: 'ipa-toggleCopy' },
+                  h('span', { className: 'ipa-toggleLabel' }, t('awake.on')),
+                  h('span', { className: 'ipa-toggleDesc' }, t('awake.onDesc')),
+                ),
+              ),
+              h('p', { className: 'ipa-colorsHint' }, t('awake.platform')),
             ),
             h(Section, { title: t('section.flow'), hint: t('section.flowHint') },
               h('ol', { className: 'ipa-flowList' },
@@ -2290,6 +2322,7 @@ background-color:rgba(9,11,16,.42);
             setBackground: runtime.setBackground,
             setColor: runtime.setColor,
             setFullscreenOnWait: runtime.setFullscreenOnWait,
+            setStayAwake: runtime.setStayAwake,
             openPreview: runtime.openPreview,
             refresh: runtime.refresh,
           }),

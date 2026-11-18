@@ -124,6 +124,7 @@
 - **导航上的状态**：已预约时电源图标右上角多出一个小圆点，倒计时期间圆点变红并闪烁；导航折叠成图标轨道时圆点依然在。
 - **倒计时背景**：三张预览卡直接画出每档下倒计时窗口的样子（纯色 / 毛玻璃 / 高斯模糊），点一下即时生效并写入 Host。
 - **纯色可换颜色**：选「纯色」时下方出现颜色行——跟随主题、六个预设（四深两浅），或用系统取色器自定义；文字颜色按底色亮度自动选黑或白。
+- **预约期间不让电脑睡过去**：电脑空闲久了会关屏、进而锁屏甚至休眠，而**被挂起的 Host 根本不会走到倒计时终点**——这正是「锁屏之后关机就不管用了」的原因。插件在预约期间用一个后台 helper 申请 `SetThreadExecutionState(ES_CONTINUOUS|ES_SYSTEM_REQUIRED|ES_DISPLAY_REQUIRED)`，既不休眠也不关屏（因此不会自动锁屏），取消预约或命令提交后立刻释放；开关在「保持唤醒」区，默认开启。
 - **等待也能整屏**：打开「整屏展示 → 等待时也整屏」后，预约一建立就进入全屏的等待屏——显示还在跑的任务、安静期进度和「取消预约」；安静期走完自动交棒给倒计时屏，全程不退出全屏。
 
 ![等待屏](docs/wait.png)
@@ -157,6 +158,7 @@
 | `backgroundStyle` | `'solid'` | 倒计时背景：`'solid'` / `'glass'` / `'blur'`，非法值退回 `'solid'` |
 | `countdownColor` | `null` | 纯色模式的自定义底色，`#rrggbb`；`null` 表示跟随宿主主题，非法值同样退回 `null` |
 | `fullscreenOnWait` | `false` | 预约后是否**从等待阶段**就占满整屏；页面上的「整屏展示 → 等待时也整屏」开关会改写它并写回 Host |
+| `stayAwake` | `true` | 预约期间是否阻止系统休眠与锁屏；页面上的「保持唤醒」开关会改写它 |
 | `shutdownCommand` | `'shutdown'` | 电源命令，加载时按 PATH 解析 |
 
 你在界面上选过的模式和背景会被 Host 记住（刷新页面不丢），Host 重启后回到 `defaultMode` / `backgroundStyle`。
@@ -174,8 +176,9 @@
 | `POST` | `/idle-power/background` | 只改背景；body `{ "backgroundStyle": "solid" \| "glass" \| "blur" }` |
 | `POST` | `/idle-power/color` | 只改纯色底色；body `{ "color": "#rrggbb" \| null }` |
 | `POST` | `/idle-power/fullscreen` | 只改「等待时也整屏」；body `{ "onWait": true \| false }` |
+| `POST` | `/idle-power/awake` | 只改「预约期间保持唤醒」；body `{ "on": true \| false }` |
 
-命令进入执行阶段后，`/arm`、`/cancel`、`/mode`、`/background`、`/color`、`/fullscreen` 一律返回 `409 execution-in-progress`，已经提交的电源操作不能撤。过期的预约请求，以及预约期间发往 `/mode` 的请求，会收到 `409 reservation-changed`。要修改已有预约的模式，用 `/arm` 重新开始安静期。
+命令进入执行阶段后，`/arm`、`/cancel`、`/mode`、`/background`、`/color`、`/fullscreen`、`/awake` 一律返回 `409 execution-in-progress`，已经提交的电源操作不能撤。过期的预约请求，以及预约期间发往 `/mode` 的请求，会收到 `409 reservation-changed`。要修改已有预约的模式，用 `/arm` 重新开始安静期。
 
 `/background` 是纯外观偏好，**刻意不碰预约状态机**：它不会递增内部 revision，所以改背景永远不会让正在上传的预约被判成「已过期」。
 

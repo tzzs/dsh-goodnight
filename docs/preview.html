@@ -381,9 +381,10 @@
   const setBackground = async (backgroundStyle) => { if (live) update({}, { backgroundStyle }); return true; };
   const setColor = async (color) => { if (live) update({}, { countdownColor: color }); return true; };
   const setFullscreenOnWait = async (onWait) => { if (live) update({}, { fullscreenOnWait: onWait }); return true; };
+  const setStayAwake = async (on) => { if (live) update({}, { stayAwake: on }); return true; };
   // The preview page renders with the same component the Host mounts; two actions
   // it cannot genuinely perform are no-ops, so the UI still renders.
-  const pageProps = { usePower, t, arm: start, cancel, setMode, setBackground, setColor, setFullscreenOnWait, openPreview: () => {}, refresh: async () => true };
+  const pageProps = { usePower, t, arm: start, cancel, setMode, setBackground, setColor, setFullscreenOnWait, setStayAwake, openPreview: () => {}, refresh: async () => true };
   const Page = registered.get('idle-power');
   const Countdown = registered.get('dsh-idle-power.countdown');
   const PreviewOverlay = registered.get('dsh-idle-power.preview');

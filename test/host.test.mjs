@@ -31,7 +31,11 @@ const jump = async (ms) => {
   await flush()
 }
 
-const state = { agents: [], jobs: [], spawned: [] }
+// `spawned` is the power command; the keep-awake helper is a process too, and
+// mixing them would make every "exactly one command ran" assertion unreadable.
+const state = { agents: [], jobs: [], spawned: [], awake: [], awakeStopped: 0 }
+
+const isAwakeHelper = (argv) => argv.some((part) => /SetThreadExecutionState|systemd-inhibit|caffeinate/.test(String(part)))
 
 let failures = 0
 function check(label, condition, detail) {
@@ -69,6 +73,14 @@ function makeContext(overrides = {}) {
   const subprocess = {
     resolveExecutable: async (command) => `C:\\fake\\${command}.exe`,
     spawn: (spec) => {
+      if (isAwakeHelper(spec.argv)) {
+        state.awake.push(spec.argv)
+        return {
+          collected: {},
+          done: new Promise(() => {}),
+          terminate: async () => { state.awakeStopped += 1 },
+        }
+      }
       state.spawned.push(spec.argv)
       return {
         collected: { stderr: { readFrom: () => ({ text: '' }) } },
@@ -174,6 +186,8 @@ async function scenario(name, config, body, overrides) {
   state.agents = []
   state.jobs = []
   state.spawned = []
+  state.awake = []
+  state.awakeStopped = 0
   const runtime = makeContext(overrides)
   const original = { now: Date.now, setInterval: globalThis.setInterval, clearInterval: globalThis.clearInterval }
   clock = { now: 0, next: 1000, tick: null }
@@ -201,6 +215,8 @@ async function scenarioOnPlatform(name, platform, config, body) {
   state.agents = []
   state.jobs = []
   state.spawned = []
+  state.awake = []
+  state.awakeStopped = 0
   const runtime = makeContext()
   const original = { now: Date.now, setInterval: globalThis.setInterval, clearInterval: globalThis.clearInterval }
   clock = { now: 0, next: 1000, tick: null }
@@ -381,6 +397,62 @@ await scenario('fullscreen on wait route', {}, async ({ routes }) => {
 
 await scenario('fullscreen on wait config default', { fullscreenOnWait: true }, async ({ routes }) => {
   check('the configured value is the initial state', (await readState(routes)).fullscreenOnWait === true)
+})
+
+// 1e. A pending reservation has to keep the machine awake: a sleeping Host cannot
+// fire its own countdown, and the lock screen is what an idle display leads to.
+await scenario('a reservation holds the machine awake', {}, async ({ routes }) => {
+  check('nothing is held before arming', state.awake.length === 0, String(state.awake.length))
+  check('stay-awake is on by default', (await readState(routes)).stayAwake === true)
+  await call(routes, '/idle-power/arm', { method: 'POST', body: '{}' })
+  await flush()
+  check('arming starts one helper', state.awake.length === 1, String(state.awake.length))
+  const argv = state.awake[0] ?? []
+  check('the helper asks Windows for system + display', argv.some((part) => String(part).includes('SetThreadExecutionState')), argv.join(' '))
+  check('it asks for continuous no-sleep state', argv.some((part) => String(part).includes('2147483651')), argv.join(' '))
+  check('it runs hidden and without a profile', argv.includes('-WindowStyle') && argv.includes('-NoProfile'), argv.join(' '))
+  check('no power command was started', state.spawned.length === 0)
+  await call(routes, '/idle-power/cancel', { method: 'POST', body: '{}' })
+  await flush()
+  check('cancelling releases the machine', state.awakeStopped === 1, String(state.awakeStopped))
+})
+
+await scenario('a countdown keeps the machine awake until it commits', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes }) => {
+  await call(routes, '/idle-power/arm', { method: 'POST', body: '{}' })
+  await flush()
+  check('the helper is running during the quiet window', state.awake.length === 1, String(state.awake.length))
+  await sleep(9000)
+  await flush()
+  check('the command ran', state.spawned.length === 1, String(state.spawned.length))
+  check('the helper is released once the command is committed', state.awakeStopped >= 1, String(state.awakeStopped))
+})
+
+await scenario('stay-awake can be turned off', { stayAwake: false }, async ({ routes }) => {
+  check('the config is reported', (await readState(routes)).stayAwake === false)
+  await call(routes, '/idle-power/arm', { method: 'POST', body: '{}' })
+  await flush()
+  check('no helper is started', state.awake.length === 0, String(state.awake.length))
+})
+
+await scenario('stay-awake route', {}, async ({ routes }) => {
+  await call(routes, '/idle-power/arm', { method: 'POST', body: '{}' })
+  await flush()
+  check('one helper while the reservation is pending', state.awake.length === 1, String(state.awake.length))
+  const off = await call(routes, '/idle-power/awake', { method: 'POST', body: '{"on":false}' })
+  check('POST /awake accepts false', off.statusCode === 200, off.statusCode)
+  check('the snapshot reports it', parse(off)?.stayAwake === false, String(parse(off)?.stayAwake))
+  await flush()
+  check('turning it off releases the helper immediately', state.awakeStopped === 1, String(state.awakeStopped))
+  const on = await call(routes, '/idle-power/awake', { method: 'POST', body: '{"on":true}' })
+  check('POST /awake accepts true', parse(on)?.stayAwake === true, String(parse(on)?.stayAwake))
+  await flush()
+  check('turning it back on takes it again', state.awake.length === 2, String(state.awake.length))
+  for (const bad of ['{"on":"yes"}', '{"on":1}', '{}', '', '"true"']) {
+    check(`rejects ${bad || 'an empty body'}`, (await call(routes, '/idle-power/awake', { method: 'POST', body: bad })).statusCode === 400)
+  }
+  check('rejects a non-JSON body', (await call(routes, '/idle-power/awake', { method: 'POST', body: '{}', headers: { 'content-type': 'text/plain' } })).statusCode === 415)
+  check('is 405 on GET', (await call(routes, '/idle-power/awake', { method: 'GET' })).statusCode === 405)
+  check('a bad body leaves the setting alone', (await readState(routes)).stayAwake === true)
 })
 
 await scenario('fullscreen on wait is refused while executing', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes, ctx }) => {

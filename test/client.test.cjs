@@ -601,6 +601,39 @@ console.log('\n=== page: whole-screen switch ===')
   check('turning it off reaches the Host', calls.length === 1 && calls[0] === false, JSON.stringify(calls))
 }
 
+console.log('\n=== page: stay-awake switch ===')
+{
+  // The page has two switches now; pick the one inside the stay-awake section so
+  // the assertions cannot silently drift onto the whole-screen switch.
+  const switchIn = (tree, titleKey) => {
+    const sections = []
+    walkElements(tree, (node) => {
+      if (node.tag === 'section' && textsOf(node).join('').includes(titleKey)) sections.push(node)
+    })
+    const section = sections[0]
+    if (section === undefined) return undefined
+    return findElement(section, (node) => node.tag === 'input' && node.props.type === 'checkbox')
+  }
+
+  const defaults = renderEntry(page, pageState(baseState))
+  check('stay-awake is on by default', switchIn(defaults.tree, 'section.awake')?.props.checked === true)
+  check('the whole-screen switch stays off by default', switchIn(defaults.tree, 'section.fullscreen')?.props.checked === false)
+
+  const calls = []
+  const armed = { stayAwake: true }
+  const on = renderEntry(page, pageState({ ...baseState, ...armed }), {
+    setStayAwake: async (value) => { calls.push(value); return true },
+  })
+  switchIn(on.tree, 'section.awake')?.props.onChange?.()
+  check('turning it off reaches the Host', calls.length === 1 && calls[0] === false, JSON.stringify(calls))
+
+  const alreadyOff = renderEntry(page, pageState({ ...baseState, stayAwake: false }), {
+    setStayAwake: async (value) => { calls.push(value); return true },
+  })
+  check('the switch reflects a disabled setting', switchIn(alreadyOff.tree, 'section.awake')?.props.checked === false)
+  check('explains what a suspended Host costs', textsOf(defaults.tree).join('|').includes('awake.onDesc'))
+}
+
 console.log('\n=== wait screen: the whole screen while waiting ===')
 {
   const waitEntry = byId('dsh-idle-power.wait')

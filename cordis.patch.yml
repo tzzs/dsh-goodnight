@@ -8,3 +8,4 @@
         backgroundStyle: solid
         countdownColor: null
         fullscreenOnWait: false
+        stayAwake: true

@@ -122,6 +122,7 @@ From top to bottom the page shows the current state (not scheduled / waiting · 
 - **State on the rail** — while a reservation is live the power glyph grows a small dot; during the countdown that dot turns red and blinks. The dot survives the rail collapsing to icons.
 - **Countdown background** — three preview tiles that draw the countdown window each preset produces (solid / frosted glass / gaussian blur), applied immediately and persisted on the Host.
 - **A solid surface can be recoloured** — with the solid preset selected, a colour row offers the theme, six presets (four dark, two light) and the system colour picker; the ink switches between black and white by luminance.
+- **A reservation keeps the machine awake** — an idle desktop turns the display off, then locks, then sleeps, and a **suspended Host never reaches the end of its countdown**: that is exactly why "the shutdown stopped working after the lock screen". While a reservation is pending the plugin holds `SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED)`, so it neither sleeps nor blanks the display (and therefore never auto-locks), and releases it the moment the reservation ends or the command is committed. The switch lives in the "Stay awake" section and is on by default.
 - **The waiting phase can take the screen too** — with "Whole screen → Full screen while waiting" on, arming goes straight to a fullscreen waiting screen: what is still running, the quiet-window progress, and Cancel. When the quiet window passes it hands the screen to the countdown without ever leaving fullscreen.
 
 ![The waiting screen](docs/wait.png)
@@ -147,6 +148,7 @@ Set these on the plugin row in your profile's `cordis.patch.yml`:
 | `backgroundStyle` | `'solid'` | Countdown background: `'solid'` / `'glass'` / `'blur'`; an unknown value falls back to `'solid'` |
 | `countdownColor` | `null` | Custom solid colour as `#rrggbb`; `null` follows the Host theme, and an invalid value falls back to `null` |
 | `fullscreenOnWait` | `false` | Whether a reservation takes the whole screen from the **waiting** phase; the "Whole screen → Full screen while waiting" switch writes it back to the Host |
+| `stayAwake` | `true` | Whether a pending reservation blocks sleep and the lock screen; the "Stay awake" switch writes it back |
 | `shutdownCommand` | `'shutdown'` | Power command; resolved via PATH when the plugin loads |
 
 A mode or background you pick in the UI is remembered by the Host (it survives a page reload) and resets to `defaultMode` / `backgroundStyle` when the Host restarts.
@@ -164,8 +166,9 @@ The browser half talks to the Host over six authenticated routes. Every one chec
 | `POST` | `/idle-power/background` | change the background only; body `{ "backgroundStyle": "solid" \| "glass" \| "blur" }` |
 | `POST` | `/idle-power/color` | change the solid colour only; body `{ "color": "#rrggbb" \| null }` |
 | `POST` | `/idle-power/fullscreen` | change the waiting fullscreen only; body `{ "onWait": true \| false }` |
+| `POST` | `/idle-power/awake` | change the stay-awake behaviour only; body `{ "on": true \| false }` |
 
-Once the power command is committed, `/arm`, `/cancel`, `/mode`, `/background`, `/color` and `/fullscreen` all answer `409 execution-in-progress`. A superseded arm, and any `/mode` sent while a reservation is live, answers `409 reservation-changed`; to change the action of an existing reservation, arm again so the quiet window restarts.
+Once the power command is committed, `/arm`, `/cancel`, `/mode`, `/background`, `/color`, `/fullscreen` and `/awake` all answer `409 execution-in-progress`. A superseded arm, and any `/mode` sent while a reservation is live, answers `409 reservation-changed`; to change the action of an existing reservation, arm again so the quiet window restarts.
 
 `/background` is a pure appearance preference and **deliberately does not touch the reservation state machine**: it never bumps the internal revision, so changing the background can never make an in-flight arm look superseded.
 
