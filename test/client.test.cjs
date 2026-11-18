@@ -675,6 +675,56 @@ console.log('\n=== wait screen: the whole screen while waiting ===')
   check('cancel reaches the Host from the waiting screen', cancelled === 1, String(cancelled))
 }
 
+console.log('\n=== wait screen: Escape closes the presentation, not the reservation ===')
+{
+  const waitEntry = byId('dsh-idle-power.wait')
+  const load = { available: true, agentsRunning: 1, inboxPending: 0, jobsRunning: 0, total: 1 }
+  const armed = {
+    ...baseState,
+    phase: 'armed',
+    quietSeconds: 20,
+    quietRemainingSeconds: 14,
+    fullscreenOnWait: true,
+    busy: load,
+  }
+
+  check('a dismissed presentation renders nothing', renderEntry(waitEntry, { data: armed, busy: load, waitDismissed: true }).root === null)
+
+  let dismissed = 0
+  let cancelled = 0
+  const { tree } = renderEntry(waitEntry, { data: armed, busy: load, waitDismissed: false }, {
+    dismiss: () => { dismissed += 1 },
+    cancel: async () => { cancelled += 1; return true },
+  })
+  check('the waiting screen is on screen before Escape', findElement(tree, (n) => n.props.className === 'ipa-scrim ipa-scrimWait') !== undefined)
+
+  fire('keydown', { key: 'Escape', preventDefault() {} })
+  check('Escape closes the whole presentation', dismissed === 1, String(dismissed))
+  check('Escape does not cancel the reservation', cancelled === 0, String(cancelled))
+
+  const cta = findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-cta'))
+  check('the cancel button no longer claims Escape', !textsOf(cta ?? { children: [] }).includes('Esc'))
+  check('the screen explains what Escape does', textsOf(tree).join('|').includes('wait.escHint'), textsOf(tree).join('|'))
+}
+
+console.log('\n=== countdown: the two-step Escape is explained ===')
+{
+  const counting = { data: { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null } }
+  let fullscreenElement = null
+  documentStub.documentElement = { requestFullscreen: () => Promise.resolve() }
+  Object.defineProperty(documentStub, 'fullscreenElement', { configurable: true, get: () => fullscreenElement })
+
+  const windowed = renderEntry(countdown, counting)
+  check('no Escape explanation while windowed', !textsOf(windowed.tree).join('|').includes('countdown.escFullscreen'))
+
+  fullscreenElement = { tagName: 'HTML' }
+  const full = renderEntry(countdown, counting)
+  check('fullscreen explains the two-step Escape', textsOf(full.tree).join('|').includes('countdown.escFullscreen'), textsOf(full.tree).join('|'))
+
+  delete documentStub.documentElement
+  delete documentStub.fullscreenElement
+}
+
 console.log('\n=== countdown: whole-screen fullscreen ===')
 {
   // The fake document has no fullscreen API, so this block lends it one and

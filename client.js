@@ -78,6 +78,7 @@ window.__ModuleLoader__.load({
       'wait.inbox': '排队消息',
       'wait.jobs': '后台任务',
       'wait.hint': '任何新任务都会让安静期归零重来。',
+      'wait.escHint': 'Esc 退出大屏展示；预约仍然有效，可以在页面上取消。',
       'section.notes': '说明',
       'mode.hibernate': '休眠',
       'mode.hibernateDesc': '内存快照落盘，等于断电；下次开机原样恢复窗口和未保存的内容。',
@@ -123,6 +124,7 @@ window.__ModuleLoader__.load({
       'countdown.suffix': '秒',
       'countdown.cancel': '取消',
       'countdown.hint': '有任何新任务开始，倒计时会自动作废。',
+      'countdown.escFullscreen': 'Esc 先退出全屏（倒计时继续），再按一次才会取消。',
       'countdown.quietDone': '已通过 %s 秒持续空闲',
       'countdown.scheduledAt': '预计 %s 执行（本机时间）',
       'countdown.window': '倒计时窗口 %s 秒',
@@ -215,6 +217,7 @@ window.__ModuleLoader__.load({
       'wait.inbox': 'Queued',
       'wait.jobs': 'Jobs',
       'wait.hint': 'Any new task restarts the quiet window.',
+      'wait.escHint': 'Esc closes the big screen; the reservation stays and can be cancelled on the page.',
       'section.notes': 'Notes',
       'mode.hibernate': 'Hibernate',
       'mode.hibernateDesc': 'Writes a memory snapshot to disk, so the next boot restores every open window and unsaved edit.',
@@ -260,6 +263,7 @@ window.__ModuleLoader__.load({
       'countdown.suffix': 's',
       'countdown.cancel': 'Cancel',
       'countdown.hint': 'Any new task voids this countdown automatically.',
+      'countdown.escFullscreen': 'Esc leaves fullscreen first (the countdown keeps running); a second press cancels.',
       'countdown.quietDone': '%s s of continuous idle passed',
       'countdown.scheduledAt': 'Scheduled for %s (local time)',
       'countdown.window': '%s s cancellation window',
@@ -607,6 +611,8 @@ background-color:rgba(9,11,16,.42);
 .ipa-notes{display:flex;flex-direction:column;gap:5px;max-width:min(86ch,72vw)}
 .ipa-notes .ipa-hint{font-size:clamp(11px,1.35vmin,15px);color:var(--dsw-alias-label-tertiary);line-height:1.6;margin:0;overflow-wrap:anywhere}
 .ipa-notes .ipa-hintWarn{color:var(--dsw-alias-label-secondary)}
+/* A hint that sits with the controls rather than in the footer notes. */
+.ipa-stageText .ipa-hintInline{font-size:clamp(11px,1.35vmin,15px);color:var(--dsw-alias-label-tertiary);line-height:1.6;margin:0;max-width:min(56ch,80vw)}
 .ipa-scopeTag{font-size:clamp(10px,1.15vmin,13px);color:var(--dsw-alias-label-tertiary);text-align:right;white-space:nowrap}
 .ipa-feedback{color:var(--dsw-alias-state-error-primary);font-size:clamp(12px,1.5vmin,17px);line-height:1.5;max-width:520px;overflow-wrap:anywhere}
 .ipa-mirrorNote{font-size:clamp(10px,1.15vmin,13px);color:var(--dsw-alias-label-tertiary);line-height:1.5;max-width:44ch}
@@ -773,7 +779,7 @@ background-color:rgba(9,11,16,.42);
      * @returns store handle and the actions every surface shares.
      */
     function createRuntime(ctx) {
-      const store = createStore({ data: EMPTY_STATE, ready: false, offline: false, busy: false, note: null, noteCode: null, notePhase: null, preview: false });
+      const store = createStore({ data: EMPTY_STATE, ready: false, offline: false, busy: false, note: null, noteCode: null, notePhase: null, preview: false, waitDismissed: false });
       const patch = (fields) => store.set((current) => ({ ...current, ...fields }));
 
       let revision = 0;
@@ -799,7 +805,15 @@ background-color:rgba(9,11,16,.42);
           patch({ ready: true, offline: false });
           return;
         }
-        patch({ data: result.value, ready: true, offline: false });
+        const previous = store.getSnapshot();
+        patch({
+          data: result.value,
+          ready: true,
+          offline: false,
+          // A new waiting phase earns the screen back: a dismissal only applies
+          // to the phase the reader dismissed.
+          waitDismissed: previous.data?.phase === result.value.phase ? previous.waitDismissed : false,
+        });
       };
 
       /**
@@ -850,6 +864,9 @@ background-color:rgba(9,11,16,.42);
         setColor,
         setFullscreenOnWait,
         setStayAwake,
+        // Escape closes the waiting presentation without touching the
+        // reservation; the countdown itself is never dismissible.
+        dismissWait: () => patch({ waitDismissed: true }),
         // Previewing the countdown is a client-only state: nothing is armed and
         // no route is touched.
         openPreview: () => patch({ preview: true }),
@@ -1844,7 +1861,7 @@ background-color:rgba(9,11,16,.42);
      * quiet window has come, and the one way out — no digits counting down,
      * because nothing is about to happen yet.
      */
-    function PowerWaitScreen({ usePower, cancel, t }) {
+    function PowerWaitScreen({ usePower, cancel, dismiss, t }) {
       const { data, busy, offline, note, noteCode } = usePower((current) => current);
       const screen = useWholeScreen();
       // `busy` from the snapshot is the in-flight flag; the task counts live in
@@ -1876,15 +1893,16 @@ background-color:rgba(9,11,16,.42);
         if (host === null || typeof host.addEventListener !== 'function') return undefined;
         const onKey = (event) => {
           if (event.key !== 'Escape') return;
-          // Same rule as the countdown: in fullscreen this key means "give me my
-          // desktop back", not "cancel the reservation".
-          if (typeof document !== 'undefined' && document.fullscreenElement) return;
+          // Escape leaves the big screen entirely: the OS fullscreen and this
+          // overlay go away together, and the reservation stays armed. Leaving
+          // the window fullscreen but keeping the overlay was a half-state —
+          // neither the app nor the fullscreen presentation.
           event.preventDefault?.();
-          void stop();
+          dismiss?.();
         };
         host.addEventListener('keydown', onKey);
         return () => host.removeEventListener('keydown', onKey);
-      }, [stopping]);
+      }, [stopping, dismiss]);
 
       return h('div', {
         className: 'ipa-scrim ipa-scrimWait',
@@ -1949,8 +1967,8 @@ background-color:rgba(9,11,16,.42);
                 onClick: () => { void stop(); },
               },
                 t(stopping ? 'wait.cancelling' : 'wait.cancel'),
-                h('kbd', { className: 'ipa-kbd' }, 'Esc'),
               ),
+              h('p', { className: 'ipa-hint ipa-hintInline' }, t('wait.escHint')),
             ),
           ),
           h('div', { className: 'ipa-bottom' },
@@ -2243,6 +2261,7 @@ background-color:rgba(9,11,16,.42);
           h('div', { className: 'ipa-bottom' },
             h('div', { className: 'ipa-notes' },
               h('p', { className: 'ipa-hint' }, preview ? t('preview.hint') : t('countdown.hint')),
+              screen.fullscreen && !preview && h('p', { className: 'ipa-hint' }, t('countdown.escFullscreen')),
               h('p', { className: 'ipa-hint' }, preview ? t('preview.scope') : t('note.scope')),
               extended && h('p', { className: 'ipa-hint' }, t('countdown.multiNote')),
               data.mode === 'shutdown' && h('p', { className: 'ipa-hint ipa-hintWarn' }, t('note.shutdown')),
@@ -2337,11 +2356,13 @@ background-color:rgba(9,11,16,.42);
           inject: () => ({
             hooks: { power: runtime.store },
             cancel: runtime.cancel,
+            dismiss: runtime.dismissWait,
           }),
-        }, function WaitWhenArmed({ usePower, cancel, t }) {
+        }, function WaitWhenArmed({ usePower, cancel, dismiss, t }) {
           const snapshot = usePower((current) => current);
           if (snapshot.data.fullscreenOnWait !== true || snapshot.data.phase !== 'armed') return null;
-          return h(PowerWaitScreen, { usePower, cancel, t });
+          if (snapshot.waitDismissed === true) return null;
+          return h(PowerWaitScreen, { usePower, cancel, dismiss, t });
         }));
 
         // The preview shares the countdown component but never touches the Host.

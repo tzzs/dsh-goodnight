@@ -123,7 +123,7 @@ From top to bottom the page shows the current state (not scheduled / waiting · 
 - **Countdown background** — three preview tiles that draw the countdown window each preset produces (solid / frosted glass / gaussian blur), applied immediately and persisted on the Host.
 - **A solid surface can be recoloured** — with the solid preset selected, a colour row offers the theme, six presets (four dark, two light) and the system colour picker; the ink switches between black and white by luminance.
 - **A reservation keeps the machine awake** — an idle desktop turns the display off, then locks, then sleeps, and a **suspended Host never reaches the end of its countdown**: that is exactly why "the shutdown stopped working after the lock screen". While a reservation is pending the plugin holds `SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED)`, so it neither sleeps nor blanks the display (and therefore never auto-locks), and releases it the moment the reservation ends or the command is committed. The switch lives in the "Stay awake" section and is on by default.
-- **The waiting phase can take the screen too** — with "Whole screen → Full screen while waiting" on, arming goes straight to a fullscreen waiting screen: what is still running, the quiet-window progress, and Cancel. When the quiet window passes it hands the screen to the countdown without ever leaving fullscreen.
+- **The waiting phase can take the screen too** — with "Whole screen → Full screen while waiting" on, arming goes straight to a fullscreen waiting screen: what is still running, the quiet-window progress, and Cancel. When the quiet window passes it hands the screen to the countdown without ever leaving fullscreen. `Esc` takes the whole presentation away (fullscreen included) and keeps the reservation; the countdown screen cannot be dismissed.
 
 ![The waiting screen](docs/wait.png)
 - **Countdown preview** — the Preview button in that section runs the real countdown component for ten seconds with the current colour, background and mode. Nothing is armed, no route is called, and it closes itself at zero.
@@ -134,7 +134,7 @@ From top to bottom the page shows the current state (not scheduled / waiting · 
 - **Connection state** — "Loading status…" before the first answer, "Cannot reach the plugin Host" with controls disabled when the connection drops, "Submitting…" while a request is in flight so a button cannot be pressed twice.
 - **Failure state** — if cancelling the countdown fails, the dialog stays and says cancellation is unconfirmed instead of pretending it worked.
 
-Keyboard: `Esc` cancels the countdown (and leaves fullscreen first when fullscreen is on); modes, backgrounds and colours are native radio groups (a radio inside a `<label>` card), so the arrow keys move and select; `Tab` cycles through every button inside the dialog instead of escaping it.
+Keyboard: on the **waiting screen** `Esc` closes the whole presentation (fullscreen and overlay together) and keeps the reservation; the **countdown screen** cannot be dismissed — `Esc` leaves fullscreen first (the countdown keeps running) and a second press cancels; windowed, `Esc` cancels directly; modes, backgrounds and colours are native radio groups (a radio inside a `<label>` card), so the arrow keys move and select; `Tab` cycles through every button inside the dialog instead of escaping it.
 
 ## Configuration
 
