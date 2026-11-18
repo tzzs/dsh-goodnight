@@ -12,6 +12,7 @@ window.__ModuleLoader__.load({
     const ROUTE_MODE = 'idle-power/mode';
     const ROUTE_BACKGROUND = 'idle-power/background';
     const ROUTE_COLOR = 'idle-power/color';
+    const ROUTE_FULLSCREEN = 'idle-power/fullscreen';
 
     // ---------------------------------------------------------------- locale
     const zh = {
@@ -54,6 +55,23 @@ window.__ModuleLoader__.load({
       'section.flowHint': '三步依次发生；倒计时期间出现新任务会自动作废。',
       'section.background': '倒计时背景',
       'section.backgroundHint': '只影响倒计时窗口的外观。',
+      'section.fullscreen': '整屏展示',
+      'section.fullscreenHint': '预约后要不要直接占满整块屏幕。',
+      'fullscreen.onWait': '等待时也整屏',
+      'fullscreen.onWaitDesc': '从预约开始到倒计时结束都用整屏：等待中显示任务与安静期进度，倒计时时显示秒数。',
+      'wait.title': '等待任务结束',
+      'wait.subtitle': '安静期内没有再出现任务，才会开始倒计时',
+      'wait.meta': '安静期 %s 秒',
+      'wait.headline': '还没有进入倒计时',
+      'wait.quiet': '已连续空闲 %s / %s 秒',
+      'wait.quietProgress': '安静期进度',
+      'wait.orb': '等待中',
+      'wait.cancel': '取消预约',
+      'wait.cancelling': '正在取消…',
+      'wait.agents': '智能体',
+      'wait.inbox': '排队消息',
+      'wait.jobs': '后台任务',
+      'wait.hint': '任何新任务都会让安静期归零重来。',
       'section.notes': '说明',
       'mode.hibernate': '休眠',
       'mode.hibernateDesc': '内存快照落盘，等于断电；下次开机原样恢复窗口和未保存的内容。',
@@ -62,7 +80,7 @@ window.__ModuleLoader__.load({
       'flow.idle': '持续空闲 %s 秒',
       'flow.idleDesc': '智能体、排队消息和后台任务都停下之后，再连续空闲这么久。',
       'flow.countdown': '可取消倒计时 %s 秒',
-      'flow.countdownDesc': '占满整个窗口的倒计时，按 Esc 或点取消都能停下。',
+      'flow.countdownDesc': '占满整块屏幕的倒计时，按 Esc 或点取消都能停下。',
       'flow.act': '执行电源操作',
       'flow.actDesc': '倒计时归零后执行休眠或关机，开始执行后无法再取消。',
       'metric.agents': '运行中的智能体',
@@ -169,6 +187,23 @@ window.__ModuleLoader__.load({
       'section.flowHint': 'Three steps in order; a new task during the countdown voids the whole reservation.',
       'section.background': 'Countdown background',
       'section.backgroundHint': 'Only changes how the countdown window looks.',
+      'section.fullscreen': 'Whole screen',
+      'section.fullscreenHint': 'Whether a reservation should take the entire display.',
+      'fullscreen.onWait': 'Full screen while waiting',
+      'fullscreen.onWaitDesc': 'Keep the whole screen from arming until the countdown ends: tasks and quiet-window progress while waiting, seconds while counting.',
+      'wait.title': 'Waiting for tasks to finish',
+      'wait.subtitle': 'The countdown only starts once the quiet window passes',
+      'wait.meta': 'Quiet window %s s',
+      'wait.headline': 'The countdown has not started',
+      'wait.quiet': '%s / %s s of continuous idle',
+      'wait.quietProgress': 'Quiet window progress',
+      'wait.orb': 'Waiting',
+      'wait.cancel': 'Cancel reservation',
+      'wait.cancelling': 'Cancelling…',
+      'wait.agents': 'Agents',
+      'wait.inbox': 'Queued',
+      'wait.jobs': 'Jobs',
+      'wait.hint': 'Any new task restarts the quiet window.',
       'section.notes': 'Notes',
       'mode.hibernate': 'Hibernate',
       'mode.hibernateDesc': 'Writes a memory snapshot to disk, so the next boot restores every open window and unsaved edit.',
@@ -177,7 +212,7 @@ window.__ModuleLoader__.load({
       'flow.idle': '%s s of continuous idle',
       'flow.idleDesc': 'Agents, queued messages and background jobs must all stop, then stay stopped for this long.',
       'flow.countdown': '%s s cancellable countdown',
-      'flow.countdownDesc': 'A countdown that fills the whole window; Esc or Cancel stops it.',
+      'flow.countdownDesc': 'A countdown that fills the whole screen; Esc or Cancel stops it.',
       'flow.act': 'Run the power action',
       'flow.actDesc': 'At zero it hibernates or shuts down. Once it starts it cannot be cancelled.',
       'metric.agents': 'Running agents',
@@ -431,6 +466,21 @@ box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-directi
 .ipa-colorInput::-webkit-color-swatch-wrapper{padding:0}
 .ipa-colorInput::-webkit-color-swatch{border:0;border-radius:999px}
 .ipa-colorsHint{margin:0;color:var(--ipa-fg-subtle);font-size:.71875rem;line-height:1.5}
+/* A switch rather than a checkbox: the state has to read at a glance, and the
+   native input stays in the tree for keyboard and screen-reader users. */
+.ipa-toggle{position:relative;display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:var(--ipa-radius-sm);border:1px solid var(--ipa-border);background:var(--ipa-card);cursor:pointer;transition:border-color var(--ipa-fast) var(--ipa-ease),background-color var(--ipa-fast) var(--ipa-ease)}
+@media (hover:hover){.ipa-toggle:hover:not(:has(> :disabled)){border-color:var(--ipa-border-strong)}}
+.ipa-toggle:has(> :checked){border-color:var(--ipa-accent);background:color-mix(in srgb,var(--ipa-accent) 7%,var(--ipa-card))}
+.ipa-toggle:has(> :disabled){opacity:.5;cursor:default}
+.ipa-toggle:has(> :focus-visible){outline:2px solid var(--ipa-ring);outline-offset:2px}
+.ipa-toggleTrack{position:relative;flex:none;inline-size:38px;block-size:22px;margin-top:1px;border-radius:999px;background:color-mix(in srgb,var(--ipa-fg) 20%,transparent);transition:background-color var(--ipa-fast) var(--ipa-ease)}
+.ipa-toggleThumb{position:absolute;top:3px;left:3px;inline-size:16px;block-size:16px;border-radius:50%;background:var(--ipa-surface);box-shadow:0 1px 2px rgba(0,0,0,.28);transition:transform var(--ipa-fast) var(--ipa-ease)}
+.ipa-toggle:has(> :checked) .ipa-toggleTrack{background:var(--ipa-accent)}
+.ipa-toggle:has(> :checked) .ipa-toggleThumb{transform:translateX(16px)}
+.ipa-toggleCopy{display:flex;flex-direction:column;gap:3px}
+.ipa-toggleLabel{color:var(--ipa-fg);font-size:.8125rem;font-weight:600}
+.ipa-toggleDesc{color:var(--ipa-fg-subtle);font-size:.75rem;line-height:1.55}
+@media (prefers-reduced-motion:reduce){.ipa-toggleTrack,.ipa-toggleThumb{transition:none}}
 /* ---- flow and notes ----------------------------------------------------- */
 .ipa-flowList{display:flex;flex-direction:column;margin:0;padding:0;list-style:none;border:1px solid var(--ipa-border);border-radius:var(--ipa-radius);overflow:hidden;background:var(--ipa-card)}
 .ipa-flowStep{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 14px;padding:14px 16px;border-bottom:1px solid var(--ipa-divider)}
@@ -510,6 +560,17 @@ background-color:rgba(9,11,16,.42);
 /* Wrapping hero: a short/wide window puts the dial beside the copy, a narrow
    one stacks them. Either way Cancel stays above the fold. */
 .ipa-stage{display:flex;align-items:center;justify-content:center;gap:clamp(18px,4vmin,80px);flex-wrap:wrap;min-height:0;padding:clamp(8px,1.5vmin,24px) 0}
+/* The waiting screen reuses the countdown's skeleton but stays calm: brand
+   colour, an orb instead of a counting ring, and no urgency accent. */
+.ipa-waitOrb{position:relative;display:grid;place-items:center;flex:none;width:clamp(150px,34vmin,320px);height:clamp(150px,34vmin,320px);border-radius:50%;background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--dsw-alias-brand-primary) 15%,transparent),transparent 70%)}
+.ipa-waitOrbRing{position:absolute;inset:0;border-radius:50%;border:2px dashed color-mix(in srgb,var(--dsw-alias-brand-primary) 52%,transparent);animation:ipa-orbit 22s linear infinite}
+.ipa-waitOrbText{color:var(--dsw-alias-label-primary);font-size:clamp(15px,2.1vmin,24px);font-weight:600;letter-spacing:.04em}
+.ipa-waitStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(8px,1.4vmin,16px);margin:0;width:100%}
+.ipa-waitStat{display:flex;flex-direction:column;gap:2px;padding:clamp(6px,1vmin,10px) clamp(8px,1.4vmin,14px);border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2)}
+.ipa-waitStatLabel{color:var(--dsw-alias-label-tertiary);font-size:clamp(10px,1.2vmin,13px);line-height:1.4}
+.ipa-waitStatValue{color:var(--dsw-alias-label-primary);font-size:clamp(16px,2.4vmin,26px);font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+@keyframes ipa-orbit{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.ipa-waitOrbRing{animation:none}}
 .ipa-dialWrap{flex:0 0 auto;display:grid;place-items:center;animation:ipa-dial-in 380ms var(--ipa-ease)}
 @keyframes ipa-dial-in{from{opacity:.6;transform:scale(.96)}to{opacity:1;transform:none}}
 .ipa-dial{position:relative;display:grid;place-items:center;width:clamp(190px,52vmin,640px);height:clamp(190px,52vmin,640px)}
@@ -680,6 +741,7 @@ background-color:rgba(9,11,16,.42);
       mode: 'shutdown',
       backgroundStyle: 'solid',
       countdownColor: null,
+      fullscreenOnWait: false,
       countdownSeconds: 60,
       quietSeconds: 20,
       remainingSeconds: 0,
@@ -761,6 +823,8 @@ background-color:rgba(9,11,16,.42);
       const setBackground = (backgroundStyle) => post(ROUTE_BACKGROUND, { backgroundStyle });
       // `null` hands the solid surface back to the Host theme.
       const setColor = (color) => post(ROUTE_COLOR, { color });
+      // Whether the waiting phase takes the whole screen too.
+      const setFullscreenOnWait = (onWait) => post(ROUTE_FULLSCREEN, { onWait });
 
       return {
         store,
@@ -770,6 +834,7 @@ background-color:rgba(9,11,16,.42);
         setMode,
         setBackground,
         setColor,
+        setFullscreenOnWait,
         // Previewing the countdown is a client-only state: nothing is armed and
         // no route is touched.
         openPreview: () => patch({ preview: true }),
@@ -1156,7 +1221,7 @@ background-color:rgba(9,11,16,.42);
      * how to stop it — and a full page is where the shipped Plugins and
      * Automation-tasks panels already live.
      */
-    function PowerPage({ usePower, arm, cancel, setMode, setBackground, setColor, openPreview, refresh, t }) {
+    function PowerPage({ usePower, arm, cancel, setMode, setBackground, setColor, setFullscreenOnWait, openPreview, refresh, t }) {
       const { data, ready, offline, busy, note, noteCode } = usePower((current) => current);
       const counting = data.phase === 'counting';
       const armed = data.phase === 'armed' || counting;
@@ -1525,6 +1590,22 @@ background-color:rgba(9,11,16,.42);
                 ),
               ),
             ),
+            h(Section, { title: t('section.fullscreen'), hint: t('section.fullscreenHint') },
+              h('label', { className: 'ipa-toggle' },
+                h('input', {
+                  type: 'checkbox',
+                  className: 'ipa-choiceInput',
+                  checked: data.fullscreenOnWait === true,
+                  disabled: bgDisabled,
+                  onChange: () => { void setFullscreenOnWait(!(data.fullscreenOnWait === true)); },
+                }),
+                h('span', { className: 'ipa-toggleTrack', 'aria-hidden': true }, h('span', { className: 'ipa-toggleThumb' })),
+                h('span', { className: 'ipa-toggleCopy' },
+                  h('span', { className: 'ipa-toggleLabel' }, t('fullscreen.onWait')),
+                  h('span', { className: 'ipa-toggleDesc' }, t('fullscreen.onWaitDesc')),
+                ),
+              ),
+            ),
             h(Section, { title: t('section.flow'), hint: t('section.flowHint') },
               h('ol', { className: 'ipa-flowList' },
                 ...flowSteps.map(([titleKey, descKey, title], index) => h('li', { className: 'ipa-flowStep', key: titleKey },
@@ -1604,6 +1685,255 @@ background-color:rgba(9,11,16,.42);
     }
 
     /**
+     * Fullscreen has one owner at a time but two possible users: the waiting
+     * screen and the countdown. When a reservation crosses from waiting into
+     * counting both change in the same commit, and a plain exit-then-enter
+     * would drop the screen back to a window at the worst possible moment. So
+     * the holder is refcounted and releases are delayed briefly, which lets the
+     * next screen take over without ever leaving fullscreen.
+     */
+    function createScreenKeeper() {
+      const owners = new Set();
+      const listeners = new Set();
+      let watching = false;
+      let entered = false;
+      let exitTimer = null;
+
+      const doc = () => (typeof document === 'undefined' || document === null ? null : document);
+      const root = () => {
+        const element = doc()?.documentElement;
+        return element !== null && element !== undefined && typeof element.requestFullscreen === 'function' ? element : null;
+      };
+      const isFullscreen = () => {
+        const element = doc()?.fullscreenElement;
+        return element !== null && element !== undefined;
+      };
+      const notify = () => {
+        if (!isFullscreen()) entered = false;
+        for (const listener of listeners) listener();
+      };
+      const watch = () => {
+        const host = doc();
+        if (watching || host === null || typeof host.addEventListener !== 'function') return;
+        watching = true;
+        host.addEventListener('fullscreenchange', notify);
+      };
+
+      const enter = () => {
+        const element = root();
+        if (element === null || isFullscreen()) return;
+        watch();
+        try {
+          const attempt = element.requestFullscreen({ navigationUI: 'hide' });
+          if (attempt !== undefined && typeof attempt.then === 'function') {
+            attempt.then(() => {
+              entered = true;
+              for (const listener of listeners) listener();
+            }).catch(() => { entered = false; });
+          }
+        } catch {
+          entered = false;
+        }
+      };
+
+      const leave = () => {
+        const host = doc();
+        if (!entered || !isFullscreen() || host === null || typeof host.exitFullscreen !== 'function') return;
+        entered = false;
+        try {
+          const attempt = host.exitFullscreen();
+          if (attempt !== undefined && typeof attempt.catch === 'function') attempt.catch(() => {});
+        } catch { /* the window is already gone */ }
+      };
+
+      return {
+        supported: () => root() !== null,
+        isFullscreen,
+        subscribe(listener) {
+          watch();
+          listeners.add(listener);
+          return () => { listeners.delete(listener); };
+        },
+        /** Called from a click, so the engine sees a user gesture. */
+        request() {
+          watch();
+          enter();
+        },
+        hold(owner) {
+          watch();
+          owners.add(owner);
+          if (exitTimer !== null) { clearTimeout(exitTimer); exitTimer = null; }
+          enter();
+        },
+        release(owner) {
+          owners.delete(owner);
+          if (owners.size > 0) return;
+          if (exitTimer !== null) clearTimeout(exitTimer);
+          // The gap is only long enough to cover a phase hand-off; the screen
+          // still comes back promptly once nobody wants it.
+          exitTimer = setTimeout(() => {
+            exitTimer = null;
+            if (owners.size === 0) leave();
+          }, 400);
+        },
+      };
+    }
+
+    let screenKeeperInstance = null;
+    function screenKeeper() {
+      if (screenKeeperInstance === null) screenKeeperInstance = createScreenKeeper();
+      return screenKeeperInstance;
+    }
+
+    /** Hold the screen for as long as one overlay is mounted. */
+    function useWholeScreen() {
+      const keeper = screenKeeper();
+      const owner = useRef(null);
+      if (owner.current === null) owner.current = {};
+      const [fullscreen, setFullscreen] = useState(() => keeper.isFullscreen());
+      useEffect(() => {
+        const unsubscribe = keeper.subscribe(() => setFullscreen(keeper.isFullscreen()));
+        keeper.hold(owner.current);
+        return () => {
+          unsubscribe();
+          keeper.release(owner.current);
+        };
+      }, []);
+      return {
+        supported: keeper.supported(),
+        fullscreen,
+        request: () => keeper.request(),
+      };
+    }
+
+    /**
+     * The waiting phase, on the whole screen when the Host asks for it.
+     * Deliberately calmer than the countdown: what is still running, how far the
+     * quiet window has come, and the one way out — no digits counting down,
+     * because nothing is about to happen yet.
+     */
+    function PowerWaitScreen({ usePower, cancel, t }) {
+      const { data, busy, offline, note, noteCode } = usePower((current) => current);
+      const screen = useWholeScreen();
+      // `busy` from the snapshot is the in-flight flag; the task counts live in
+      // data.busy, which is where the Host puts them.
+      const [submitting, setSubmitting] = useState(false);
+      const quietTotal = data.quietSeconds > 0 ? data.quietSeconds : 20;
+      const quietLeft = Math.max(0, Math.min(quietTotal, data.quietRemainingSeconds ?? quietTotal));
+      const done = Math.min(1, Math.max(0, 1 - quietLeft / quietTotal));
+      const load = data.busy ?? { available: false, agentsRunning: 0, inboxPending: 0, jobsRunning: 0, total: 0 };
+      // The waiting screen shares the countdown's surface tokens, so a pinned
+      // colour and its ink carry over instead of flashing the theme colour.
+      const surface = normalizeBackground(data.backgroundStyle);
+      const customColor = surface === 'solid' ? normalizeColor(data.countdownColor) : null;
+      const ink = customColor === null ? null : isDarkColor(customColor) ? 'light' : 'dark';
+
+      const stopping = submitting || busy === true;
+      const stop = async () => {
+        if (stopping) return;
+        setSubmitting(true);
+        try {
+          await cancel();
+        } finally {
+          setSubmitting(false);
+        }
+      };
+
+      useEffect(() => {
+        const host = typeof window === 'undefined' ? null : window;
+        if (host === null || typeof host.addEventListener !== 'function') return undefined;
+        const onKey = (event) => {
+          if (event.key !== 'Escape') return;
+          // Same rule as the countdown: in fullscreen this key means "give me my
+          // desktop back", not "cancel the reservation".
+          if (typeof document !== 'undefined' && document.fullscreenElement) return;
+          event.preventDefault?.();
+          void stop();
+        };
+        host.addEventListener('keydown', onKey);
+        return () => host.removeEventListener('keydown', onKey);
+      }, [stopping]);
+
+      return h('div', {
+        className: 'ipa-scrim ipa-scrimWait',
+        'data-background': surface,
+        'data-ink': ink === null ? undefined : ink,
+        'data-phase': data.phase,
+        'data-preview': undefined,
+        style: customColor === null ? undefined : { '--dsw-alias-bg-overlay': customColor },
+        role: 'dialog',
+        'aria-modal': true,
+        'aria-label': t('wait.title'),
+      },
+        h('div', {
+          className: 'ipa-rail',
+          role: 'progressbar',
+          'aria-valuemin': 0,
+          'aria-valuemax': quietTotal,
+          'aria-valuenow': Math.round(done * quietTotal),
+          'aria-valuetext': fill(t('wait.quiet'), quietLeft, quietTotal),
+          'aria-label': t('wait.quietProgress'),
+        },
+          h('span', { className: 'ipa-railFill', style: { transform: `scaleX(${done})` } }),
+        ),
+        h('div', { className: 'ipa-card' },
+          h('div', { className: 'ipa-top' },
+            h('div', { className: 'ipa-statusLine' },
+              h('span', { className: 'ipa-stateDot', 'aria-hidden': true }),
+              h('div', { className: 'ipa-eyebrow' },
+                t('wait.title'),
+                h('span', { className: 'ipa-eyebrowSub' }, t('wait.subtitle')),
+              ),
+            ),
+            h('div', { className: 'ipa-topRight' },
+              screen.supported && !screen.fullscreen && h('button', {
+                type: 'button',
+                className: 'ipa-mirrors',
+                title: t('countdown.fullscreenHint'),
+                onClick: () => screen.request(),
+              }, t('countdown.fullscreen')),
+              h('div', { className: 'ipa-meta' }, fmt(t('wait.meta'), String(quietTotal))),
+            ),
+          ),
+          h('div', { className: 'ipa-stage' },
+            h('div', { className: 'ipa-waitOrb', 'aria-hidden': true },
+              h('span', { className: 'ipa-waitOrbRing' }),
+              h('span', { className: 'ipa-waitOrbText' }, t('wait.orb')),
+            ),
+            h('div', { className: 'ipa-stageText' },
+              h('div', { className: 'ipa-mode' }, t('wait.headline')),
+              h('div', { className: 'ipa-metaLine' }, fill(t('wait.quiet'), quietLeft, quietTotal)),
+              h('dl', { className: 'ipa-waitStats' },
+                ...[['wait.agents', load.agentsRunning], ['wait.inbox', load.inboxPending], ['wait.jobs', load.jobsRunning]].map(([key, value]) => h('div', { className: 'ipa-waitStat', key },
+                  h('dt', { className: 'ipa-waitStatLabel' }, t(key)),
+                  h('dd', { className: 'ipa-waitStatValue' }, String(value ?? 0)),
+                )),
+              ),
+              (offline || note) && h('div', { className: 'ipa-feedback', role: 'alert' }, offline ? t('countdown.offline') : `${t('status.failed')}: ${describeFailure(noteCode, note, t)}`),
+              h('button', {
+                type: 'button',
+                className: 'ipa-cta',
+                'aria-disabled': stopping || undefined,
+                onClick: () => { void stop(); },
+              },
+                t(stopping ? 'wait.cancelling' : 'wait.cancel'),
+                h('kbd', { className: 'ipa-kbd' }, 'Esc'),
+              ),
+            ),
+          ),
+          h('div', { className: 'ipa-bottom' },
+            h('div', { className: 'ipa-notes' },
+              h('p', { className: 'ipa-hint' }, t('wait.hint')),
+              h('p', { className: 'ipa-hint' }, t('note.scope')),
+              data.mode === 'shutdown' && h('p', { className: 'ipa-hint ipa-hintWarn' }, t('note.shutdown')),
+            ),
+            h('div', { className: 'ipa-scopeTag' }, t(screen.fullscreen ? 'countdown.scopeTagFull' : 'countdown.scopeTag')),
+          ),
+        ),
+      );
+    }
+
+    /**
      * Full-window countdown; the only cancel affordance before an irreversible
      * action. The entire viewport is the warning: a rail drains at the top edge,
      * the hero scales with vmin, and context sits at the corners instead of being
@@ -1618,13 +1948,9 @@ background-color:rgba(9,11,16,.42);
       // stale as soon as the countdown grew a third button.
       const dialogRef = useRef(null);
       const mirrorsRef = useRef([]);
-      // Whether this countdown is the thing that put the window into fullscreen:
-      // closing it must give the screen back, but an unrelated fullscreen must
-      // not be cancelled on the user's behalf.
-      const fullscreenWanted = useRef(false);
-      const [fullscreen, setFullscreen] = useState(
-        () => typeof document !== 'undefined' && Boolean(document.fullscreenElement),
-      );
+      // The keeper holds the screen while this overlay is mounted and hands it
+      // over to the waiting screen (or back to the desktop) when it leaves.
+      const screen = useWholeScreen();
       const [now, setNow] = useState(() => Date.now());
       const [align, setAlign] = useState('center');
       const [mirrorStatus, setMirrorStatus] = useState({ kind: 'idle', count: 0 });
@@ -1658,45 +1984,6 @@ background-color:rgba(9,11,16,.42);
         const previous = document.activeElement;
         cancelRef.current?.focus?.();
         return () => { if (previous?.isConnected) previous.focus?.(); };
-      }, []);
-
-      // The overlay can only paint inside the Harness window. Asking the engine
-      // for fullscreen is the one way a client plugin can take the whole display;
-      // Chromium refuses a request made without a gesture, so the mount attempt
-      // is best-effort and the corner button repeats the same call from a click.
-      const hasFullscreenApi = typeof document !== 'undefined'
-        && typeof document.documentElement === 'object'
-        && document.documentElement !== null
-        && typeof document.documentElement.requestFullscreen === 'function';
-
-      const requestFullscreen = () => {
-        if (!hasFullscreenApi || document.fullscreenElement) return;
-        fullscreenWanted.current = true;
-        try {
-          const attempt = document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-          if (attempt !== undefined && typeof attempt.catch === 'function') {
-            attempt.catch(() => { fullscreenWanted.current = false; });
-          }
-        } catch {
-          fullscreenWanted.current = false;
-        }
-      };
-
-      useEffect(() => {
-        if (!hasFullscreenApi) return undefined;
-        const sync = () => setFullscreen(document.fullscreenElement !== null);
-        document.addEventListener('fullscreenchange', sync);
-        requestFullscreen();
-        return () => {
-          document.removeEventListener('fullscreenchange', sync);
-          if (fullscreenWanted.current && document.fullscreenElement !== null && typeof document.exitFullscreen === 'function') {
-            try {
-              const attempt = document.exitFullscreen();
-              if (attempt !== undefined && typeof attempt.catch === 'function') attempt.catch(() => {});
-            } catch { /* the window is already gone */ }
-          }
-          fullscreenWanted.current = false;
-        };
       }, []);
 
       // Escape cancels from anywhere. Tab cycles through every enabled control in
@@ -1845,11 +2132,11 @@ background-color:rgba(9,11,16,.42);
               ),
             ),
             h('div', { className: 'ipa-topRight' },
-              hasFullscreenApi && !fullscreen && h('button', {
+              screen.supported && !screen.fullscreen && h('button', {
                 type: 'button',
                 className: 'ipa-mirrors',
                 title: t('countdown.fullscreenHint'),
-                onClick: () => requestFullscreen(),
+                onClick: () => screen.request(),
               }, t('countdown.fullscreen')),
               h('div', { className: 'ipa-meta' },
                 fmt(t('countdown.window'), String(windowSeconds)),
@@ -1928,7 +2215,7 @@ background-color:rgba(9,11,16,.42);
               extended && h('p', { className: 'ipa-hint' }, t('countdown.multiNote')),
               data.mode === 'shutdown' && h('p', { className: 'ipa-hint ipa-hintWarn' }, t('note.shutdown')),
             ),
-            h('div', { className: 'ipa-scopeTag' }, t(fullscreen ? 'countdown.scopeTagFull' : 'countdown.scopeTag')),
+            h('div', { className: 'ipa-scopeTag' }, t(screen.fullscreen ? 'countdown.scopeTagFull' : 'countdown.scopeTag')),
           ),
         ),
       );
@@ -2002,10 +2289,27 @@ background-color:rgba(9,11,16,.42);
             setMode: runtime.setMode,
             setBackground: runtime.setBackground,
             setColor: runtime.setColor,
+            setFullscreenOnWait: runtime.setFullscreenOnWait,
             openPreview: runtime.openPreview,
             refresh: runtime.refresh,
           }),
         }, PowerPage));
+
+        // The waiting phase can take the whole screen too, when the Host says so.
+        ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+          name: 'shell.overlay',
+          id: 'dsh-idle-power.wait',
+          order: 98,
+          locale: NS,
+          inject: () => ({
+            hooks: { power: runtime.store },
+            cancel: runtime.cancel,
+          }),
+        }, function WaitWhenArmed({ usePower, cancel, t }) {
+          const snapshot = usePower((current) => current);
+          if (snapshot.data.fullscreenOnWait !== true || snapshot.data.phase !== 'armed') return null;
+          return h(PowerWaitScreen, { usePower, cancel, t });
+        }));
 
         // The preview shares the countdown component but never touches the Host.
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({

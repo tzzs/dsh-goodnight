@@ -122,6 +122,9 @@ From top to bottom the page shows the current state (not scheduled / waiting · 
 - **State on the rail** — while a reservation is live the power glyph grows a small dot; during the countdown that dot turns red and blinks. The dot survives the rail collapsing to icons.
 - **Countdown background** — three preview tiles that draw the countdown window each preset produces (solid / frosted glass / gaussian blur), applied immediately and persisted on the Host.
 - **A solid surface can be recoloured** — with the solid preset selected, a colour row offers the theme, six presets (four dark, two light) and the system colour picker; the ink switches between black and white by luminance.
+- **The waiting phase can take the screen too** — with "Whole screen → Full screen while waiting" on, arming goes straight to a fullscreen waiting screen: what is still running, the quiet-window progress, and Cancel. When the quiet window passes it hands the screen to the countdown without ever leaving fullscreen.
+
+![The waiting screen](docs/wait.png)
 - **Countdown preview** — the Preview button in that section runs the real countdown component for ten seconds with the current colour, background and mode. Nothing is armed, no route is called, and it closes itself at zero.
 
 ![Countdown preview](docs/preview.png)
@@ -130,7 +133,7 @@ From top to bottom the page shows the current state (not scheduled / waiting · 
 - **Connection state** — "Loading status…" before the first answer, "Cannot reach the plugin Host" with controls disabled when the connection drops, "Submitting…" while a request is in flight so a button cannot be pressed twice.
 - **Failure state** — if cancelling the countdown fails, the dialog stays and says cancellation is unconfirmed instead of pretending it worked.
 
-Keyboard: `Esc` cancels the countdown; modes and backgrounds are native radio groups (a radio inside a `<label>` card), so the arrow keys move and select; `Tab` cycles between the cancel and multi-screen buttons inside the countdown instead of escaping the dialog.
+Keyboard: `Esc` cancels the countdown (and leaves fullscreen first when fullscreen is on); modes, backgrounds and colours are native radio groups (a radio inside a `<label>` card), so the arrow keys move and select; `Tab` cycles through every button inside the dialog instead of escaping it.
 
 ## Configuration
 
@@ -142,6 +145,8 @@ Set these on the plugin row in your profile's `cordis.patch.yml`:
 | `quietSeconds` | `20` | Required quiet period, clamped to 3–3600 |
 | `defaultMode` | `'shutdown'` | `'hibernate'` or `'shutdown'` |
 | `backgroundStyle` | `'solid'` | Countdown background: `'solid'` / `'glass'` / `'blur'`; an unknown value falls back to `'solid'` |
+| `countdownColor` | `null` | Custom solid colour as `#rrggbb`; `null` follows the Host theme, and an invalid value falls back to `null` |
+| `fullscreenOnWait` | `false` | Whether a reservation takes the whole screen from the **waiting** phase; the "Whole screen → Full screen while waiting" switch writes it back to the Host |
 | `shutdownCommand` | `'shutdown'` | Power command; resolved via PATH when the plugin loads |
 
 A mode or background you pick in the UI is remembered by the Host (it survives a page reload) and resets to `defaultMode` / `backgroundStyle` when the Host restarts.
@@ -158,8 +163,9 @@ The browser half talks to the Host over six authenticated routes. Every one chec
 | `POST` | `/idle-power/mode` | change the mode when nothing is reserved |
 | `POST` | `/idle-power/background` | change the background only; body `{ "backgroundStyle": "solid" \| "glass" \| "blur" }` |
 | `POST` | `/idle-power/color` | change the solid colour only; body `{ "color": "#rrggbb" \| null }` |
+| `POST` | `/idle-power/fullscreen` | change the waiting fullscreen only; body `{ "onWait": true \| false }` |
 
-Once the power command is committed, `/arm`, `/cancel`, `/mode`, `/background` and `/color` all answer `409 execution-in-progress`. A superseded arm, and any `/mode` sent while a reservation is live, answers `409 reservation-changed`; to change the action of an existing reservation, arm again so the quiet window restarts.
+Once the power command is committed, `/arm`, `/cancel`, `/mode`, `/background`, `/color` and `/fullscreen` all answer `409 execution-in-progress`. A superseded arm, and any `/mode` sent while a reservation is live, answers `409 reservation-changed`; to change the action of an existing reservation, arm again so the quiet window restarts.
 
 `/background` is a pure appearance preference and **deliberately does not touch the reservation state machine**: it never bumps the internal revision, so changing the background can never make an in-flight arm look superseded.
 

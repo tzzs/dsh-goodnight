@@ -21,6 +21,7 @@ const CANCEL_PATH = '/idle-power/cancel'
 const MODE_PATH = '/idle-power/mode'
 const BACKGROUND_PATH = '/idle-power/background'
 const COLOR_PATH = '/idle-power/color'
+const FULLSCREEN_PATH = '/idle-power/fullscreen'
 
 const PHASE_IDLE = 'idle'
 const PHASE_ARMED = 'armed'
@@ -158,6 +159,9 @@ export function apply(ctx, config, environment = {}) {
 		backgroundStyle: normalizedBackground(config?.backgroundStyle, BACKGROUND_SOLID),
 		// `null` means "follow the Host theme"; a hex pins the solid surface.
 		countdownColor: normalizedColor(config?.countdownColor, null),
+		// Off by default: a reservation that hijacks the whole screen while the
+		// user is still working is a surprise, so it has to be asked for.
+		fullscreenOnWait: config?.fullscreenOnWait === true,
 		shutdownCommand:
 			typeof config?.shutdownCommand === 'string' && config.shutdownCommand.length > 0
 				? config.shutdownCommand
@@ -172,6 +176,7 @@ export function apply(ctx, config, environment = {}) {
 	let mode = options.defaultMode
 	let backgroundStyle = options.backgroundStyle
 	let countdownColor = options.countdownColor
+	let fullscreenOnWait = options.fullscreenOnWait
 	let quietSince = null
 	let deadline = null
 	let error = null
@@ -231,6 +236,7 @@ export function apply(ctx, config, environment = {}) {
 			mode,
 			backgroundStyle,
 			countdownColor,
+			fullscreenOnWait,
 			countdownSeconds: options.countdownSeconds,
 			quietSeconds: options.quietSeconds,
 			remainingSeconds: deadline === null ? 0 : Math.max(0, Math.ceil((deadline - now) / 1000)),
@@ -596,6 +602,49 @@ export function apply(ctx, config, environment = {}) {
 			sendJson(res, 200, stateSnapshot())
 		},
 	}), `dsh-idle-power: POST ${COLOR_PATH}`)
+
+	/**
+	 * Whether the waiting phase also takes the whole screen. Same cosmetic rules as
+	 * the style and colour routes: shared per Host, refused while executing, no
+	 * revision bump.
+	 */
+	ctx.effect(() => ctx.webServer.register({
+		kind: 'exact',
+		path: FULLSCREEN_PATH,
+		handler: async (req, res) => {
+			if (rejected(req, res)) return
+			if (req.method !== 'POST') {
+				sendMethodNotAllowed(res, 'POST')
+				return
+			}
+			const essence = String(req.headers['content-type'] ?? '').split(';', 1)[0]?.trim().toLowerCase()
+			if (essence !== 'application/json') {
+				sendJson(res, 415, { code: 'unsupported-media-type', message: 'content-type must be application/json' })
+				return
+			}
+			const text = await readBoundedBody(req)
+			if (text === null) {
+				sendJson(res, 413, { code: 'payload-too-large', message: 'request body is too large' })
+				return
+			}
+			let parsed
+			try {
+				parsed = JSON.parse(text)
+			} catch {
+				parsed = undefined
+			}
+			if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed) || typeof parsed.onWait !== 'boolean') {
+				sendJson(res, 400, { code: 'bad-request', message: 'body must be {"onWait":boolean}' })
+				return
+			}
+			if (phase === PHASE_EXECUTING) {
+				sendJson(res, 409, executionConflict())
+				return
+			}
+			fullscreenOnWait = parsed.onWait
+			sendJson(res, 200, stateSnapshot())
+		},
+	}), `dsh-idle-power: POST ${FULLSCREEN_PATH}`)
 
 	ctx.effect(() => ctx.webServer.register({
 		kind: 'exact',

@@ -583,6 +583,65 @@ console.log('\n=== countdown: pinned colour and ink ===')
   check('a pinned colour cannot leak onto the other presets', glass?.props['data-ink'] === undefined && glass?.props.style === undefined)
 }
 
+console.log('\n=== page: whole-screen switch ===')
+{
+  const off = renderEntry(page, pageState(baseState))
+  const toggle = findElement(off.tree, (n) => n.tag === 'input' && n.props.type === 'checkbox')
+  check('the page offers a whole-screen switch', toggle !== undefined)
+  check('it is off by default', toggle?.props.checked === false, String(toggle?.props.checked))
+  check('the switch explains itself', textsOf(off.tree).join('|').includes('fullscreen.onWaitDesc'))
+
+  const calls = []
+  const on = renderEntry(page, pageState({ ...baseState, fullscreenOnWait: true }), {
+    setFullscreenOnWait: async (value) => { calls.push(value); return true },
+  })
+  const input = findElement(on.tree, (n) => n.tag === 'input' && n.props.type === 'checkbox')
+  check('it reflects the Host value', input?.props.checked === true)
+  input?.props.onChange()
+  check('turning it off reaches the Host', calls.length === 1 && calls[0] === false, JSON.stringify(calls))
+}
+
+console.log('\n=== wait screen: the whole screen while waiting ===')
+{
+  const waitEntry = byId('dsh-idle-power.wait')
+  check('wait overlay is registered', waitEntry?.name === 'shell.overlay', waitEntry?.name)
+
+  const load = { available: true, agentsRunning: 2, inboxPending: 3, jobsRunning: 1, total: 6 };
+  const armed = {
+    ...baseState,
+    phase: 'armed',
+    quietSeconds: 20,
+    quietRemainingSeconds: 12,
+    fullscreenOnWait: true,
+    busy: load,
+  };
+  // The overlay reads the live counts off the snapshot, like the countdown does.
+  const waitingStore = { data: armed, busy: load };
+
+  check('nothing renders while the Host has it off', renderEntry(waitEntry, { data: { ...armed, fullscreenOnWait: false }, busy: load }).root === null)
+  check('nothing renders outside the waiting phase', renderEntry(waitEntry, { data: { ...armed, phase: 'counting' }, busy: load }).root === null)
+
+  const waiting = renderEntry(waitEntry, waitingStore)
+  const texts = textsOf(waiting.tree)
+  const joined = texts.join('|')
+  check('says what it is waiting for', joined.includes('wait.title') && joined.includes('wait.subtitle'), joined)
+  const progress = findElement(waiting.tree, (n) => n.props.role === 'progressbar')
+  check('shows the quiet window as a progress bar', progress !== undefined && progress.props['aria-valuemax'] === 20, JSON.stringify(progress?.props))
+  check('the bar tracks the elapsed quiet time', progress?.props['aria-valuenow'] === 8, String(progress?.props['aria-valuenow']))
+  check('lists what is still running', joined.includes('wait.agents') && joined.includes('wait.inbox') && joined.includes('wait.jobs'), joined)
+  check('shows the live counts', ['2', '3', '1'].every((count) => texts.includes(count)), joined)
+  check('offers the way out', joined.includes('wait.cancel'))
+  check('is calmer than the countdown: no digit timer', findElement(waiting.tree, (n) => n.props.role === 'timer') === undefined)
+  check('keeps the countdown notes', joined.includes('note.scope'))
+
+  let cancelled = 0
+  const interactive = renderEntry(waitEntry, waitingStore, { cancel: async () => { cancelled += 1; return true } })
+  const cta = findElement(interactive.tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-cta'))
+  check('the waiting screen has a cancel button', cta !== undefined)
+  cta?.props.onClick?.()
+  check('cancel reaches the Host from the waiting screen', cancelled === 1, String(cancelled))
+}
+
 console.log('\n=== countdown: whole-screen fullscreen ===')
 {
   // The fake document has no fullscreen API, so this block lends it one and
@@ -831,6 +890,8 @@ console.log('\n=== CSS: page shell and full-viewport countdown layout ===')
   check('high contrast mode keeps borders and selection visible', css.includes('@media (forced-colors:active)') && css.includes('border-color:CanvasText') && css.includes('outline:2px solid Highlight'))
   check('the outline hover cannot repaint a filled button', css.includes('.ipa-button:not([data-variant]):hover:not(:disabled)'))
   check('filled and danger buttons own their hover state', css.includes('.ipa-button[data-variant=primary]:hover:not(:disabled)') && css.includes('.ipa-button[data-variant=danger]:hover:not(:disabled)'))
+  check('the switch shows its state without moving the layout', css.includes('.ipa-toggle:has(> :checked) .ipa-toggleTrack') && css.includes('.ipa-toggle:has(> :checked) .ipa-toggleThumb'))
+  check('the waiting orb breathes and respects reduced motion', css.includes('.ipa-waitOrbRing') && css.includes('@keyframes ipa-orbit') && css.includes('@media (prefers-reduced-motion:reduce){.ipa-waitOrbRing{animation:none}}'))
 }
 
 

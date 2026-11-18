@@ -7,3 +7,4 @@
         defaultMode: shutdown
         backgroundStyle: solid
         countdownColor: null
+        fullscreenOnWait: false

@@ -361,6 +361,39 @@ await scenario('invalid colour config follows the theme', { countdownColor: 'rgb
   check('a non-hex config value is ignored', (await readState(routes)).countdownColor === null, (await readState(routes)).countdownColor)
 })
 
+// 1d. The waiting phase may take the whole screen too; it is opt-in and the
+// route that flips it is cosmetic, like the style and colour routes.
+await scenario('fullscreen on wait route', {}, async ({ routes }) => {
+  check('waiting fullscreen is off by default', (await readState(routes)).fullscreenOnWait === false, String((await readState(routes)).fullscreenOnWait))
+  const on = await call(routes, '/idle-power/fullscreen', { method: 'POST', body: '{"onWait":true}' })
+  check('POST /fullscreen accepts true', on.statusCode === 200, on.statusCode)
+  check('the snapshot reports it', parse(on)?.fullscreenOnWait === true, String(parse(on)?.fullscreenOnWait))
+  check('state keeps it', (await readState(routes)).fullscreenOnWait === true)
+  check('still idle after an appearance change', (await readState(routes)).phase === 'idle')
+  const off = await call(routes, '/idle-power/fullscreen', { method: 'POST', body: '{"onWait":false}' })
+  check('POST /fullscreen accepts false', parse(off)?.fullscreenOnWait === false, String(parse(off)?.fullscreenOnWait))
+  for (const bad of ['{"onWait":"yes"}', '{"onWait":1}', '{}', '', '"true"']) {
+    check(`rejects ${bad || 'an empty body'}`, (await call(routes, '/idle-power/fullscreen', { method: 'POST', body: bad })).statusCode === 400)
+  }
+  check('rejects a non-JSON body', (await call(routes, '/idle-power/fullscreen', { method: 'POST', body: '{}', headers: { 'content-type': 'text/plain' } })).statusCode === 415)
+  check('is 405 on GET', (await call(routes, '/idle-power/fullscreen', { method: 'GET' })).statusCode === 405)
+})
+
+await scenario('fullscreen on wait config default', { fullscreenOnWait: true }, async ({ routes }) => {
+  check('the configured value is the initial state', (await readState(routes)).fullscreenOnWait === true)
+})
+
+await scenario('fullscreen on wait is refused while executing', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes, ctx }) => {
+  const completion = deferred()
+  ctx.subprocess.spawn = (spec) => { state.spawned.push(spec.argv); return { done: completion.promise, collected: {} } }
+  await call(routes, '/idle-power/arm', { method: 'POST', body: '{}' })
+  await sleep(9000)
+  check('command is executing', (await readState(routes)).phase === 'executing')
+  const res = await call(routes, '/idle-power/fullscreen', { method: 'POST', body: '{"onWait":true}' })
+  check('appearance cannot change after commit', res.statusCode === 409 && parse(res)?.code === 'execution-in-progress', parse(res)?.code)
+  completion.resolve()
+})
+
 await scenario('background change cannot disturb a pending arm', {}, async ({ routes }) => {
   const body = deferred()
   const pending = call(routes, '/idle-power/arm', { method: 'POST', body: '{}', bodyReady: body.promise })

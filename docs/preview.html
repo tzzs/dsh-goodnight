@@ -118,6 +118,8 @@
   const initialBackground = ['solid', 'glass', 'blur'].includes(params.get('bg')) ? params.get('bg') : 'solid';
   const colorParam = (params.get('color') || '').toLowerCase();
   const initialColor = /^#[0-9a-f]{6}$/.test(colorParam) ? colorParam : null;
+  // ?wait=1 renders the waiting phase as a whole-screen overlay.
+  const waitMode = params.has('wait');
   let alive = true;
   let current = null;
   let scheduled = false;
@@ -294,10 +296,17 @@
   function initialState() {
     return {
       data: {
-        supported: true, platform: 'win32', phase: pageMode ? 'idle' : 'counting', mode: initialMode,
+        supported: true, platform: 'win32', phase: waitMode ? 'armed' : (pageMode ? 'idle' : 'counting'), mode: initialMode,
+        fullscreenOnWait: waitMode,
         backgroundStyle: initialBackground, countdownColor: initialColor, countdownSeconds: 60, quietSeconds: 20,
-        remainingSeconds: initialSeconds, quietRemainingSeconds: 0, deadline: null,
-        busy: { available: true, agentsRunning: 0, inboxPending: 0, jobsRunning: 0, total: 0 },
+        remainingSeconds: initialSeconds, quietRemainingSeconds: waitMode ? 12 : 0, deadline: null,
+        busy: {
+          available: true,
+          agentsRunning: waitMode ? 2 : 0,
+          inboxPending: waitMode ? 3 : 0,
+          jobsRunning: waitMode ? 1 : 0,
+          total: waitMode ? 6 : 0,
+        },
         error: null, lastExecution: null,
       },
       ready: true, offline: false, busy: false, note: null, noteCode: null, notePhase: null,
@@ -371,12 +380,14 @@
   const setMode = async (mode) => { if (live) update({}, { mode }); return true; };
   const setBackground = async (backgroundStyle) => { if (live) update({}, { backgroundStyle }); return true; };
   const setColor = async (color) => { if (live) update({}, { countdownColor: color }); return true; };
+  const setFullscreenOnWait = async (onWait) => { if (live) update({}, { fullscreenOnWait: onWait }); return true; };
   // The preview page renders with the same component the Host mounts; two actions
   // it cannot genuinely perform are no-ops, so the UI still renders.
-  const pageProps = { usePower, t, arm: start, cancel, setMode, setBackground, setColor, openPreview: () => {}, refresh: async () => true };
+  const pageProps = { usePower, t, arm: start, cancel, setMode, setBackground, setColor, setFullscreenOnWait, openPreview: () => {}, refresh: async () => true };
   const Page = registered.get('idle-power');
   const Countdown = registered.get('dsh-idle-power.countdown');
   const PreviewOverlay = registered.get('dsh-idle-power.preview');
+  const WaitOverlay = registered.get('dsh-idle-power.wait');
   // ?preview=1 rehearses the countdown overlay: the same component the Host
   // mounts, driven by a fake store snapshot, with nothing armed.
   const previewMode = params.has('preview');
@@ -389,6 +400,12 @@
     const node = React.createElement('div', { key: resetGeneration, style: { display: 'flex', width: '100%', height: '100%' } },
       React.createElement(Page, { ...pageProps, key: 'page' }),
       React.createElement(Countdown, { usePower, t, cancel, key: 'countdown' }),
+      waitMode && WaitOverlay !== undefined ? React.createElement(WaitOverlay, {
+        usePower,
+        cancel,
+        t,
+        key: 'wait',
+      }) : null,
       previewMode && PreviewOverlay !== undefined ? React.createElement(PreviewOverlay, {
         usePower: (selector) => (typeof selector === 'function' ? selector(previewStore) : previewStore),
         close: () => {},
