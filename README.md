@@ -1,10 +1,10 @@
-# dsh-idle-power
+# Goodnight
 
 **English** · [简体中文](./README.zh-CN.md)
 
-Hibernate or shut down Windows once **every** task in your DeepSeek Harness Host has finished — with a 60-second countdown that fills the whole window and can be cancelled.
+Say goodnight to Windows once **every** task in your DeepSeek Harness Host has finished. A 60-second countdown fills the whole window, then the plugin hibernates or powers off. Cancel it any time before zero.
 
-Long agent runs usually end when you have walked away. This plugin lets you say *"shut the machine down when everything is actually done"*, then keeps its promise safe: it waits for all agents, subagents and background jobs in this Host, shows a full-window countdown, and **voids itself the moment new work appears**.
+Long agent runs usually end when you have walked away. This plugin lets you say *"put the machine to bed when everything is actually done"*, then keeps its promise safe: it waits for all agents, subagents and background jobs in this Host, shows a full-window countdown, and **voids itself the moment new work appears**.
 
 ![The countdown dialog](docs/countdown.png)
 
@@ -12,11 +12,11 @@ The background is switchable from the page: **solid** (default, above), **froste
 
 ![Frosted glass and gaussian blur](docs/backgrounds.png)
 
-The entry sits in the left rail, right under **Plugins** and **Automation tasks**:
+The entry sits in the left rail, right under **Plugins** and **Automation tasks**, and reads **Goodnight**:
 
 ![The scheduling page](docs/page.png)
 
-The page carries the power action, the countdown background, the live task counts, the flow and the notes. The action bar at the bottom names what the button will do (**Schedule shutdown** / **Schedule hibernation**), becomes **Cancel schedule** while a reservation is live, and the rail glyph grows a small dot.
+The page carries the power action, the countdown background, the live task counts, the flow and the notes. The action bar at the bottom names what the button will do (**Goodnight · shut down** / **Goodnight · hibernate**), becomes **Cancel schedule** while a reservation is live, and the rail glyph grows a small dot.
 
 ---
 
@@ -93,7 +93,7 @@ All three change **only the overlay itself**: the `blur` token overrides are sco
 
 ## Install
 
-The plugin is a regular DSH bundle: an npm package that ships a `cordis.patch.yml` and a `dsh.client` entry.
+The plugin is a regular DSH bundle: an npm package that ships a `cordis.patch.yml` and a `dsh.client` entry. The package keeps its original name, `dsh-idle-power`; **Goodnight** is the name it shows in the app.
 
 **Option A — Plugins page (recommended).** Open the Plugins page in Harness and install the bundle `dsh-idle-power` (or the spec `github:tzzs/dsh-idle-power`). It writes the dependency and adds the bundle to your profile for you.
 
@@ -112,13 +112,13 @@ Either way, **a restart or a plugin reload is required** — the Host half regis
 
 ## Use
 
-The entry sits in the left rail, right under **Plugins** and **Automation tasks**:
+The entry sits in the left rail, right under **Plugins** and **Automation tasks**, and reads **Goodnight**:
 
 ![The scheduling page](docs/page.png)
 
 From top to bottom the page shows the current state (not scheduled / waiting · N tasks running / counting down / executing / failed), the live load, the power action, the countdown background, the flow and the notes.
 
-- **Schedule / Cancel schedule** sits in the action bar at the bottom, next to a one-line plan ("20 s idle → 60 s countdown → shutdown") and named after the selected power action, so the commit button never leaves the choices behind.
+- **Goodnight · shut down** or **Goodnight · hibernate**, whichever the selected power action is, sits in the action bar at the bottom next to a one-line plan ("20 s idle → 60 s countdown → shutdown") that names the same action, so the commit button never leaves the choices behind. While a reservation is live the same spot becomes **Cancel schedule**.
 - **State on the rail** — while a reservation is live the power glyph grows a small dot; during the countdown that dot turns red and blinks. The dot survives the rail collapsing to icons.
 - **Countdown background** — three preview tiles that draw the countdown window each preset produces (solid / frosted glass / gaussian blur), applied immediately and persisted on the Host.
 - **A solid surface can be recoloured** — with the solid preset selected, a colour row offers the theme, six presets (four dark, two light) and the system colour picker; the ink switches between black and white by luminance.
@@ -185,10 +185,11 @@ Execution happens in the **Host**, not the browser. Closing the tab does not sto
 npm test
 ```
 
-Two dependency-free harnesses drive the real code with stand-ins, so the suite can run on any machine without powering anything off:
+Three dependency-free harnesses drive the real code with stand-ins, so the suite can run on any machine without powering anything off:
 
 - `test/host.test.mjs` — the state machine against fake agents, fake jobs and a subprocess that records `argv` instead of executing. Covers the busy predicate, a missing registry, quiet behaviour, countdown voiding, both command lines, cancellation, failure reporting, the mode and background routes, background config fallback for unknown values, and the races: mutations refused once execution is committed, a background change that must not disturb a pending arm, a cancel beating a slow arm upload, a stale lookup unable to overwrite a cancellation, and a suspend that overshoots the deadline re-arming instead of firing.
 - `test/client.test.cjs` — renders the real `client.js` components with a minimal React stand-in and asserts on the produced tree: the rail glyph and its pending dot, every page state (loading / offline / registry unavailable / executing / failed), the live load and per-kind task breakdown, mode and background selection with their disabled states, the flow and notes, the full-screen countdown's information hierarchy and progressbar semantics, the emitted `data-background` with fallback for unknown values, the progress ring's geometry and edge cases, multi-screen detection and mirror degradation, cancel-failure feedback, and `prefers-reduced-motion` coverage.
+- `test/locale.test.cjs` — renders the rail entry, the page, the countdown and the waiting screen with the real dictionaries, and fails on a label that resolves to nothing, a placeholder that only one language has, or a retired product name coming back.
 
 The host tests also cover a failed trust check, an unavailable connection service, mode changes during a reservation, and waking up during the executable lookup; the client tests cover keyboard access to every countdown control plus the fullscreen request and the two-step `Esc`.
 

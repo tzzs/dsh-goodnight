@@ -1,7 +1,7 @@
 {
   "name": "dsh-idle-power",
   "version": "0.3.0",
-  "description": "Hibernate or shut down Windows once every task in the DSH Host has finished, with a visible 60-second countdown you can cancel.",
+  "description": "Goodnight for Windows. Hibernate or shut down the machine once every task in the DSH Host has finished, after a visible 60-second countdown you can cancel.",
   "type": "module",
   "exports": {
     ".": "./index.js",
@@ -17,9 +17,10 @@
     "icon.svg"
   ],
   "scripts": {
-    "test": "node test/host.test.mjs && node test/client.test.cjs",
+    "test": "node test/host.test.mjs && node test/client.test.cjs && node test/locale.test.cjs",
     "test:host": "node test/host.test.mjs",
-    "test:client": "node test/client.test.cjs"
+    "test:client": "node test/client.test.cjs",
+    "test:locale": "node test/locale.test.cjs"
   },
   "keywords": [
     "dsh",
@@ -27,6 +28,7 @@
     "deepseek-harness",
     "deepseek",
     "power-management",
+    "goodnight",
     "shutdown",
     "hibernate",
     "sleep",

@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Idle Shutdown",
-    "description": "Once every session, subagent, and background job in DeepSeek Harness has stopped, runs a 60-second countdown that fills the whole window and then hibernates or powers off. Shutdown is the default; hibernate is also available and restores every open window and unsaved edit on the next boot. The countdown background can be solid, frosted glass or gaussian blur. Any new task during the countdown voids it."
+    "title": "Goodnight",
+    "description": "Once every session, subagent, and background job in DeepSeek Harness has stopped, a 60-second countdown fills the whole window, then the plugin hibernates or powers off. Shutdown is the default; hibernate is also available and restores every open window and unsaved edit on the next boot. The countdown background can be solid, frosted glass or gaussian blur. Any new task during the countdown voids it."
   }
 }
