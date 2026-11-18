@@ -212,6 +212,10 @@ for (const [language, dict] of [['zh', zh], ['en', en]]) {
 check('no label still uses a retired name', offenders.length === 0, offenders.join(','))
 check('zh names the plugin 晚安', zh['rail.label'] === '晚安' && zh['page.title'] === '晚安', zh['rail.label'])
 check('en names the plugin Goodnight', en['rail.label'] === 'Goodnight' && en['page.title'] === 'Goodnight', en['rail.label'])
+// The icon ships its own accessible name, which no dictionary check can see.
+const icon = fs.readFileSync(path.join(__dirname, '..', 'icon.svg'), 'utf8')
+check('the icon carries the product name and no retired one',
+  /aria-label="Goodnight"/.test(icon) && !retired.some((name) => icon.includes(name)), icon.match(/aria-label="[^"]*"/)?.[0])
 
 console.log('\n=== every surface renders resolved text ===')
 const knownKeys = new Set([...keysOf(zh), ...keysOf(en)])
