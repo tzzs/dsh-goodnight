@@ -3,3 +3,8 @@ node_modules/
 .DS_Store
 Thumbs.db
 dist/
+
+# Agent worktrees. `.agents/worktrees/` already ignores itself; `.claude/`
+# did not, so every checkout carried an untracked directory full of a second
+# copy of this repository. Both are scratch space, never part of the plugin.
+.claude/
