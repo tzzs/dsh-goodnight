@@ -16,6 +16,8 @@ permissions:
   contents: read
 
 jobs:
+  # Every pull request runs on the two platforms that always have runners, so a
+  # verdict arrives in under a minute. Both Node versions are still covered.
   test:
     name: test (${{ matrix.os }}, node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
@@ -27,17 +29,8 @@ jobs:
       matrix:
         # Node 20 is the floor declared by `engines`; 24 is current. The
         # versions in between cannot fail in a way these two miss.
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        os: [windows-latest, ubuntu-latest]
         node: [20, 24]
-        exclude:
-          # macOS runners are the scarce ones: a job that never gets one is
-          # cancelled after fifteen minutes in the queue, which fails the whole
-          # run for reasons that have nothing to do with this repository. Every
-          # OS is still covered, and both Node versions are still covered — the
-          # cross product is what shrinks, and macOS x Node 24 adds no coverage
-          # the other five cells do not already have.
-          - os: macos-latest
-            node: 24
     steps:
       - uses: actions/checkout@v7
 
@@ -56,6 +49,37 @@ jobs:
       # as an injectable argument, so the Windows behaviour is exercised on
       # Linux and macOS too and the unsupported-platform branch is a real
       # assertion everywhere rather than a skip.
+      - name: Test suite
+        run: npm test
+
+  # macOS is only asked for after a merge, and it is asked for directly rather
+  # than as another matrix cell.
+  #
+  # A macOS job queued behind other work is cancelled by GitHub after fifteen
+  # minutes without ever starting a step, which failed the run for a reason that
+  # had nothing to do with this repository — it happened twice, on two different
+  # Node versions, and rerunning the identical commit passed in twelve seconds.
+  # `timeout-minutes` cannot help: it starts counting when the job starts, and
+  # this job never starts. Pull requests therefore get their verdict from the
+  # platforms that are always available, and macOS still runs on every merge to
+  # main, which is where a macOS-only regression would actually have to be
+  # caught before a release.
+  test-macos:
+    name: test (macos-latest, node ${{ matrix.node }})
+    if: github.event_name != 'pull_request'
+    runs-on: macos-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+
       - name: Test suite
         run: npm test
 
