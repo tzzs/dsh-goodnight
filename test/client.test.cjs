@@ -767,7 +767,7 @@ console.log('\n=== wait screen: Escape closes the presentation, not the reservat
   check('the screen explains what Escape does', textsOf(tree).join('|').includes('wait.escHint'), textsOf(tree).join('|'))
 }
 
-console.log('\n=== countdown: the two-step Escape is explained ===')
+console.log('\n=== countdown: Escape is explained once it is fullscreen ===')
 {
   const counting = { data: { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null } }
   let fullscreenElement = null
@@ -779,10 +779,56 @@ console.log('\n=== countdown: the two-step Escape is explained ===')
 
   fullscreenElement = { tagName: 'HTML' }
   const full = renderEntry(countdown, counting)
-  check('fullscreen explains the two-step Escape', textsOf(full.tree).join('|').includes('countdown.escFullscreen'), textsOf(full.tree).join('|'))
+  check('fullscreen explains what Escape does', textsOf(full.tree).join('|').includes('countdown.escFullscreen'), textsOf(full.tree).join('|'))
 
   delete documentStub.documentElement
   delete documentStub.fullscreenElement
+}
+
+console.log('\n=== Escape leaves the whole presentation, fullscreen included ===')
+{
+  // A fullscreen document that was entered by someone else: the overlay must
+  // still take it down on the way out, or the reader is left staring at a
+  // fullscreen window with no plugin UI on it.
+  const loads = { available: true, agentsRunning: 1, inboxPending: 0, jobsRunning: 0, total: 1 }
+  const armed = {
+    ...baseState,
+    phase: 'armed',
+    quietSeconds: 20,
+    quietRemainingSeconds: 14,
+    fullscreenOnWait: true,
+    busy: loads,
+  }
+
+  let exited = 0
+  let fullscreenElement = { tagName: 'HTML' }
+  documentStub.documentElement = { requestFullscreen: () => Promise.resolve() }
+  Object.defineProperty(documentStub, 'fullscreenElement', { configurable: true, get: () => fullscreenElement })
+  documentStub.exitFullscreen = () => { exited += 1; fullscreenElement = null; return Promise.resolve() }
+
+  let dismissed = 0
+  renderEntry(byId('dsh-goodnight.wait'), { data: armed, busy: loads, waitDismissed: false }, {
+    dismiss: () => { dismissed += 1 },
+  })
+  fire('keydown', { key: 'Escape', preventDefault() {} })
+  check('Escape exits fullscreen in the same action', exited === 1, String(exited))
+  check('and still closes the overlay', dismissed === 1, String(dismissed))
+
+  // The countdown owns the same key: stopping it is the only way out of it, and
+  // it must not be left running behind a desktop the reader just reclaimed.
+  exited = 0
+  fullscreenElement = { tagName: 'HTML' }
+  let cancelled = 0
+  renderEntry(byId('dsh-goodnight.countdown'), {
+    data: { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null },
+  }, { cancel: async () => { cancelled += 1; return true } })
+  fire('keydown', { key: 'Escape', preventDefault() {} })
+  check('countdown Escape cancels in fullscreen too', cancelled === 1, String(cancelled))
+  check('countdown Escape also leaves fullscreen', exited === 1, String(exited))
+
+  delete documentStub.documentElement
+  delete documentStub.fullscreenElement
+  delete documentStub.exitFullscreen
 }
 
 console.log('\n=== countdown: whole-screen fullscreen ===')
