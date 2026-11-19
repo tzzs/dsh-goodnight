@@ -68,7 +68,10 @@ window.__ModuleLoader__.load({
       'wait.title': '等待任务结束',
       'wait.subtitle': '安静期内没有再出现任务，才会开始倒计时',
       'wait.meta': '安静期 %s 秒',
-      'wait.headline': '还没有进入倒计时',
+      'wait.headlineBusy': '任务还在跑',
+      'wait.headlineQuiet': '安静期进行中',
+      'wait.blockedHint': '全部结束后，还要再连续空闲 %s 秒。',
+      'wait.unitTasks': '个任务',
       'wait.quiet': '已连续空闲 %s / %s 秒',
       'wait.quietProgress': '安静期进度',
       'wait.orb': '等待中',
@@ -93,7 +96,7 @@ window.__ModuleLoader__.load({
       'metric.agents': '运行中的智能体',
       'metric.inbox': '排队消息',
       'metric.jobs': '后台任务',
-      'metric.total': '任务合计',
+      'metric.group': '还在运行的任务',
       'hero.progress': '剩余时间',
       'note.scope': '关闭页面不会取消预约；只监测当前 Host，不监测其他应用或其他 Host。',
       'note.autoVoid': '倒计时期间任何新任务都会让本次预约自动作废。',
@@ -207,7 +210,10 @@ window.__ModuleLoader__.load({
       'wait.title': 'Waiting for tasks to finish',
       'wait.subtitle': 'The countdown only starts once the quiet window passes',
       'wait.meta': 'Quiet window %s s',
-      'wait.headline': 'The countdown has not started',
+      'wait.headlineBusy': 'Tasks are still running',
+      'wait.headlineQuiet': 'Quiet window in progress',
+      'wait.blockedHint': 'Once they finish, %s s of quiet is still required.',
+      'wait.unitTasks': 'tasks',
       'wait.quiet': '%s / %s s of continuous idle',
       'wait.quietProgress': 'Quiet window progress',
       'wait.orb': 'Waiting',
@@ -232,7 +238,7 @@ window.__ModuleLoader__.load({
       'metric.agents': 'Running agents',
       'metric.inbox': 'Queued messages',
       'metric.jobs': 'Background jobs',
-      'metric.total': 'Tasks total',
+      'metric.group': 'Tasks still running',
       'hero.progress': 'Time remaining',
       'note.scope': 'Closing this page does not cancel. Only this Host is monitored; other apps and Hosts are not.',
       'note.autoVoid': 'Any new task during the countdown voids this reservation.',
@@ -585,20 +591,16 @@ background-color:rgba(9,11,16,.42);
 .ipa-statusDot,.ipa-stateDot,.ipa-heroDial,.ipa-modeMark,.ipa-presetCheck,
 .ipa-colorSwatch,.ipa-colorAutoSwatch,.ipa-colorOption,.ipa-colorInput,
 .ipa-colorInput::-webkit-color-swatch,.ipa-toggleTrack,.ipa-toggleThumb,
-.ipa-flowNum,.ipa-chip,.ipa-noteItem:before,.ipa-waitOrb,.ipa-waitOrbRing,
+.ipa-flowNum,.ipa-chip,.ipa-noteItem:before,
 .ipa-kbd,.ipa-railDot{corner-shape:round}
 
 /* The waiting screen reuses the countdown's skeleton but stays calm: brand
    colour, an orb instead of a counting ring, and no urgency accent. */
-.ipa-waitOrb{position:relative;display:grid;place-items:center;flex:none;width:clamp(150px,34vmin,320px);height:clamp(150px,34vmin,320px);border-radius:50%;background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--dsw-alias-brand-primary) 15%,transparent),transparent 70%)}
-.ipa-waitOrbRing{position:absolute;inset:0;border-radius:50%;border:2px dashed color-mix(in srgb,var(--dsw-alias-brand-primary) 52%,transparent);animation:ipa-orbit 22s linear infinite}
-.ipa-waitOrbText{color:var(--dsw-alias-label-primary);font-size:clamp(15px,2.1vmin,24px);font-weight:600;letter-spacing:.04em}
 .ipa-waitStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(8px,1.4vmin,16px);margin:0;width:100%}
 .ipa-waitStat{display:flex;flex-direction:column;gap:2px;padding:clamp(6px,1vmin,10px) clamp(8px,1.4vmin,14px);border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2)}
 .ipa-waitStatLabel{color:var(--dsw-alias-label-tertiary);font-size:clamp(10px,1.2vmin,13px);line-height:1.4}
 .ipa-waitStatValue{color:var(--dsw-alias-label-primary);font-size:clamp(16px,2.4vmin,26px);font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
 @keyframes ipa-orbit{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.ipa-waitOrbRing{animation:none}}
 .ipa-dialWrap{flex:0 0 auto;display:grid;place-items:center;animation:ipa-dial-in 380ms var(--ipa-ease)}
 @keyframes ipa-dial-in{from{opacity:.6;transform:scale(.96)}to{opacity:1;transform:none}}
 .ipa-dial{position:relative;display:grid;place-items:center;width:clamp(190px,52vmin,640px);height:clamp(190px,52vmin,640px)}
@@ -612,6 +614,16 @@ background-color:rgba(9,11,16,.42);
 .ipa-unit{font-size:clamp(16px,2.4vmin,32px);font-weight:400;color:var(--dsw-alias-label-secondary)}
 .ipa-dial[data-urgent] .ipa-dialCenter{color:var(--dsw-alias-state-error-primary)}
 .ipa-dial[data-urgent] .ipa-unit{color:var(--dsw-alias-state-error-primary)}
+/* The waiting dial reports what still blocks the run, not a deadline, so it is
+   smaller and quieter than the countdown dial and never reads as urgent. */
+.ipa-dial[data-tone=calm]{width:clamp(160px,32vmin,300px);height:clamp(160px,32vmin,300px)}
+.ipa-dial[data-tone=calm] .ipa-ringTrack{stroke:var(--dsw-alias-border-l3)}
+.ipa-dial[data-tone=calm] .ipa-count{font-size:clamp(56px,13vmin,132px);font-weight:500}
+.ipa-dial[data-tone=calm] .ipa-unit{font-size:clamp(13px,1.8vmin,20px)}
+/* Blocked means the quiet window has not started at all, so the track is dashed
+   instead of an empty arc, which reads as a widget that failed to load. */
+.ipa-dial[data-state=blocked] .ipa-ringTrack{stroke-dasharray:1.6 7;stroke-linecap:round}
+.ipa-dial[data-state=blocked] .ipa-ringValue{display:none}
 .ipa-stageText{display:flex;flex-direction:column;align-items:flex-start;gap:clamp(10px,1.7vmin,24px);min-width:min(300px,82vw);max-width:min(560px,86vw)}
 .ipa-mode{font-size:clamp(20px,3.1vmin,46px);font-weight:600;line-height:1.15;color:var(--dsw-alias-label-primary)}
 .ipa-metaLine{font-size:clamp(12px,1.5vmin,18px);line-height:1.6;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}
@@ -1507,11 +1519,10 @@ background-color:rgba(9,11,16,.42);
                 ),
               ),
             ),
-            h('dl', { className: 'ipa-metrics' },
+            total > 0 && h('dl', { className: 'ipa-metrics', 'aria-label': t('metric.group') },
               metric('metric.agents', data.busy?.agentsRunning ?? 0),
               metric('metric.inbox', data.busy?.inboxPending ?? 0),
               metric('metric.jobs', data.busy?.jobsRunning ?? 0),
-              metric('metric.total', total),
             ),
             h(Section, { title: t('section.mode'), hint: t('section.modeHint') },
               h('div', { className: 'ipa-modeGrid', role: 'radiogroup', 'aria-label': t('section.mode') },
@@ -1880,10 +1891,25 @@ background-color:rgba(9,11,16,.42);
       // `busy` from the snapshot is the in-flight flag; the task counts live in
       // data.busy, which is where the Host puts them.
       const [submitting, setSubmitting] = useState(false);
-      const quietTotal = data.quietSeconds > 0 ? data.quietSeconds : 20;
-      const quietLeft = Math.max(0, Math.min(quietTotal, data.quietRemainingSeconds ?? quietTotal));
-      const done = Math.min(1, Math.max(0, 1 - quietLeft / quietTotal));
       const load = data.busy ?? { available: false, agentsRunning: 0, inboxPending: 0, jobsRunning: 0, total: 0 };
+      const quietTotal = data.quietSeconds > 0 ? data.quietSeconds : 20;
+      const WAIT_RADIUS = 54;
+      const WAIT_CIRCUMFERENCE = 2 * Math.PI * WAIT_RADIUS;
+      // The Host reports 0 both when the window has not started (a task is
+      // running) and for the instant it completes, so treat 0 as "not started"
+      // rather than "finished" — otherwise the bar sits full while it says 0/20.
+      const quietRunning = (data.quietRemainingSeconds ?? 0) > 0;
+      const quietLeft = quietRunning ? Math.min(quietTotal, data.quietRemainingSeconds) : quietTotal;
+      const done = quietRunning ? Math.min(1, Math.max(0, 1 - quietLeft / quietTotal)) : 0;
+      const blocked = load.total > 0 || load.available === false;
+      // One number carries the waiting screen: how many tasks are in the way, or
+      // how much quiet is still missing. Everything else is support for it.
+      const headline = blocked ? t('wait.headlineBusy') : t('wait.headlineQuiet');
+      const bigValue = blocked ? load.total : quietLeft;
+      const bigUnit = blocked ? t('wait.unitTasks') : t('countdown.suffix');
+      const supportLine = blocked
+        ? fill(t('wait.blockedHint'), quietTotal)
+        : fill(t('wait.quiet'), quietLeft, quietTotal);
       // The waiting screen shares the countdown's surface tokens, so a pinned
       // colour and its ink carry over instead of flashing the theme colour.
       const surface = normalizeBackground(data.backgroundStyle);
@@ -1934,7 +1960,7 @@ background-color:rgba(9,11,16,.42);
           'aria-valuemin': 0,
           'aria-valuemax': quietTotal,
           'aria-valuenow': Math.round(done * quietTotal),
-          'aria-valuetext': fill(t('wait.quiet'), quietLeft, quietTotal),
+          'aria-valuetext': supportLine,
           'aria-label': t('wait.quietProgress'),
         },
           h('span', { className: 'ipa-railFill', style: { transform: `scaleX(${done})` } }),
@@ -1959,13 +1985,36 @@ background-color:rgba(9,11,16,.42);
             ),
           ),
           h('div', { className: 'ipa-stage' },
-            h('div', { className: 'ipa-waitOrb', 'aria-hidden': true },
-              h('span', { className: 'ipa-waitOrbRing' }),
-              h('span', { className: 'ipa-waitOrbText' }, t('wait.orb')),
+            h('div', {
+              className: 'ipa-dial',
+              'data-tone': 'calm',
+              'data-state': blocked ? 'blocked' : 'running',
+              role: 'progressbar',
+              'aria-label': t('wait.quietProgress'),
+              'aria-valuemin': 0,
+              'aria-valuemax': quietTotal,
+              'aria-valuenow': Math.round(done * quietTotal),
+              'aria-valuetext': supportLine,
+            },
+              h('svg', { className: 'ipa-ring', viewBox: '0 0 120 120', 'aria-hidden': true },
+                h('circle', { className: 'ipa-ringTrack', cx: 60, cy: 60, r: WAIT_RADIUS }),
+                h('circle', {
+                  className: 'ipa-ringValue',
+                  cx: 60,
+                  cy: 60,
+                  r: WAIT_RADIUS,
+                  'stroke-dasharray': WAIT_CIRCUMFERENCE,
+                  'stroke-dashoffset': WAIT_CIRCUMFERENCE * (1 - done),
+                }),
+              ),
+              h('div', { className: 'ipa-dialCenter', role: 'timer', 'aria-live': 'off' },
+                h('span', { className: 'ipa-count' }, String(bigValue)),
+                h('span', { className: 'ipa-unit' }, bigUnit),
+              ),
             ),
             h('div', { className: 'ipa-stageText' },
-              h('div', { className: 'ipa-mode' }, t('wait.headline')),
-              h('div', { className: 'ipa-metaLine' }, fill(t('wait.quiet'), quietLeft, quietTotal)),
+              h('div', { className: 'ipa-mode' }, headline),
+              h('div', { className: 'ipa-metaLine' }, supportLine),
               h('dl', { className: 'ipa-waitStats' },
                 ...[['wait.agents', load.agentsRunning], ['wait.inbox', load.inboxPending], ['wait.jobs', load.jobsRunning]].map(([key, value]) => h('div', { className: 'ipa-waitStat', key },
                   h('dt', { className: 'ipa-waitStatLabel' }, t(key)),
