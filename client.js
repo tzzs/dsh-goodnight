@@ -605,7 +605,7 @@ background-color:rgba(9,11,16,.42);
    colour, an orb instead of a counting ring, and no urgency accent. */
 .ipa-waitStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(8px,1.4vmin,16px);margin:0;width:100%}
 .ipa-waitStat{display:flex;flex-direction:column;gap:2px;padding:clamp(6px,1vmin,10px) clamp(8px,1.4vmin,14px);border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2)}
-.ipa-waitStatLabel{color:var(--dsw-alias-label-tertiary);font-size:clamp(10px,1.2vmin,13px);line-height:1.4}
+.ipa-waitStatLabel{display:flex;align-items:center;color:var(--dsw-alias-label-tertiary);font-size:clamp(10px,1.2vmin,13px);line-height:1.4}
 .ipa-waitStatValue{color:var(--dsw-alias-label-primary);font-size:clamp(16px,2.4vmin,26px);font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
 @keyframes ipa-orbit{to{transform:rotate(360deg)}}
 .ipa-dialWrap{flex:0 0 auto;display:grid;place-items:center;animation:ipa-dial-in 380ms var(--ipa-ease)}
@@ -629,8 +629,37 @@ background-color:rgba(9,11,16,.42);
 .ipa-dial[data-tone=calm] .ipa-unit{font-size:clamp(13px,1.8vmin,20px)}
 /* Blocked means the quiet window has not started at all, so the track is dashed
    instead of an empty arc, which reads as a widget that failed to load. */
-.ipa-dial[data-state=blocked] .ipa-ringTrack{stroke-dasharray:1.6 7;stroke-linecap:round}
+.ipa-dial[data-state=blocked] .ipa-ringTrack{opacity:.55}
 .ipa-dial[data-state=blocked] .ipa-ringValue{display:none}
+
+/* The waiting screen must feel alive without reading as urgent: a slow
+   breathing halo behind the dial, and a sweep that says the Host is still
+   looking for work. Both stay far slower than the countdown. */
+.ipa-waitDial{position:relative;display:grid;place-items:center;flex:none}
+.ipa-waitHalo{position:absolute;inset:-16%;border-radius:50%;corner-shape:round;background:radial-gradient(circle at 50% 46%,color-mix(in srgb,var(--dsw-alias-brand-primary) 24%,transparent),transparent 68%);pointer-events:none;animation:ipa-breathe 5.6s ease-in-out infinite}
+/* Outside the ring, so its rotation reads: the composition itself must not
+   spin, because the numbers are not moving. */
+.ipa-ringSweep{animation:ipa-orbit 14s linear infinite}
+.ipa-waitSweepArc{fill:none;stroke:var(--dsw-alias-brand-primary);stroke-width:1.4;stroke-linecap:round;stroke-dasharray:1.2 5.4;opacity:.5}
+@keyframes ipa-breathe{0%,100%{opacity:.45;transform:scale(.985)}50%{opacity:.9;transform:scale(1.02)}}
+/* Three tones of one hue, so the composition ring reads as one family
+   instead of borrowing semantic colours the data does not have. */
+.ipa-dial[data-tone=calm] .ipa-segA{stroke:var(--dsw-alias-brand-primary)}
+.ipa-dial[data-tone=calm] .ipa-segB{stroke:color-mix(in srgb,var(--dsw-alias-brand-primary) 68%,transparent)}
+.ipa-dial[data-tone=calm] .ipa-segC{stroke:color-mix(in srgb,var(--dsw-alias-brand-primary) 44%,transparent)}
+.ipa-dial[data-tone=calm] .ipa-segA,.ipa-dial[data-tone=calm] .ipa-segB,.ipa-dial[data-tone=calm] .ipa-segC{fill:none;stroke-width:3.2;stroke-linecap:round;transition:stroke-dasharray .34s var(--dsw-ease, ease),stroke-dashoffset .34s var(--dsw-ease, ease)}
+/* A changed number is news, so it gets one short beat. */
+.ipa-count[data-fresh]{animation:ipa-count-pop 300ms var(--dsw-ease, ease)}
+@keyframes ipa-count-pop{0%{opacity:.25;transform:translateY(.06em) scale(.94)}100%{opacity:1;transform:none}}
+/* The legend rises in behind the dial rather than appearing all at once. */
+.ipa-waitStats[data-fresh]{animation:ipa-rise 420ms var(--dsw-ease, ease) backwards}
+.ipa-waitStat{--ipa-stagger:0ms}
+.ipa-waitStat[data-fresh]{animation:ipa-rise 420ms var(--dsw-ease, ease) backwards;animation-delay:var(--ipa-stagger)}
+@keyframes ipa-rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.ipa-waitStatDot{display:inline-block;vertical-align:middle;inline-size:7px;block-size:7px;margin-right:6px;border-radius:50%;corner-shape:round;background:var(--ipa-DOT)}
+.ipa-waitStat[data-part=agents]{--ipa-DOT:var(--dsw-alias-brand-primary)}
+.ipa-waitStat[data-part=inbox]{--ipa-DOT:color-mix(in srgb,var(--dsw-alias-brand-primary) 68%,transparent)}
+.ipa-waitStat[data-part=jobs]{--ipa-DOT:color-mix(in srgb,var(--dsw-alias-brand-primary) 44%,transparent)}
 .ipa-stageText{display:flex;flex-direction:column;align-items:flex-start;gap:clamp(10px,1.7vmin,24px);min-width:min(300px,82vw);max-width:min(560px,86vw)}
 .ipa-mode{font-size:clamp(20px,3.1vmin,46px);font-weight:600;line-height:1.15;color:var(--dsw-alias-label-primary)}
 .ipa-metaLine{font-size:clamp(12px,1.5vmin,18px);line-height:1.6;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}
@@ -1950,6 +1979,25 @@ background-color:rgba(9,11,16,.42);
       const blockedFor = Math.max(0, data.blockedForSeconds ?? 0);
       const stuckAfter = data.stuckAfterSeconds > 0 ? data.stuckAfterSeconds : 600;
       const stuck = blocked && blockedFor >= stuckAfter;
+
+      // The ring answers "how much is in the way" three ways: as a composition
+      // while tasks are running, as quiet progress once they are gone.
+      const parts = [
+        { part: 'agents', value: load.agentsRunning ?? 0, seg: 'ipa-segA', label: 'wait.agents' },
+        { part: 'inbox', value: load.inboxPending ?? 0, seg: 'ipa-segB', label: 'wait.inbox' },
+        { part: 'jobs', value: load.jobsRunning ?? 0, seg: 'ipa-segC', label: 'wait.jobs' },
+      ]
+      const partTotal = parts.reduce((sum, one) => sum + one.value, 0) || 1
+      // A small gap between series: without an edge the three tones blur into
+      // one ring and the composition reads as a single progress value.
+      const SEGMENT_GAP = 7
+      let drawn = 0
+      const arcs = parts.map((one) => {
+        const share = (one.value / partTotal) * WAIT_CIRCUMFERENCE
+        const arc = { ...one, length: Math.max(share - SEGMENT_GAP, 0.6), offset: -drawn }
+        drawn += share
+        return arc
+      }).filter((one) => one.value > 0)
       const forceLabel = t(data.mode === 'shutdown' ? 'wait.force' : 'wait.forceHibernate');
       // The waiting screen shares the countdown's surface tokens, so a pinned
       // colour and its ink carry over instead of flashing the theme colour.
@@ -2037,40 +2085,67 @@ background-color:rgba(9,11,16,.42);
             ),
           ),
           h('div', { className: 'ipa-stage' },
-            h('div', {
-              className: 'ipa-dial',
-              'data-tone': 'calm',
-              'data-state': blocked ? 'blocked' : 'running',
-              role: 'progressbar',
-              'aria-label': t('wait.quietProgress'),
-              'aria-valuemin': 0,
-              'aria-valuemax': quietTotal,
-              'aria-valuenow': Math.round(done * quietTotal),
-              'aria-valuetext': supportLine,
-            },
-              h('svg', { className: 'ipa-ring', viewBox: '0 0 120 120', 'aria-hidden': true },
-                h('circle', { className: 'ipa-ringTrack', cx: 60, cy: 60, r: WAIT_RADIUS }),
-                h('circle', {
-                  className: 'ipa-ringValue',
-                  cx: 60,
-                  cy: 60,
-                  r: WAIT_RADIUS,
-                  'stroke-dasharray': WAIT_CIRCUMFERENCE,
-                  'stroke-dashoffset': WAIT_CIRCUMFERENCE * (1 - done),
-                }),
-              ),
-              h('div', { className: 'ipa-dialCenter', role: 'timer', 'aria-live': 'off' },
-                h('span', { className: 'ipa-count' }, String(bigValue)),
-                h('span', { className: 'ipa-unit' }, bigUnit),
+            h('div', { className: 'ipa-waitDial' },
+              h('span', { className: 'ipa-waitHalo', 'aria-hidden': true }),
+              h('div', {
+                className: 'ipa-dial',
+                'data-tone': 'calm',
+                'data-state': blocked ? 'blocked' : 'running',
+                role: 'progressbar',
+                'aria-label': t('wait.quietProgress'),
+                'aria-valuemin': 0,
+                'aria-valuemax': blocked ? partTotal : quietTotal,
+                'aria-valuenow': blocked ? partTotal : Math.round(done * quietTotal),
+                'aria-valuetext': supportLine,
+              },
+                h('svg', { className: 'ipa-ring', viewBox: '0 0 120 120', 'aria-hidden': true },
+                  h('circle', { className: 'ipa-ringTrack', cx: 60, cy: 60, r: WAIT_RADIUS }),
+                  // Blocked: one arc per kind of work, sharing the circumference.
+                  blocked && arcs.map((one) => h('circle', {
+                    key: one.part,
+                    className: one.seg,
+                    cx: 60,
+                    cy: 60,
+                    r: WAIT_RADIUS,
+                    'stroke-dasharray': `${one.length} ${WAIT_CIRCUMFERENCE - one.length}`,
+                    'stroke-dashoffset': one.offset,
+                  })),
+                  // Counting: the quiet window filling up, exactly as before.
+                  !blocked && h('circle', {
+                    className: 'ipa-ringValue',
+                    cx: 60,
+                    cy: 60,
+                    r: WAIT_RADIUS,
+                    'stroke-dasharray': WAIT_CIRCUMFERENCE,
+                    'stroke-dashoffset': WAIT_CIRCUMFERENCE * (1 - done),
+                  }),
+                ),
+                blocked && h('svg', { className: 'ipa-ring ipa-ringSweep', viewBox: '0 0 120 120', 'aria-hidden': true },
+                  h('circle', { className: 'ipa-waitSweepArc', cx: 60, cy: 60, r: WAIT_RADIUS + 5.5 }),
+                ),
+                h('div', { className: 'ipa-dialCenter', role: 'timer', 'aria-live': 'off' },
+                  // Re-keying on the value replays one short beat when it changes.
+                  h('span', { className: 'ipa-count', key: String(bigValue), 'data-fresh': '' }, String(bigValue)),
+                  h('span', { className: 'ipa-unit' }, bigUnit),
+                ),
               ),
             ),
             h('div', { className: 'ipa-stageText' },
               h('div', { className: 'ipa-mode' }, headline),
               h('div', { className: 'ipa-metaLine' }, supportLine),
               h('dl', { className: 'ipa-waitStats' },
-                ...[['wait.agents', load.agentsRunning], ['wait.inbox', load.inboxPending], ['wait.jobs', load.jobsRunning]].map(([key, value]) => h('div', { className: 'ipa-waitStat', key },
-                  h('dt', { className: 'ipa-waitStatLabel' }, t(key)),
-                  h('dd', { className: 'ipa-waitStatValue' }, String(value ?? 0)),
+                ...parts.map((one, index) => h('div', {
+                  className: 'ipa-waitStat',
+                  key: one.part,
+                  'data-part': one.part,
+                  'data-fresh': '',
+                  style: { '--ipa-stagger': `${90 + index * 70}ms` },
+                },
+                  h('dt', { className: 'ipa-waitStatLabel' },
+                    h('span', { className: 'ipa-waitStatDot', 'aria-hidden': true }),
+                    t(one.label),
+                  ),
+                  h('dd', { className: 'ipa-waitStatValue', key: String(one.value) }, String(one.value)),
                 )),
               ),
               (offline || note) && h('div', { className: 'ipa-feedback', role: 'alert' }, offline ? t('countdown.offline') : `${t('status.failed')}: ${describeFailure(noteCode, note, t)}`),
