@@ -1,16 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none" role="img" aria-label="Goodnight">
   <defs>
-    <linearGradient id="idle-power-back" x1="29" y1="8" x2="52" y2="37" gradientUnits="userSpaceOnUse">
+    <linearGradient id="goodnight-back" x1="29" y1="8" x2="52" y2="37" gradientUnits="userSpaceOnUse">
       <stop stop-color="#7ce1ef"/>
       <stop offset="1" stop-color="#2cc5b6"/>
     </linearGradient>
-    <linearGradient id="idle-power-front" x1="12" y1="18" x2="43" y2="57" gradientUnits="userSpaceOnUse">
+    <linearGradient id="goodnight-front" x1="12" y1="18" x2="43" y2="57" gradientUnits="userSpaceOnUse">
       <stop stop-color="#87baff"/>
       <stop offset=".48" stop-color="#6494fc"/>
       <stop offset="1" stop-color="#4e6bed"/>
     </linearGradient>
   </defs>
-  <rect x="27" y="8" width="28" height="28" rx="8" fill="url(#idle-power-back)"/>
-  <rect x="10" y="18" width="38" height="38" rx="10" fill="url(#idle-power-front)"/>
+  <rect x="27" y="8" width="28" height="28" rx="8" fill="url(#goodnight-back)"/>
+  <rect x="10" y="18" width="38" height="38" rx="10" fill="url(#goodnight-front)"/>
   <path d="M21.575 29.575a10.5 10.5 0 1 0 14.85 0M29 25v11" stroke="#fff" stroke-width="3.8" stroke-linecap="round"/>
 </svg>

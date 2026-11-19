@@ -95,16 +95,16 @@
 
 ## 安装
 
-插件就是普通的 DSH bundle：一个 npm 包，带 `cordis.patch.yml` 和 `dsh.client` 声明。包名仍然是 `dsh-idle-power`，**晚安**是它在应用里显示的名字。
+插件就是普通的 DSH bundle：一个 npm 包，带 `cordis.patch.yml` 和 `dsh.client` 声明。包名 `dsh-goodnight`，它在应用里显示为**晚安**。
 
-**方式 A —— 用插件页（推荐）**：在 Harness 的「插件」页安装 bundle `dsh-idle-power`（或安装串 `github:tzzs/dsh-idle-power`），它会自动写入依赖并把 bundle 加进你的 profile。
+**方式 A —— 用插件页（推荐）**：在 Harness 的「插件」页安装 bundle `dsh-goodnight`（或安装串 `github:tzzs/dsh-goodnight`），它会自动写入依赖并把 bundle 加进你的 profile。
 
 **方式 B —— 手动改 profile**：在 profile 的 `package.json` 里加上依赖和 bundle：
 
 ```jsonc
 {
-  "dependencies": { "dsh-idle-power": "github:tzzs/dsh-idle-power" },
-  "dsh": { "profile": { "bundles": ["dsh-idle-power"] } }
+  "dependencies": { "dsh-goodnight": "github:tzzs/dsh-goodnight" },
+  "dsh": { "profile": { "bundles": ["dsh-goodnight"] } }
 }
 ```
 
@@ -169,14 +169,14 @@
 
 | 方法 | 路径 | 用途 |
 |---|---|---|
-| `GET` | `/idle-power/state` | 模式、阶段、剩余秒数、背景样式、在跑的任务数 |
-| `POST` | `/idle-power/arm` | 预约；body `{ "mode": "hibernate" \| "shutdown" }` |
-| `POST` | `/idle-power/cancel` | 取消预约或取消倒计时 |
-| `POST` | `/idle-power/mode` | 没有预约时修改模式 |
-| `POST` | `/idle-power/background` | 只改背景；body `{ "backgroundStyle": "solid" \| "glass" \| "blur" }` |
-| `POST` | `/idle-power/color` | 只改纯色底色；body `{ "color": "#rrggbb" \| null }` |
-| `POST` | `/idle-power/fullscreen` | 只改「等待时也整屏」；body `{ "onWait": true \| false }` |
-| `POST` | `/idle-power/awake` | 只改「预约期间保持唤醒」；body `{ "on": true \| false }` |
+| `GET` | `/goodnight/state` | 模式、阶段、剩余秒数、背景样式、在跑的任务数 |
+| `POST` | `/goodnight/arm` | 预约；body `{ "mode": "hibernate" \| "shutdown" }` |
+| `POST` | `/goodnight/cancel` | 取消预约或取消倒计时 |
+| `POST` | `/goodnight/mode` | 没有预约时修改模式 |
+| `POST` | `/goodnight/background` | 只改背景；body `{ "backgroundStyle": "solid" \| "glass" \| "blur" }` |
+| `POST` | `/goodnight/color` | 只改纯色底色；body `{ "color": "#rrggbb" \| null }` |
+| `POST` | `/goodnight/fullscreen` | 只改「等待时也整屏」；body `{ "onWait": true \| false }` |
+| `POST` | `/goodnight/awake` | 只改「预约期间保持唤醒」；body `{ "on": true \| false }` |
 
 命令进入执行阶段后，`/arm`、`/cancel`、`/mode`、`/background`、`/color`、`/fullscreen`、`/awake` 一律返回 `409 execution-in-progress`，已经提交的电源操作不能撤。过期的预约请求，以及预约期间发往 `/mode` 的请求，会收到 `409 reservation-changed`。要修改已有预约的模式，用 `/arm` 重新开始安静期。
 

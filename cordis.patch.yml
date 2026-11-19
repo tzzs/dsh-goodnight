@@ -1,6 +1,6 @@
 - insert:
-    - id: dsh-idle-power
-      name: 'dsh-idle-power'
+    - id: dsh-goodnight
+      name: 'dsh-goodnight'
       config:
         countdownSeconds: 60
         quietSeconds: 20
