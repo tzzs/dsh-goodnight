@@ -120,6 +120,9 @@
   const initialColor = /^#[0-9a-f]{6}$/.test(colorParam) ? colorParam : null;
   // ?wait=1 renders the waiting phase as a whole-screen overlay.
   const waitMode = params.has('wait');
+  // The waiting screen has two halves: tasks still running (?wait=1) and a live
+  // quiet window with nothing running (?quiet=1).
+  const quietMode = params.has('quiet');
   let alive = true;
   let current = null;
   let scheduled = false;
@@ -296,10 +299,10 @@
   function initialState() {
     return {
       data: {
-        supported: true, platform: 'win32', phase: waitMode ? 'armed' : (pageMode ? 'idle' : 'counting'), mode: initialMode,
-        fullscreenOnWait: waitMode,
+        supported: true, platform: 'win32', phase: (waitMode || quietMode) ? 'armed' : (pageMode ? 'idle' : 'counting'), mode: initialMode,
+        fullscreenOnWait: waitMode || quietMode,
         backgroundStyle: initialBackground, countdownColor: initialColor, countdownSeconds: 60, quietSeconds: 20,
-        remainingSeconds: initialSeconds, quietRemainingSeconds: waitMode ? 12 : 0, deadline: null,
+        remainingSeconds: initialSeconds, quietRemainingSeconds: quietMode ? 12 : 0, deadline: null,
         busy: {
           available: true,
           agentsRunning: waitMode ? 2 : 0,
@@ -410,7 +413,7 @@
     const node = React.createElement('div', { key: resetGeneration, style: { display: 'flex', width: '100%', height: '100%' } },
       React.createElement(Page, { ...pageProps, key: 'page' }),
       React.createElement(Countdown, { usePower, t, cancel, key: 'countdown' }),
-      waitMode && WaitOverlay !== undefined ? React.createElement(WaitOverlay, {
+      (waitMode || quietMode) && WaitOverlay !== undefined ? React.createElement(WaitOverlay, {
         usePower,
         cancel,
         t,

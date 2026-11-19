@@ -317,12 +317,10 @@ console.log('\n=== page: idle ===')
   check('预约 is enabled when ready', primary?.props.disabled === false, String(primary?.props.disabled))
   check('offers a refresh control', byClass(tree, 'ipa-iconButton') !== undefined)
 
-  // Four metrics read as one instrument, not four cards.
-  check('renders four metrics', countClass(tree, 'ipa-metric') === 4, String(countClass(tree, 'ipa-metric')))
-  check('names running agents', texts.includes('metric.agents'), joined)
-  check('names queued messages', texts.includes('metric.inbox'), joined)
-  check('names background jobs', texts.includes('metric.jobs'), joined)
-  check('shows zero counts while idle', texts.filter((s) => s === '0').length >= 4, joined)
+  // The counters explain a *blocked* run, so an idle page does not show three
+  // zeroes that carry no information: the hero already says nothing is running.
+  check('hides the counters while idle', countClass(tree, 'ipa-metric') === 0, String(countClass(tree, 'ipa-metric')))
+  check('no redundant total metric', !texts.includes('metric.total') && !joined.includes('metric.total'))
 
   const radios = modeRadiosOf(tree)
   check('renders two native mode radios', radios.length === 2, String(radios.length))
@@ -427,9 +425,25 @@ console.log('\n=== page: announcements and progress semantics ===')
   check('progressbar has a value text', typeof bar?.props['aria-valuetext'] === 'string' && bar.props['aria-valuetext'].length > 0)
   check('no progressbar while idle', findElement(idle.tree, (n) => n.props.role === 'progressbar') === undefined)
 
-  // Counters are a description list, so each label/value pairing is real.
-  check('metrics are a description list', findElement(idle.tree, (n) => n.tag === 'dl' && typeof n.props.className === 'string' && n.props.className.includes('ipa-metrics')) !== undefined)
-  check('each metric pairs a term with a value', countClass(idle.tree, 'ipa-metricLabel') === 4 && countClass(idle.tree, 'ipa-metricValue') === 4)
+  check('no counter list while idle', findElement(idle.tree, (n) => n.tag === 'dl' && typeof n.props.className === 'string' && n.props.className.includes('ipa-metrics')) === undefined)
+}
+
+console.log('\n=== page: the counters explain a blocked run ===')
+{
+  // baseState is the shared snapshot; only the load changes here.
+  const busyPage = renderEntry(page, pageState({
+    ...baseState,
+    busy: { available: true, agentsRunning: 2, inboxPending: 3, jobsRunning: 1, total: 6 },
+  }))
+  const busyTexts = textsOf(busyPage.tree)
+  const busyJoined = busyTexts.join('|')
+  check('renders three counters', countClass(busyPage.tree, 'ipa-metric') === 3, String(countClass(busyPage.tree, 'ipa-metric')))
+  check('names running agents', busyTexts.includes('metric.agents'), busyJoined)
+  check('names queued messages', busyTexts.includes('metric.inbox'), busyJoined)
+  check('names background jobs', busyTexts.includes('metric.jobs'), busyJoined)
+  check('shows the live counts', ['2', '3', '1'].every((n) => busyTexts.includes(n)), busyJoined)
+  check('the group has a label', findElement(busyPage.tree, (n) => n.tag === 'dl' && n.props['aria-label'] === 'metric.group') !== undefined)
+  check('each counter pairs a term with a value', countClass(busyPage.tree, 'ipa-metricLabel') === 3 && countClass(busyPage.tree, 'ipa-metricValue') === 3)
 }
 
 console.log('\n=== page: mode and appearance reach the Host ===')
@@ -664,7 +678,11 @@ console.log('\n=== wait screen: the whole screen while waiting ===')
   check('lists what is still running', joined.includes('wait.agents') && joined.includes('wait.inbox') && joined.includes('wait.jobs'), joined)
   check('shows the live counts', ['2', '3', '1'].every((count) => texts.includes(count)), joined)
   check('offers the way out', joined.includes('wait.cancel'))
-  check('is calmer than the countdown: no digit timer', findElement(waiting.tree, (n) => n.props.role === 'timer') === undefined)
+  const waitTimer = findElement(waiting.tree, (n) => n.props.role === 'timer')
+  check('the dial reports a number', waitTimer !== undefined && countClass(waiting.tree, 'ipa-count') === 1)
+  check('that number is the blocking task count', texts.includes('wait.unitTasks') && texts.includes(String(load.total)), joined)
+  check('the headline names what is blocking', joined.includes('wait.headlineBusy') && !joined.includes('wait.headlineQuiet'))
+  check('it still shows no deadline', !joined.includes('countdown.remaining'))
   check('keeps the countdown notes', joined.includes('note.scope'))
 
   let cancelled = 0
@@ -974,9 +992,10 @@ console.log('\n=== CSS: page shell and full-viewport countdown layout ===')
   check('the outline hover cannot repaint a filled button', css.includes('.ipa-button:not([data-variant]):hover:not(:disabled)'))
   check('filled and danger buttons own their hover state', css.includes('.ipa-button[data-variant=primary]:hover:not(:disabled)') && css.includes('.ipa-button[data-variant=danger]:hover:not(:disabled)'))
   check('the switch shows its state without moving the layout', css.includes('.ipa-toggle:has(> :checked) .ipa-toggleTrack') && css.includes('.ipa-toggle:has(> :checked) .ipa-toggleThumb'))
-  check('the waiting orb breathes and respects reduced motion', css.includes('.ipa-waitOrbRing') && css.includes('@keyframes ipa-orbit') && css.includes('@media (prefers-reduced-motion:reduce){.ipa-waitOrbRing{animation:none}}'))
-  check('circles opt out of the Host squircle theme', css.includes('corner-shape:round') && /\.ipa-waitOrb[^{]*\{corner-shape:round\}|\.ipa-kbd,\.ipa-railDot\{corner-shape:round\}/.test(css), 'no corner-shape reset')
-  check('the orb and its ring are in the corner-shape reset', /\.ipa-waitOrb,\.ipa-waitOrbRing/.test(css))
+  check('the waiting dial is quieter than the countdown dial', css.includes('.ipa-dial[data-tone=calm]') && css.includes('.ipa-dial[data-tone=calm] .ipa-count'))
+  check('the orb is gone', !css.includes('.ipa-waitOrb'))
+  check('circles opt out of the Host squircle theme', css.includes('corner-shape:round') && /\.ipa-kbd,\.ipa-railDot\{corner-shape:round\}/.test(css), 'no corner-shape reset')
+  check('the reset still covers the switch, swatches and dots', /\.ipa-colorSwatch/.test(css) && /\.ipa-toggleThumb/.test(css) && /\.ipa-statusDot/.test(css))
 }
 
 
