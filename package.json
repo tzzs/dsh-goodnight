@@ -1,6 +1,6 @@
 {
   "name": "dsh-goodnight",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Goodnight for Windows. Hibernate or shut down the machine once every task in the DSH Host has finished, after a visible 60-second countdown you can cancel.",
   "type": "module",
   "exports": {
