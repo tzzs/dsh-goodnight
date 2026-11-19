@@ -693,6 +693,48 @@ console.log('\n=== wait screen: the whole screen while waiting ===')
   check('cancel reaches the Host from the waiting screen', cancelled === 1, String(cancelled))
 }
 
+console.log('\n=== wait screen: a frozen blocker offers a way past it ===')
+{
+  const waitEntry = byId('dsh-idle-power.wait')
+  const load = { available: true, agentsRunning: 2, inboxPending: 3, jobsRunning: 1, total: 6 }
+  const frozen = (blockedForSeconds) => ({
+    data: {
+      ...baseState,
+      phase: 'armed',
+      quietSeconds: 20,
+      quietRemainingSeconds: 0,
+      fullscreenOnWait: true,
+      busy: load,
+      blockedForSeconds,
+      stuckAfterSeconds: 600,
+    },
+    busy: load,
+  })
+
+  // Nothing is offered while the blocker is still fresh: the panel has no reason
+  // to suggest that a running task will never finish.
+  const fresh = renderEntry(waitEntry, frozen(120))
+  check('no escape while the blocker is fresh', !textsOf(fresh.tree).join('|').includes('wait.force'))
+
+  const stuck = renderEntry(waitEntry, frozen(900))
+  const stuckTexts = textsOf(stuck.tree)
+  const stuckJoined = stuckTexts.join('|')
+  check('the screen says how long it has been stuck', stuckJoined.includes('wait.stuckHint'), stuckJoined)
+  check('it offers the skip', stuckJoined.includes('wait.force'))
+
+  let forced = 0
+  const interactive = renderEntry(waitEntry, frozen(900), { force: async () => { forced += 1; return true } })
+  const skip = findElement(interactive.tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-escape'))
+  check('the skip is a button', skip !== undefined)
+  skip?.props.onClick?.()
+  check('skip reaches the Host', forced === 1, String(forced))
+
+  // The quiet window has not started, so the bar must not claim it finished.
+  const progress = findElement(stuck.tree, (n) => n.props.role === 'progressbar')
+  check('a blocked bar starts empty', progress?.props['aria-valuenow'] === 0, String(progress?.props['aria-valuenow']))
+  check('and says so instead of 0/20', typeof progress?.props['aria-valuetext'] === 'string' && progress.props['aria-valuetext'].includes('wait.blockedHint'), String(progress?.props['aria-valuetext']))
+}
+
 console.log('\n=== wait screen: Escape closes the presentation, not the reservation ===')
 {
   const waitEntry = byId('dsh-idle-power.wait')
