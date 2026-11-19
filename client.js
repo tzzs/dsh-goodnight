@@ -1,20 +1,20 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-idle-power',
+  id: 'dsh-goodnight',
   factory(require) {
     const React = require('react');
     const h = React.createElement;
     const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
-    const NS = 'dsh-idle-power';
-    const ROUTE_STATE = 'idle-power/state';
-    const ROUTE_ARM = 'idle-power/arm';
-    const ROUTE_CANCEL = 'idle-power/cancel';
-    const ROUTE_MODE = 'idle-power/mode';
-    const ROUTE_BACKGROUND = 'idle-power/background';
-    const ROUTE_COLOR = 'idle-power/color';
-    const ROUTE_FULLSCREEN = 'idle-power/fullscreen';
-    const ROUTE_AWAKE = 'idle-power/awake';
-const ROUTE_FORCE = 'idle-power/force';
+    const NS = 'dsh-goodnight';
+    const ROUTE_STATE = 'goodnight/state';
+    const ROUTE_ARM = 'goodnight/arm';
+    const ROUTE_CANCEL = 'goodnight/cancel';
+    const ROUTE_MODE = 'goodnight/mode';
+    const ROUTE_BACKGROUND = 'goodnight/background';
+    const ROUTE_COLOR = 'goodnight/color';
+    const ROUTE_FULLSCREEN = 'goodnight/fullscreen';
+    const ROUTE_AWAKE = 'goodnight/awake';
+const ROUTE_FORCE = 'goodnight/force';
 
     // ---------------------------------------------------------------- locale
     const zh = {
@@ -1093,7 +1093,7 @@ background-color:rgba(9,11,16,.42);
         const geometry = geometries[index];
         let win = null;
         try {
-          win = open('about:blank', `dsh-idle-power-mirror-${index}`, mirrorFeatures(geometry));
+          win = open('about:blank', `dsh-goodnight-mirror-${index}`, mirrorFeatures(geometry));
         } catch {
           win = null;
         }
@@ -2408,14 +2408,14 @@ background-color:rgba(9,11,16,.42);
 
         ctx.effect(() => {
           const tag = document.createElement('style');
-          tag.dataset.plugin = 'dsh-idle-power';
-          tag.dataset.pluginCss = 'dsh-idle-power/dsh-idle-power.css';
+          tag.dataset.plugin = 'dsh-goodnight';
+          tag.dataset.pluginCss = 'dsh-goodnight/dsh-goodnight.css';
           tag.textContent = CSS;
           document.head.appendChild(tag);
           return () => { tag.remove(); };
-        }, 'dsh-idle-power: stylesheet');
+        }, 'dsh-goodnight: stylesheet');
 
-        ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-idle-power: dictionaries');
+        ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-goodnight: dictionaries');
 
         // One poller for every surface: 1s while a reservation is live, 3s idle.
         ctx.effect(() => {
@@ -2434,13 +2434,13 @@ background-color:rgba(9,11,16,.42);
             disposed = true;
             clearTimeout(timer);
           };
-        }, 'dsh-idle-power: poller');
+        }, 'dsh-goodnight: poller');
 
         // Rail entry: directly under the shipped 插件 and 自动化任务 panels, so a
         // scheduled power action reads as one more automation in the same list.
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
           name: 'sidebar.panellist',
-          id: 'idle-power',
+          id: 'goodnight',
           order: 15,
           locale: NS,
           label: () => t('rail.label'),
@@ -2452,7 +2452,7 @@ background-color:rgba(9,11,16,.42);
         // The page owns the whole main column while this entry is selected.
         ctx.slots.inject('main', () => ctx.slots.register({
           name: 'main',
-          key: 'idle-power',
+          key: 'goodnight',
           locale: NS,
           inject: () => ({
             hooks: { power: runtime.store },
@@ -2472,7 +2472,7 @@ background-color:rgba(9,11,16,.42);
         // The waiting phase can take the whole screen too, when the Host says so.
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({
           name: 'shell.overlay',
-          id: 'dsh-idle-power.wait',
+          id: 'dsh-goodnight.wait',
           order: 98,
           locale: NS,
           inject: () => ({
@@ -2491,7 +2491,7 @@ background-color:rgba(9,11,16,.42);
         // The preview shares the countdown component but never touches the Host.
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({
           name: 'shell.overlay',
-          id: 'dsh-idle-power.preview',
+          id: 'dsh-goodnight.preview',
           order: 99,
           locale: NS,
           inject: () => ({
@@ -2506,7 +2506,7 @@ background-color:rgba(9,11,16,.42);
         // The countdown stays a shell overlay: it must cover every page.
         ctx.slots.inject('shell.overlay', () => ctx.slots.register({
           name: 'shell.overlay',
-          id: 'dsh-idle-power.countdown',
+          id: 'dsh-goodnight.countdown',
           order: 100,
           locale: NS,
           inject: () => ({

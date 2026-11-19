@@ -1,5 +1,5 @@
 /**
- * Host half of the dsh-idle-power bundle.
+ * Host half of the dsh-goodnight bundle.
  *
  * Watches every live agent and every background job in THIS Host process. Once
  * the whole process has stayed quiet for the configured grace period, it runs a
@@ -10,20 +10,20 @@
  * because a restart means somebody is at the machine.
  */
 
-export const name = 'dsh-idle-power'
+export const name = 'dsh-goodnight'
 
 /** `agents` is resolved lazily so a profile without the job registry still works. */
 export const inject = ['webServer', 'connection', 'subprocess']
 
-const STATE_PATH = '/idle-power/state'
-const ARM_PATH = '/idle-power/arm'
-const CANCEL_PATH = '/idle-power/cancel'
-const MODE_PATH = '/idle-power/mode'
-const BACKGROUND_PATH = '/idle-power/background'
-const COLOR_PATH = '/idle-power/color'
-const FULLSCREEN_PATH = '/idle-power/fullscreen'
-const AWAKE_PATH = '/idle-power/awake'
-const FORCE_PATH = '/idle-power/force'
+const STATE_PATH = '/goodnight/state'
+const ARM_PATH = '/goodnight/arm'
+const CANCEL_PATH = '/goodnight/cancel'
+const MODE_PATH = '/goodnight/mode'
+const BACKGROUND_PATH = '/goodnight/background'
+const COLOR_PATH = '/goodnight/color'
+const FULLSCREEN_PATH = '/goodnight/fullscreen'
+const AWAKE_PATH = '/goodnight/awake'
+const FORCE_PATH = '/goodnight/force'
 
 const PHASE_IDLE = 'idle'
 const PHASE_ARMED = 'armed'
@@ -122,7 +122,7 @@ function awakeCommand(platform) {
 	// Linux: the inhibitor holds an idle/sleep lock for as long as it runs.
 	return {
 		program: 'systemd-inhibit',
-		args: ['--what=idle:sleep', '--why=dsh-idle-power: a reservation is pending', 'sleep', 'infinity'],
+		args: ['--what=idle:sleep', '--why=dsh-goodnight: a reservation is pending', 'sleep', 'infinity'],
 	}
 }
 
@@ -419,7 +419,7 @@ export function apply(ctx, config, environment = {}) {
 				phase = PHASE_ARMED
 				deadline = null
 				quietSince = now
-				ctx.logger.info('dsh-idle-power: woke past the countdown deadline; re-armed instead of executing')
+				ctx.logger.info('dsh-goodnight: woke past the countdown deadline; re-armed instead of executing')
 				return
 			}
 			void execute()
@@ -473,7 +473,7 @@ export function apply(ctx, config, environment = {}) {
 				lastExecution = { mode: actionMode, at: Date.now(), ok: false }
 				return
 			}
-			ctx.logger.info(`dsh-idle-power: ${actionMode} command accepted`)
+			ctx.logger.info(`dsh-goodnight: ${actionMode} command accepted`)
 			phase = PHASE_IDLE
 			error = null
 			lastExecution = { mode: actionMode, at: Date.now(), ok: true }
@@ -483,7 +483,7 @@ export function apply(ctx, config, environment = {}) {
 			phase = PHASE_FAILED
 			error = failure instanceof Error ? failure.message : String(failure)
 			lastExecution = { mode: actionMode, at: Date.now(), ok: false }
-			ctx.logger.warn(`dsh-idle-power: ${actionMode} failed: ${error}`)
+			ctx.logger.warn(`dsh-goodnight: ${actionMode} failed: ${error}`)
 		} finally {
 			executing = false
 		}
@@ -528,7 +528,7 @@ export function apply(ctx, config, environment = {}) {
 		quietSince = null
 		deadline = null
 		error = null
-		ctx.logger.info(`dsh-idle-power: armed for ${mode} after ${options.quietSeconds}s quiet`)
+		ctx.logger.info(`dsh-goodnight: armed for ${mode} after ${options.quietSeconds}s quiet`)
 		// Keep the machine awake for as long as this reservation is pending; a
 		// sleeping Host cannot fire its own countdown.
 		void syncAwake()
@@ -556,7 +556,7 @@ export function apply(ctx, config, environment = {}) {
 			}
 			sendJson(res, 200, stateSnapshot())
 		},
-	}), `dsh-idle-power: GET ${STATE_PATH}`)
+	}), `dsh-goodnight: GET ${STATE_PATH}`)
 
 	ctx.effect(() => ctx.webServer.register({
 		kind: 'exact',
@@ -592,7 +592,7 @@ export function apply(ctx, config, environment = {}) {
 			}
 			sendJson(res, 200, stateSnapshot())
 		},
-	}), `dsh-idle-power: POST ${ARM_PATH}`)
+	}), `dsh-goodnight: POST ${ARM_PATH}`)
 
 	ctx.effect(() => ctx.webServer.register({
 		kind: 'exact',
@@ -641,7 +641,7 @@ export function apply(ctx, config, environment = {}) {
 			mode = parsed.mode
 			sendJson(res, 200, stateSnapshot())
 		},
-	}), `dsh-idle-power: POST ${MODE_PATH}`)
+	}), `dsh-goodnight: POST ${MODE_PATH}`)
 
 	/**
 	 * A cosmetic preference, kept on the Host like `mode`, so the choice is
@@ -685,7 +685,7 @@ export function apply(ctx, config, environment = {}) {
 			backgroundStyle = parsed.backgroundStyle
 			sendJson(res, 200, stateSnapshot())
 		},
-	}), `dsh-idle-power: POST ${BACKGROUND_PATH}`)
+	}), `dsh-goodnight: POST ${BACKGROUND_PATH}`)
 
 	/**
 	 * The same cosmetic-preference rules as the background style: shared by every
@@ -732,7 +732,7 @@ export function apply(ctx, config, environment = {}) {
 			countdownColor = next.color
 			sendJson(res, 200, stateSnapshot())
 		},
-	}), `dsh-idle-power: POST ${COLOR_PATH}`)
+	}), `dsh-goodnight: POST ${COLOR_PATH}`)
 
 	/**
 	 * Whether the waiting phase also takes the whole screen. Same cosmetic rules as
@@ -775,7 +775,7 @@ export function apply(ctx, config, environment = {}) {
 			fullscreenOnWait = parsed.onWait
 			sendJson(res, 200, stateSnapshot())
 		},
-	}), `dsh-idle-power: POST ${FULLSCREEN_PATH}`)
+	}), `dsh-goodnight: POST ${FULLSCREEN_PATH}`)
 
 	/** Whether a pending reservation keeps the machine awake. Cosmetic rules as above. */
 	ctx.effect(() => ctx.webServer.register({
@@ -815,7 +815,7 @@ export function apply(ctx, config, environment = {}) {
 			void syncAwake()
 			sendJson(res, 200, stateSnapshot())
 		},
-	}), `dsh-idle-power: POST ${AWAKE_PATH}`)
+	}), `dsh-goodnight: POST ${AWAKE_PATH}`)
 
 	// Skip a blocker the reader has decided is frozen. Deliberately manual: the
 	// Host never decides on its own that a running task should be abandoned, and it
@@ -848,10 +848,10 @@ export function apply(ctx, config, environment = {}) {
 			quietSince = null
 			deadline = Date.now() + options.countdownSeconds * 1000
 			void syncAwake()
-			ctx.logger.info('dsh-idle-power: skipping a stuck blocker on request')
+			ctx.logger.info('dsh-goodnight: skipping a stuck blocker on request')
 			sendJson(res, 200, stateSnapshot())
 		},
-	}), `dsh-idle-power: POST ${FORCE_PATH}`)
+	}), `dsh-goodnight: POST ${FORCE_PATH}`)
 
 	ctx.effect(() => ctx.webServer.register({
 		kind: 'exact',
@@ -869,7 +869,7 @@ export function apply(ctx, config, environment = {}) {
 			reset()
 			sendJson(res, 200, stateSnapshot())
 		},
-	}), `dsh-idle-power: POST ${CANCEL_PATH}`)
+	}), `dsh-goodnight: POST ${CANCEL_PATH}`)
 
 	// The one authoritative clock, plus event nudges so a countdown is voided as
 	// soon as work reappears rather than up to a second later.
@@ -892,7 +892,7 @@ export function apply(ctx, config, environment = {}) {
 				}
 			}
 		}
-	}, 'dsh-idle-power: watcher')
+	}, 'dsh-goodnight: watcher')
 
 	const nudge = () => {
 		if (phase === PHASE_ARMED || phase === PHASE_COUNTING) evaluate()
@@ -906,5 +906,5 @@ export function apply(ctx, config, environment = {}) {
 		const jobs = ctx.get('jobs')
 		if (jobs === undefined) return () => {}
 		return jobs.events.subscribe({ owners: 'all' }, nudge)
-	}, 'dsh-idle-power: job events')
+	}, 'dsh-goodnight: job events')
 }

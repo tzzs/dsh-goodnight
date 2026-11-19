@@ -131,8 +131,8 @@ const baseData = {
 const store = (data) => ({ data: { ...baseData, ...data }, ready: true, offline: false, busy: false, note: null, noteCode: null, notePhase: null })
 
 const surfaces = {
-  rail: () => registered.find((entry) => entry.id === 'idle-power').label(),
-  pageIdle: () => renderNode(React.createElement(byKey('idle-power').component, {
+  rail: () => registered.find((entry) => entry.id === 'goodnight').label(),
+  pageIdle: () => renderNode(React.createElement(byKey('goodnight').component, {
     usePower: (selector) => (typeof selector === 'function' ? selector(store({})) : store({})),
     t: (key) => dictionaries.zh[key] ?? key,
     arm: async () => true,
@@ -145,7 +145,7 @@ const surfaces = {
     openPreview: () => {},
     refresh: async () => true,
   })),
-  countdown: () => renderNode(React.createElement(byId('dsh-idle-power.countdown').component, {
+  countdown: () => renderNode(React.createElement(byId('dsh-goodnight.countdown').component, {
     usePower: (selector) => {
       const value = store({ phase: 'counting', remainingSeconds: 45, deadline: null })
       return typeof selector === 'function' ? selector(value) : value
@@ -153,7 +153,7 @@ const surfaces = {
     t: (key) => dictionaries.zh[key] ?? key,
     cancel: async () => true,
   })),
-  wait: () => renderNode(React.createElement(byId('dsh-idle-power.wait').component, {
+  wait: () => renderNode(React.createElement(byId('dsh-goodnight.wait').component, {
     usePower: (selector) => {
       const value = store({ phase: 'armed', fullscreenOnWait: true, quietRemainingSeconds: 8 })
       return typeof selector === 'function' ? selector(value) : value

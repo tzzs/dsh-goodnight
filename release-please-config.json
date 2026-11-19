@@ -25,7 +25,7 @@
   "packages": {
     ".": {
       "release-type": "node",
-      "package-name": "dsh-idle-power",
+      "package-name": "dsh-goodnight",
       "changelog-path": "CHANGELOG.md"
     }
   }

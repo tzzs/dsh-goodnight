@@ -48,31 +48,58 @@ CI 会在 PR 上校验**每一个 commit 的标题**和 **PR 标题**（squash �
 
 之所以把 npm 发布放在同一个 workflow，而不是监听 `release: published`：用内置 `GITHUB_TOKEN` 创建的事件不会再触发其它 workflow，那样发布 job 永远不会跑。
 
-## 4. npm 认证 —— 已经配好，不需要密钥
+## 4. npm 认证 —— 需要重新授权一次（改名遗留）
 
-`dsh-idle-power` 用的是 **npm Trusted Publishing（OIDC）**，仓库里**没有** `NPM_TOKEN` secret，也不需要有人维护长期密钥。发布时 GitHub Actions 用 `id-token: write` 换取一个短效凭证，npm 同时自动生成 provenance。
+`dsh-goodnight` 用的是 **npm Trusted Publishing（OIDC）**，仓库里**没有** `NPM_TOKEN` secret，也不需要有人维护长期密钥。发布时 GitHub Actions 用 `id-token: write` 换取一个短效凭证，npm 同时自动生成 provenance。
 
-已生效的配置：
+⚠️ **这个包是从 `dsh-idle-power` 改名来的，授权还没迁过来。** trusted publisher 把「包名 + 仓库名 + workflow 文件名」三者绑在一起，而三者里的前两个都变了（`dsh-idle-power` → `dsh-goodnight`、`tzzs/dsh-idle-power` → `tzzs/dsh-goodnight`）。在重新授权之前，下一次发布会以 `ENEEDAUTH` 失败。
+
+### 一次性迁移步骤（需要交互式 2FA）
+
+npm 上**还没有** `dsh-goodnight` 这个包，所以先做一次手动首发把名字占住：
+
+```powershell
+cd E:\workspaces\dsh-idle-power
+npm login
+npm publish --access public      # 输一次 OTP；这一步不走 OIDC
+```
+
+然后给这个新包配上 trusted publisher：
+
+```powershell
+npm trust github dsh-goodnight --file release.yml --repo tzzs/dsh-goodnight --allow-publish
+npm trust list dsh-goodnight --registry https://registry.npmjs.org/   # 核对
+```
+
+最后把旧包标记为废弃，让还装着老名字的人看到迁移提示：
+
+```powershell
+npm deprecate dsh-idle-power "Renamed to dsh-goodnight (https://github.com/tzzs/dsh-goodnight). Run: dsh-goodnight"
+```
+
+做完之后，`.github/workflows/release.yml` 的 publish job 就能重新工作，不需要再改任何代码。
+
+### 迁移完成后的期望配置
 
 | 项 | 值 |
 |---|---|
-| 包 | `dsh-idle-power`（id `5692fd88-9b5f-42af-8440-fd088be9f4c1`） |
+| 包 | `dsh-goodnight`（id 见 `npm trust list` 输出） |
 | Organization or user | `tzzs` |
-| Repository | `tzzs/dsh-idle-power` |
+| Repository | `tzzs/dsh-goodnight` |
 | Workflow filename | `release.yml` |
 | Permissions | `npm publish` + `npm stage publish` |
 
 用 CLI 核对：
 
 ```powershell
-npm trust list dsh-idle-power --registry https://registry.npmjs.org/
+npm trust list dsh-goodnight --registry https://registry.npmjs.org/
 ```
 
 ⚠️ **不要改 `release.yml` 的文件名** —— trusted publisher 绑定的是这个文件名，改名会让发布立刻以 `ENEEDAUTH` 失败。改动绑定要删掉旧的再加新的：
 
 ```powershell
-npm trust revoke dsh-idle-power --id <id> --registry https://registry.npmjs.org/
-npm trust github dsh-idle-power --file release.yml --repo tzzs/dsh-idle-power --allow-publish
+npm trust revoke dsh-goodnight --id <id> --registry https://registry.npmjs.org/
+npm trust github dsh-goodnight --file release.yml --repo tzzs/dsh-goodnight --allow-publish
 ```
 
 这两个命令都需要交互式 2FA（安全密钥/验证器）。
@@ -88,7 +115,7 @@ npm trust github dsh-idle-power --file release.yml --repo tzzs/dsh-idle-power --
 1. 在这个 PR 的 Checks 里手动点 **Approve and run workflows**（一次性，最省事）；
 2. 配一个 PAT 让 release-please 用它建 PR，就再也不会卡审批：
    ```powershell
-   gh secret set RELEASE_PLEASE_TOKEN -R tzzs/dsh-idle-power
+   gh secret set RELEASE_PLEASE_TOKEN -R tzzs/dsh-goodnight
    ```
    PAT 用 classic（`repo` scope）或 fine-grained（Contents RW + Pull requests RW）。`release.yml` 已经写成优先读它、缺失时回退 `GITHUB_TOKEN`，不需要改代码。
 

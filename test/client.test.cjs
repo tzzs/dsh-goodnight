@@ -211,9 +211,9 @@ function renderEntry(entry, storeValue, actions = {}, ownerProps = {}) {
   return { root, tree: renderNode(root) }
 }
 
-const rail = byId('idle-power')
-const page = byKey('idle-power')
-const countdown = byId('dsh-idle-power.countdown')
+const rail = byId('goodnight')
+const page = byKey('goodnight')
+const countdown = byId('dsh-goodnight.countdown')
 
 console.log('=== registrations ===')
 for (const entry of registered) console.log(' ', entry.name, '|', entry.id ?? entry.key ?? '')
@@ -222,7 +222,7 @@ check('rail entry sits directly under 自动化任务 (order 15)', rail?.order =
 check('rail entry exposes a label', rail?.label?.() === 't(rail.label)', String(rail?.label?.()))
 check('rail entry can receive the live store', typeof rail?.inject?.()?.hooks?.power?.getSnapshot === 'function')
 check('page registered in main', page?.name === 'main', page?.name)
-check('page key matches the rail id', page?.key === 'idle-power', page?.key)
+check('page key matches the rail id', page?.key === 'goodnight', page?.key)
 // Drift guard: whatever the page destructures must be injected, so a new
 // action can never be rendered without the prop that makes it work.
 const pageActions = (/function PowerPage\(\{([\s\S]*?)\}\)/.exec(String(page?.component))?.[1] ?? '')
@@ -650,7 +650,7 @@ console.log('\n=== page: stay-awake switch ===')
 
 console.log('\n=== wait screen: the whole screen while waiting ===')
 {
-  const waitEntry = byId('dsh-idle-power.wait')
+  const waitEntry = byId('dsh-goodnight.wait')
   check('wait overlay is registered', waitEntry?.name === 'shell.overlay', waitEntry?.name)
 
   const load = { available: true, agentsRunning: 2, inboxPending: 3, jobsRunning: 1, total: 6 };
@@ -695,7 +695,7 @@ console.log('\n=== wait screen: the whole screen while waiting ===')
 
 console.log('\n=== wait screen: a frozen blocker offers a way past it ===')
 {
-  const waitEntry = byId('dsh-idle-power.wait')
+  const waitEntry = byId('dsh-goodnight.wait')
   const load = { available: true, agentsRunning: 2, inboxPending: 3, jobsRunning: 1, total: 6 }
   const frozen = (blockedForSeconds) => ({
     data: {
@@ -737,7 +737,7 @@ console.log('\n=== wait screen: a frozen blocker offers a way past it ===')
 
 console.log('\n=== wait screen: Escape closes the presentation, not the reservation ===')
 {
-  const waitEntry = byId('dsh-idle-power.wait')
+  const waitEntry = byId('dsh-goodnight.wait')
   const load = { available: true, agentsRunning: 1, inboxPending: 0, jobsRunning: 0, total: 1 }
   const armed = {
     ...baseState,
@@ -841,7 +841,7 @@ console.log('\n=== countdown: whole-screen fullscreen ===')
 
 console.log('\n=== preview: a rehearsal, not a countdown ===')
 {
-  const previewEntry = byId('dsh-idle-power.preview')
+  const previewEntry = byId('dsh-goodnight.preview')
   check('preview overlay is registered', previewEntry?.name === 'shell.overlay', previewEntry?.name)
 
   const closed = renderEntry(previewEntry, { data: baseState, preview: false })
@@ -1174,7 +1174,7 @@ console.log('\n=== background presets: CSS and runtime wiring ===')
   check('blur scopes its dark tokens to the overlay subtree', css.includes('--dsw-alias-label-primary:#f3f5f9'))
   check('all three presets are recognized', JSON.stringify(moduleObj.internals.BACKGROUND_STYLES) === '["solid","glass","blur"]')
   check('normalizeBackground rejects unknown values', moduleObj.internals.normalizeBackground('neon') === 'solid' && moduleObj.internals.normalizeBackground('blur') === 'blur')
-  const injected = byKey('idle-power').inject()
+  const injected = byKey('goodnight').inject()
   check('page receives the setBackground action', typeof injected.setBackground === 'function')
   check('page still receives setMode', typeof injected.setMode === 'function')
 }

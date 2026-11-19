@@ -93,16 +93,16 @@ All three change **only the overlay itself**: the `blur` token overrides are sco
 
 ## Install
 
-The plugin is a regular DSH bundle: an npm package that ships a `cordis.patch.yml` and a `dsh.client` entry. The package keeps its original name, `dsh-idle-power`; **Goodnight** is the name it shows in the app.
+The plugin is a regular DSH bundle: an npm package that ships a `cordis.patch.yml` and a `dsh.client` entry. The package is `dsh-goodnight`, and it shows itself in the app as **Goodnight**.
 
-**Option A — Plugins page (recommended).** Open the Plugins page in Harness and install the bundle `dsh-idle-power` (or the spec `github:tzzs/dsh-idle-power`). It writes the dependency and adds the bundle to your profile for you.
+**Option A — Plugins page (recommended).** Open the Plugins page in Harness and install the bundle `dsh-goodnight` (or the spec `github:tzzs/dsh-goodnight`). It writes the dependency and adds the bundle to your profile for you.
 
 **Option B — edit the profile by hand.** In your profile's `package.json`, list the package and add it to the bundle list:
 
 ```jsonc
 {
-  "dependencies": { "dsh-idle-power": "github:tzzs/dsh-idle-power" },
-  "dsh": { "profile": { "bundles": ["dsh-idle-power"] } }
+  "dependencies": { "dsh-goodnight": "github:tzzs/dsh-goodnight" },
+  "dsh": { "profile": { "bundles": ["dsh-goodnight"] } }
 }
 ```
 
@@ -159,14 +159,14 @@ The browser half talks to the Host over six authenticated routes. Every one chec
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/idle-power/state` | mode, phase, remaining seconds, background style, live task counts |
-| `POST` | `/idle-power/arm` | reserve; body `{ "mode": "hibernate" \| "shutdown" }` |
-| `POST` | `/idle-power/cancel` | cancel a reservation or a running countdown |
-| `POST` | `/idle-power/mode` | change the mode when nothing is reserved |
-| `POST` | `/idle-power/background` | change the background only; body `{ "backgroundStyle": "solid" \| "glass" \| "blur" }` |
-| `POST` | `/idle-power/color` | change the solid colour only; body `{ "color": "#rrggbb" \| null }` |
-| `POST` | `/idle-power/fullscreen` | change the waiting fullscreen only; body `{ "onWait": true \| false }` |
-| `POST` | `/idle-power/awake` | change the stay-awake behaviour only; body `{ "on": true \| false }` |
+| `GET` | `/goodnight/state` | mode, phase, remaining seconds, background style, live task counts |
+| `POST` | `/goodnight/arm` | reserve; body `{ "mode": "hibernate" \| "shutdown" }` |
+| `POST` | `/goodnight/cancel` | cancel a reservation or a running countdown |
+| `POST` | `/goodnight/mode` | change the mode when nothing is reserved |
+| `POST` | `/goodnight/background` | change the background only; body `{ "backgroundStyle": "solid" \| "glass" \| "blur" }` |
+| `POST` | `/goodnight/color` | change the solid colour only; body `{ "color": "#rrggbb" \| null }` |
+| `POST` | `/goodnight/fullscreen` | change the waiting fullscreen only; body `{ "onWait": true \| false }` |
+| `POST` | `/goodnight/awake` | change the stay-awake behaviour only; body `{ "on": true \| false }` |
 
 Once the power command is committed, `/arm`, `/cancel`, `/mode`, `/background`, `/color`, `/fullscreen` and `/awake` all answer `409 execution-in-progress`. A superseded arm, and any `/mode` sent while a reservation is live, answers `409 reservation-changed`; to change the action of an existing reservation, arm again so the quiet window restarts.
 

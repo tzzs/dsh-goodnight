@@ -80,7 +80,7 @@ jobs:
             echo "::error::package.json says $actual but release-please released $VERSION"
             exit 1
           fi
-          echo "Publishing dsh-idle-power@$actual from tag ${{ needs.release-please.outputs.tag_name }}"
+          echo "Publishing dsh-goodnight@$actual from tag ${{ needs.release-please.outputs.tag_name }}"
 
       # Nothing is built, but a broken tarball is not worth a version number.
       # Only the portable half runs here: host.test.mjs asserts the Windows

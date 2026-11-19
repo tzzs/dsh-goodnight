@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>dsh-idle-power · countdown preview</title>
+<title>dsh-goodnight · countdown preview</title>
 <style>
   /* Stand-ins for the DSH design tokens, so the plugin CSS resolves the same way. */
   :root {
@@ -335,7 +335,7 @@
   const t = (key) => messages[key] ?? key;
   const ctx = {
     effect(callback, label) {
-      if (label !== 'dsh-idle-power: stylesheet' && label !== 'dsh-idle-power: dictionaries') return () => {};
+      if (label !== 'dsh-goodnight: stylesheet' && label !== 'dsh-goodnight: dictionaries') return () => {};
       const cleanup = callback();
       if (typeof cleanup === 'function') hostCleanups.push(cleanup);
       return cleanup;
@@ -393,10 +393,10 @@
   // The preview page renders with the same component the Host mounts; two actions
   // it cannot genuinely perform are no-ops, so the UI still renders.
   const pageProps = { usePower, t, arm: start, cancel, setMode, setBackground, setColor, setFullscreenOnWait, setStayAwake, openPreview: () => {}, refresh: async () => true };
-  const Page = registered.get('idle-power');
-  const Countdown = registered.get('dsh-idle-power.countdown');
-  const PreviewOverlay = registered.get('dsh-idle-power.preview');
-  const WaitOverlay = registered.get('dsh-idle-power.wait');
+  const Page = registered.get('goodnight');
+  const Countdown = registered.get('dsh-goodnight.countdown');
+  const PreviewOverlay = registered.get('dsh-goodnight.preview');
+  const WaitOverlay = registered.get('dsh-goodnight.wait');
   // ?preview=1 rehearses the countdown overlay: the same component the Host
   // mounts, driven by a fake store snapshot, with nothing armed.
   // The DSH theme injects this globally; without it a 50% radius renders as a
