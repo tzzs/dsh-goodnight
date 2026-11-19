@@ -866,5 +866,54 @@ await scenario('waking during the execution lookup restarts the quiet window', {
   check('a new countdown follows the complete quiet window', (await readState(routes)).phase === 'counting')
 })
 
+await scenario('a frozen blocker can be skipped on request', { quietSeconds: 3, countdownSeconds: 5, stuckAfterSeconds: 30 }, async ({ routes }) => {
+  // One job that never settles is exactly the shape of the overnight hang: the
+  // quiet window can never start, so the reservation would sit there for ever.
+  state.jobs.push({ id: 'job-1', owner: undefined, status: 'running' })
+  await call(routes, '/idle-power/arm', { method: 'POST', body: '{}' })
+  await sleep(1000)
+  check('the panel is blocked', (await readState(routes)).phase === 'armed')
+  check('the blocker is counted', (await readState(routes)).busy.total === 1)
+  check('the stuck threshold reaches the panel', (await readState(routes)).stuckAfterSeconds === 30)
+
+  const early = await readState(routes)
+  check('the clock starts at zero', early.blockedForSeconds === 0, String(early.blockedForSeconds))
+  clock.now += 29_000
+  await sleep(1000)
+  check('it counts up while the blocker stays', (await readState(routes)).blockedForSeconds >= 29, String((await readState(routes)).blockedForSeconds))
+
+  // A different blocker is new information, so the clock has to restart.
+  state.jobs.push({ id: 'job-2', owner: undefined, status: 'running' })
+  await sleep(1000)
+  check('a changed blocker restarts the clock', (await readState(routes)).blockedForSeconds === 0, String((await readState(routes)).blockedForSeconds))
+
+  clock.now += 40_000
+  await sleep(1000)
+  const forced = await call(routes, '/idle-power/force', { method: 'POST', body: '{}' })
+  check('POST /force accepts', forced.statusCode === 200, forced.statusCode)
+  check('it starts the countdown', parse(forced)?.phase === 'counting', parse(forced)?.phase)
+  check('the deadline is a full countdown away', parse(forced)?.remainingSeconds > 0)
+  check('no power command runs yet', state.spawned.length === 0)
+
+  // The countdown still voids itself if work is genuinely still moving.
+  state.jobs.length = 0
+  await sleep(1000)
+  check('the countdown survives a settled blocker', (await readState(routes)).phase === 'counting')
+})
+
+await scenario('force refuses everything that is not a blocked reservation', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes }) => {
+  const idle = await call(routes, '/idle-power/force', { method: 'POST', body: '{}' })
+  check('idle /force is 409', idle.statusCode === 409, idle.statusCode)
+  check('it names the reason', parse(idle)?.code === 'not-waiting', parse(idle)?.code)
+
+  await call(routes, '/idle-power/arm', { method: 'POST', body: '{}' })
+  const unblocked = await call(routes, '/idle-power/force', { method: 'POST', body: '{}' })
+  check('an unblocked wait cannot be forced', unblocked.statusCode === 409, unblocked.statusCode)
+  check('it says nothing is blocking', parse(unblocked)?.code === 'not-blocked', parse(unblocked)?.code)
+
+  check('GET /force is 405', (await call(routes, '/idle-power/force', { method: 'GET' })).statusCode === 405)
+  check('force never armed on its own', (await readState(routes)).phase === 'armed')
+})
+
 console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'}`)
 process.exit(failures === 0 ? 0 : 1)

@@ -23,6 +23,7 @@ const BACKGROUND_PATH = '/idle-power/background'
 const COLOR_PATH = '/idle-power/color'
 const FULLSCREEN_PATH = '/idle-power/fullscreen'
 const AWAKE_PATH = '/idle-power/awake'
+const FORCE_PATH = '/idle-power/force'
 
 const PHASE_IDLE = 'idle'
 const PHASE_ARMED = 'armed'
@@ -40,6 +41,8 @@ const BACKGROUND_STYLES = [BACKGROUND_SOLID, BACKGROUND_GLASS, BACKGROUND_BLUR]
 
 const DEFAULT_COUNTDOWN_SECONDS = 60
 const DEFAULT_QUIET_SECONDS = 20
+// Ten minutes of an unchanging blocker is long enough to call it frozen.
+const DEFAULT_STUCK_AFTER_SECONDS = 600
 const MAX_BODY_BYTES = 64 * 1024
 /**
  * A gap this large between the deadline and the next tick means this process was
@@ -186,6 +189,9 @@ export function apply(ctx, config, environment = {}) {
 	const options = {
 		countdownSeconds: boundedInteger(config?.countdownSeconds, DEFAULT_COUNTDOWN_SECONDS, 5, 3600),
 		quietSeconds: boundedInteger(config?.quietSeconds, DEFAULT_QUIET_SECONDS, 3, 3600),
+		// A blocker that never clears pins the reservation forever, so the panel
+		// starts offering a way past it after this long. It never skips on its own.
+		stuckAfterSeconds: boundedInteger(config?.stuckAfterSeconds, DEFAULT_STUCK_AFTER_SECONDS, 30, 86_400),
 		// Default is a real power-off: 关机 unless hibernate is asked for.
 		defaultMode: config?.defaultMode === MODE_HIBERNATE ? MODE_HIBERNATE : MODE_SHUTDOWN,
 		// Default is the opaque surface: its contrast never depends on what is
@@ -217,6 +223,10 @@ export function apply(ctx, config, environment = {}) {
 	let awakeHandle = null
 	let awakeStarting = false
 	let quietSince = null
+	// When the current blocker appeared, plus its shape, so the UI can say how
+	// long this exact combination has been sitting there unchanged.
+	let blockedSince = null
+	let blockedShape = null
 	let deadline = null
 	let error = null
 	let lastExecution = null
@@ -264,6 +274,19 @@ export function apply(ctx, config, environment = {}) {
 		}
 	}
 
+	/**
+	 * Remember how long the current blocker has been sitting there. The shape is
+	 * the breakdown, not just the total: one job turning into two different jobs
+	 * is new information, so the clock has to restart rather than claim the same
+	 * blocker has been frozen for an hour.
+	 */
+	function noteBlocked(busy, now) {
+		const shape = `${busy.available ? 'up' : 'down'}:${busy.agentsRunning}:${busy.inboxPending}:${busy.jobsRunning}`
+		if (shape === blockedShape) return
+		blockedShape = shape
+		blockedSince = now
+	}
+
 	/** Snapshot for the browser half. `deadline` lets it tick locally between polls. */
 	function stateSnapshot() {
 		const busy = countBusy()
@@ -279,6 +302,9 @@ export function apply(ctx, config, environment = {}) {
 			stayAwake: options.stayAwake,
 			countdownSeconds: options.countdownSeconds,
 			quietSeconds: options.quietSeconds,
+			stuckAfterSeconds: options.stuckAfterSeconds,
+			blockedForSeconds:
+				blockedSince === null || busy.total === 0 ? 0 : Math.max(0, Math.floor((now - blockedSince) / 1000)),
 			remainingSeconds: deadline === null ? 0 : Math.max(0, Math.ceil((deadline - now) / 1000)),
 			quietRemainingSeconds:
 				quietSince === null ? 0 : Math.max(0, Math.ceil((quietSince + options.quietSeconds * 1000 - now) / 1000)),
@@ -349,6 +375,8 @@ export function apply(ctx, config, environment = {}) {
 		revision += 1
 		phase = PHASE_IDLE
 		quietSince = null
+		blockedSince = null
+		blockedShape = null
 		deadline = null
 		error = null
 		void syncAwake()
@@ -368,8 +396,11 @@ export function apply(ctx, config, environment = {}) {
 			phase = PHASE_ARMED
 			deadline = null
 			quietSince = null
+			noteBlocked(busy, now)
 			return
 		}
+		blockedSince = null
+		blockedShape = null
 		if (phase === PHASE_ARMED) {
 			if (quietSince === null) {
 				quietSince = now
@@ -785,6 +816,42 @@ export function apply(ctx, config, environment = {}) {
 			sendJson(res, 200, stateSnapshot())
 		},
 	}), `dsh-idle-power: POST ${AWAKE_PATH}`)
+
+	// Skip a blocker the reader has decided is frozen. Deliberately manual: the
+	// Host never decides on its own that a running task should be abandoned, and it
+	// only accepts this while the reservation is still waiting to start.
+	ctx.effect(() => ctx.webServer.register({
+		kind: 'exact',
+		path: FORCE_PATH,
+		handler: (req, res) => {
+			if (rejected(req, res)) return
+			if (req.method !== 'POST') {
+				sendMethodNotAllowed(res, 'POST')
+				return
+			}
+			if (phase === PHASE_EXECUTING) {
+				sendJson(res, 409, executionConflict())
+				return
+			}
+			if (phase !== PHASE_ARMED) {
+				sendJson(res, 409, { code: 'not-waiting', message: 'nothing is waiting on a task right now' })
+				return
+			}
+			// Only a real blocker can be skipped; an idle panel has nothing to force.
+			const busy = countBusy()
+			if (busy.available && busy.total === 0) {
+				sendJson(res, 409, { code: 'not-blocked', message: 'no task is blocking the reservation' })
+				return
+			}
+			revision += 1
+			phase = PHASE_COUNTING
+			quietSince = null
+			deadline = Date.now() + options.countdownSeconds * 1000
+			void syncAwake()
+			ctx.logger.info('dsh-idle-power: skipping a stuck blocker on request')
+			sendJson(res, 200, stateSnapshot())
+		},
+	}), `dsh-idle-power: POST ${FORCE_PATH}`)
 
 	ctx.effect(() => ctx.webServer.register({
 		kind: 'exact',

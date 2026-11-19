@@ -14,6 +14,7 @@ window.__ModuleLoader__.load({
     const ROUTE_COLOR = 'idle-power/color';
     const ROUTE_FULLSCREEN = 'idle-power/fullscreen';
     const ROUTE_AWAKE = 'idle-power/awake';
+const ROUTE_FORCE = 'idle-power/force';
 
     // ---------------------------------------------------------------- locale
     const zh = {
@@ -72,6 +73,9 @@ window.__ModuleLoader__.load({
       'wait.headlineQuiet': '安静期进行中',
       'wait.blockedHint': '全部结束后，还要再连续空闲 %s 秒。',
       'wait.unitTasks': '个任务',
+      'wait.stuckHint': '这个状态已经持续 %s 分钟没有变化，可能是任务没有正常结束。',
+      'wait.force': '仍然关机',
+      'wait.forceHibernate': '仍然休眠',
       'wait.quiet': '已连续空闲 %s / %s 秒',
       'wait.quietProgress': '安静期进度',
       'wait.orb': '等待中',
@@ -214,6 +218,9 @@ window.__ModuleLoader__.load({
       'wait.headlineQuiet': 'Quiet window in progress',
       'wait.blockedHint': 'Once they finish, %s s of quiet is still required.',
       'wait.unitTasks': 'tasks',
+      'wait.stuckHint': 'This has not changed for %s min; the task may never finish.',
+      'wait.force': 'Shut down anyway',
+      'wait.forceHibernate': 'Hibernate anyway',
       'wait.quiet': '%s / %s s of continuous idle',
       'wait.quietProgress': 'Quiet window progress',
       'wait.orb': 'Waiting',
@@ -642,6 +649,14 @@ background-color:rgba(9,11,16,.42);
 .ipa-feedback{color:var(--dsw-alias-state-error-primary);font-size:clamp(12px,1.5vmin,17px);line-height:1.5;max-width:520px;overflow-wrap:anywhere}
 .ipa-mirrorNote{font-size:clamp(10px,1.15vmin,13px);color:var(--dsw-alias-label-tertiary);line-height:1.5;max-width:44ch}
 .ipa-cta[aria-disabled=true]{opacity:.6;cursor:wait}
+/* The last way out of a blocked wait. Outlined rather than filled: it must be
+   findable without competing with Cancel, which stays the safe choice. */
+.ipa-escape{align-self:flex-start;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:7px 14px;border-radius:var(--dsw-radius-sm,8px);corner-shape:round;border:1px solid color-mix(in srgb,var(--dsw-alias-label-primary) 32%,transparent);background:0 0;color:var(--dsw-alias-label-primary);font:inherit;font-size:clamp(12px,1.4vmin,15px);font-weight:600;cursor:pointer}
+@media (hover:hover){.ipa-escape:hover:not(:disabled){background:color-mix(in srgb,var(--dsw-alias-label-primary) 8%,transparent)}}
+.ipa-escape:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary));outline-offset:2px}
+.ipa-escape[aria-disabled=true]{opacity:.6;cursor:wait}
+/* Says out loud that the panel is not just waiting, it is stuck. */
+.ipa-hintStuck{color:var(--dsw-alias-state-warning-primary,var(--dsw-alias-label-secondary))}
 /* A window stretched across two displays can put the exact centre on the bezel.
    Let the reader pin the hero to the half of the window they are looking at. */
 .ipa-align{display:inline-flex;align-items:center;gap:4px}
@@ -878,6 +893,9 @@ background-color:rgba(9,11,16,.42);
       const setFullscreenOnWait = (onWait) => post(ROUTE_FULLSCREEN, { onWait });
       // Whether a pending reservation keeps the machine out of sleep and the lock screen.
       const setStayAwake = (on) => post(ROUTE_AWAKE, { on });
+      // Skip a blocker the reader has decided is frozen. Manual by design: the
+      // panel never decides on its own to abandon a running task.
+      const force = () => post(ROUTE_FORCE, '{}');
 
       return {
         store,
@@ -889,6 +907,7 @@ background-color:rgba(9,11,16,.42);
         setColor,
         setFullscreenOnWait,
         setStayAwake,
+        force,
         // Escape closes the waiting presentation without touching the
         // reservation; the countdown itself is never dismissible.
         dismissWait: () => patch({ waitDismissed: true }),
@@ -1278,7 +1297,7 @@ background-color:rgba(9,11,16,.42);
      * how to stop it — and a full page is where the shipped Plugins and
      * Automation-tasks panels already live.
      */
-    function PowerPage({ usePower, arm, cancel, setMode, setBackground, setColor, setFullscreenOnWait, setStayAwake, openPreview, refresh, t }) {
+    function PowerPage({ usePower, arm, cancel, setMode, setBackground, setColor, setFullscreenOnWait, setStayAwake, force, openPreview, refresh, t }) {
       const { data, ready, offline, busy, note, noteCode } = usePower((current) => current);
       const counting = data.phase === 'counting';
       const armed = data.phase === 'armed' || counting;
@@ -1390,6 +1409,13 @@ background-color:rgba(9,11,16,.42);
           : (!supported || offline || registryDown || locked || !ready || data.phase === 'failed')
             ? bodyText
             : fill(t('foot.plan'), String(data.quietSeconds), String(data.countdownSeconds), modeName);
+
+      // The panel refuses to invent a timeout, but it will not hide one either:
+      // once a blocker has sat unchanged past the Host's threshold, the reader gets
+      // a way past it and an explanation of why it appeared.
+      const blockedFor = Math.max(0, data.blockedForSeconds ?? 0);
+      const stuckAfter = data.stuckAfterSeconds > 0 ? data.stuckAfterSeconds : 600;
+      const stuck = armed && total > 0 && blockedFor >= stuckAfter;
 
       const metric = (labelKey, value) => h('div', { className: 'ipa-metric', key: labelKey },
         h('dt', { className: 'ipa-metricLabel' }, t(labelKey)),
@@ -1510,6 +1536,7 @@ background-color:rgba(9,11,16,.42);
               h('div', { className: 'ipa-heroText' },
                 h('span', { className: 'ipa-heroPhase' }, phaseText),
                 bodyText === '' ? null : h('p', { className: 'ipa-heroBody' }, bodyText),
+                stuck && h('p', { className: 'ipa-heroBody ipa-hintStuck' }, fill(t('wait.stuckHint'), Math.floor(blockedFor / 60))),
                 h('div', { className: 'ipa-heroMeta' },
                   h('span', { className: 'ipa-chip', 'data-tone': armed ? 'accent' : undefined },
                     h(mode === 'shutdown' ? PowerGlyph : HibernateGlyph, { size: 12 }),
@@ -1705,6 +1732,13 @@ background-color:rgba(9,11,16,.42);
               ),
             ),
             h('div', { className: 'ipa-footActions' },
+              stuck && h('button', {
+                type: 'button',
+                className: 'ipa-button',
+                disabled: busy,
+                title: fill(t('wait.stuckHint'), Math.floor(blockedFor / 60)),
+                onClick: () => { void force(); },
+              }, t(mode === 'shutdown' ? 'wait.force' : 'wait.forceHibernate')),
               armed
                 ? h('button', {
                   type: 'button',
@@ -1885,7 +1919,7 @@ background-color:rgba(9,11,16,.42);
      * quiet window has come, and the one way out — no digits counting down,
      * because nothing is about to happen yet.
      */
-    function PowerWaitScreen({ usePower, cancel, dismiss, t }) {
+    function PowerWaitScreen({ usePower, cancel, force, dismiss, t }) {
       const { data, busy, offline, note, noteCode } = usePower((current) => current);
       const screen = useWholeScreen();
       // `busy` from the snapshot is the in-flight flag; the task counts live in
@@ -1910,6 +1944,13 @@ background-color:rgba(9,11,16,.42);
       const supportLine = blocked
         ? fill(t('wait.blockedHint'), quietTotal)
         : fill(t('wait.quiet'), quietLeft, quietTotal);
+      // A blocker that never clears would pin this screen forever, so after a
+      // while the reader is offered a way past it. The Host still decides whether
+      // the skip is legal; this only decides whether to ask.
+      const blockedFor = Math.max(0, data.blockedForSeconds ?? 0);
+      const stuckAfter = data.stuckAfterSeconds > 0 ? data.stuckAfterSeconds : 600;
+      const stuck = blocked && blockedFor >= stuckAfter;
+      const forceLabel = t(data.mode === 'shutdown' ? 'wait.force' : 'wait.forceHibernate');
       // The waiting screen shares the countdown's surface tokens, so a pinned
       // colour and its ink carry over instead of flashing the theme colour.
       const surface = normalizeBackground(data.backgroundStyle);
@@ -1917,6 +1958,17 @@ background-color:rgba(9,11,16,.42);
       const ink = customColor === null ? null : isDarkColor(customColor) ? 'light' : 'dark';
 
       const stopping = submitting || busy === true;
+      const skip = async () => {
+        if (submitting) return;
+        setSubmitting(true);
+        try {
+          const ok = await force();
+          if (!ok) setSubmitting(false);
+        } catch {
+          setSubmitting(false);
+        }
+      };
+
       const stop = async () => {
         if (stopping) return;
         setSubmitting(true);
@@ -2030,6 +2082,13 @@ background-color:rgba(9,11,16,.42);
               },
                 t(stopping ? 'wait.cancelling' : 'wait.cancel'),
               ),
+              stuck && h('p', { className: 'ipa-hint ipa-hintInline ipa-hintStuck' }, fill(t('wait.stuckHint'), Math.floor(blockedFor / 60))),
+              stuck && h('button', {
+                type: 'button',
+                className: 'ipa-escape',
+                'aria-disabled': stopping || undefined,
+                onClick: () => { void skip(); },
+              }, forceLabel),
               h('p', { className: 'ipa-hint ipa-hintInline' }, t('wait.escHint')),
             ),
           ),
@@ -2404,6 +2463,7 @@ background-color:rgba(9,11,16,.42);
             setColor: runtime.setColor,
             setFullscreenOnWait: runtime.setFullscreenOnWait,
             setStayAwake: runtime.setStayAwake,
+            force: runtime.force,
             openPreview: runtime.openPreview,
             refresh: runtime.refresh,
           }),
@@ -2418,13 +2478,14 @@ background-color:rgba(9,11,16,.42);
           inject: () => ({
             hooks: { power: runtime.store },
             cancel: runtime.cancel,
+            force: runtime.force,
             dismiss: runtime.dismissWait,
           }),
-        }, function WaitWhenArmed({ usePower, cancel, dismiss, t }) {
+        }, function WaitWhenArmed({ usePower, cancel, force, dismiss, t }) {
           const snapshot = usePower((current) => current);
           if (snapshot.data.fullscreenOnWait !== true || snapshot.data.phase !== 'armed') return null;
           if (snapshot.waitDismissed === true) return null;
-          return h(PowerWaitScreen, { usePower, cancel, dismiss, t });
+          return h(PowerWaitScreen, { usePower, cancel, force, dismiss, t });
         }));
 
         // The preview shares the countdown component but never touches the Host.

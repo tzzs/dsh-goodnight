@@ -9,3 +9,6 @@
         countdownColor: null
         fullscreenOnWait: false
         stayAwake: true
+        # A blocker that never clears pins the reservation for ever; after this
+        # long the panel offers a manual way past it. It never skips on its own.
+        stuckAfterSeconds: 600
