@@ -647,7 +647,7 @@ background-color:rgba(9,11,16,.42);
 .ipa-dial[data-tone=calm] .ipa-segA{stroke:var(--dsw-alias-brand-primary)}
 .ipa-dial[data-tone=calm] .ipa-segB{stroke:color-mix(in srgb,var(--dsw-alias-brand-primary) 68%,transparent)}
 .ipa-dial[data-tone=calm] .ipa-segC{stroke:color-mix(in srgb,var(--dsw-alias-brand-primary) 44%,transparent)}
-.ipa-dial[data-tone=calm] .ipa-segA,.ipa-dial[data-tone=calm] .ipa-segB,.ipa-dial[data-tone=calm] .ipa-segC{fill:none;stroke-width:3.2;stroke-linecap:round;transition:stroke-dasharray .34s var(--dsw-ease, ease),stroke-dashoffset .34s var(--dsw-ease, ease)}
+.ipa-dial[data-tone=calm] .ipa-segA,.ipa-dial[data-tone=calm] .ipa-segB,.ipa-dial[data-tone=calm] .ipa-segC{fill:none;stroke-width:3.2;stroke-linecap:butt;transition:stroke-dasharray .34s var(--dsw-ease, ease),stroke-dashoffset .34s var(--dsw-ease, ease)}
 /* A changed number is news, so it gets one short beat. */
 .ipa-count[data-fresh]{animation:ipa-count-pop 300ms var(--dsw-ease, ease)}
 @keyframes ipa-count-pop{0%{opacity:.25;transform:translateY(.06em) scale(.94)}100%{opacity:1;transform:none}}
@@ -2003,11 +2003,14 @@ background-color:rgba(9,11,16,.42);
       const partTotal = parts.reduce((sum, one) => sum + one.value, 0) || 1
       // A small gap between series: without an edge the three tones blur into
       // one ring and the composition reads as a single progress value.
-      const SEGMENT_GAP = 7
+      // A hairline, not a gap: the ring has to read as one closed circle, and a
+      // single series is drawn all the way round so it never looks broken.
+      const SEGMENT_GAP = 1.6
+      const seriesCount = parts.filter((one) => one.value > 0).length
       let drawn = 0
       const arcs = parts.map((one) => {
         const share = (one.value / partTotal) * WAIT_CIRCUMFERENCE
-        const arc = { ...one, length: Math.max(share - SEGMENT_GAP, 0.6), offset: -drawn }
+        const arc = { ...one, length: seriesCount > 1 ? Math.max(share - SEGMENT_GAP, 0.6) : share, offset: -drawn }
         drawn += share
         return arc
       }).filter((one) => one.value > 0)
