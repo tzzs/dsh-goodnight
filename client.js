@@ -85,7 +85,7 @@ const ROUTE_FORCE = 'goodnight/force';
       'wait.inbox': '排队消息',
       'wait.jobs': '后台任务',
       'wait.hint': '任何新任务都会让安静期归零重来。',
-      'wait.escHint': 'Esc 退出大屏展示；预约仍然有效，可以在页面上取消。',
+      'wait.escHint': 'Esc 直接退出整个全屏界面（退出全屏）；预约仍然有效，可以在页面上取消。',
       'section.notes': '说明',
       'mode.hibernate': '休眠',
       'mode.hibernateDesc': '内存快照落盘，等于断电；下次开机原样恢复窗口和未保存的内容。',
@@ -131,7 +131,7 @@ const ROUTE_FORCE = 'goodnight/force';
       'countdown.suffix': '秒',
       'countdown.cancel': '取消',
       'countdown.hint': '有任何新任务开始，倒计时会自动作废。',
-      'countdown.escFullscreen': 'Esc 先退出全屏（倒计时继续），再按一次才会取消。',
+      'countdown.escFullscreen': 'Esc 直接退出整个倒计时界面，同时取消这次预约。',
       'countdown.quietDone': '已通过 %s 秒持续空闲',
       'countdown.scheduledAt': '预计 %s 执行（本机时间）',
       'countdown.window': '倒计时窗口 %s 秒',
@@ -230,7 +230,7 @@ const ROUTE_FORCE = 'goodnight/force';
       'wait.inbox': 'Queued',
       'wait.jobs': 'Jobs',
       'wait.hint': 'Any new task restarts the quiet window.',
-      'wait.escHint': 'Esc closes the big screen; the reservation stays and can be cancelled on the page.',
+      'wait.escHint': 'Esc leaves the whole fullscreen view at once; the reservation stays and can be cancelled on the page.',
       'section.notes': 'Notes',
       'mode.hibernate': 'Hibernate',
       'mode.hibernateDesc': 'Writes a memory snapshot to disk, so the next boot restores every open window and unsaved edit.',
@@ -276,7 +276,7 @@ const ROUTE_FORCE = 'goodnight/force';
       'countdown.suffix': 's',
       'countdown.cancel': 'Cancel',
       'countdown.hint': 'Any new task voids this countdown automatically.',
-      'countdown.escFullscreen': 'Esc leaves fullscreen first (the countdown keeps running); a second press cancels.',
+      'countdown.escFullscreen': 'Esc leaves the whole countdown screen and cancels the reservation in one step.',
       'countdown.quietDone': '%s s of continuous idle passed',
       'countdown.scheduledAt': 'Scheduled for %s (local time)',
       'countdown.window': '%s s cancellation window',
@@ -1845,7 +1845,10 @@ background-color:rgba(9,11,16,.42);
 
       const leave = () => {
         const host = doc();
-        if (!entered || !isFullscreen() || host === null || typeof host.exitFullscreen !== 'function') return;
+        // Deliberately not gated on `entered`: fullscreen may have been granted
+        // by someone else (the shell, F11), and leaving it behind strands the
+        // reader in a fullscreen window with nothing on it.
+        if (!isFullscreen() || host === null || typeof host.exitFullscreen !== 'function') return;
         entered = false;
         try {
           const attempt = host.exitFullscreen();
@@ -1871,6 +1874,16 @@ background-color:rgba(9,11,16,.42);
           owners.add(owner);
           if (exitTimer !== null) { clearTimeout(exitTimer); exitTimer = null; }
           enter();
+        },
+        /**
+         * Leave the screen now, with no hand-off grace period. Escape and Cancel
+         * both mean "I am done with this presentation", so neither may leave the
+         * window fullscreen behind.
+         */
+        exitNow() {
+          owners.clear();
+          if (exitTimer !== null) { clearTimeout(exitTimer); exitTimer = null; }
+          leave();
         },
         release(owner) {
           owners.delete(owner);
@@ -1985,15 +1998,31 @@ background-color:rgba(9,11,16,.42);
         const onKey = (event) => {
           if (event.key !== 'Escape') return;
           // Escape leaves the big screen entirely: the OS fullscreen and this
-          // overlay go away together, and the reservation stays armed. Leaving
-          // the window fullscreen but keeping the overlay was a half-state —
-          // neither the app nor the fullscreen presentation.
+          // overlay go away together, exactly like Cancel, and the reservation
+          // stays armed. Leaving the window fullscreen while the overlay left
+          // was a half-state — neither the app nor the presentation.
           event.preventDefault?.();
+          screenKeeper().exitNow();
           dismiss?.();
         };
         host.addEventListener('keydown', onKey);
         return () => host.removeEventListener('keydown', onKey);
       }, [stopping, dismiss]);
+
+      // Escape in fullscreen is consumed by the browser before the page sees it,
+      // so a keydown listener alone leaves the overlay up with the desktop back.
+      // Losing fullscreen therefore closes the presentation too, which is the
+      // same outcome Escape has when the key does reach us.
+      useEffect(() => {
+        const host = typeof document === 'undefined' ? null : document;
+        if (host === null || typeof host.addEventListener !== 'function') return undefined;
+        const onFullscreenChange = () => {
+          if (typeof document !== 'undefined' && document.fullscreenElement) return;
+          dismiss?.();
+        };
+        host.addEventListener('fullscreenchange', onFullscreenChange);
+        return () => host.removeEventListener('fullscreenchange', onFullscreenChange);
+      }, [dismiss]);
 
       return h('div', {
         className: 'ipa-scrim ipa-scrimWait',
@@ -2162,10 +2191,12 @@ background-color:rgba(9,11,16,.42);
       useEffect(() => {
         const onKey = (event) => {
           if (event.key === 'Escape') {
-            // In fullscreen the same key is the browser's way out; cancelling a
-            // reservation because someone wanted their desktop back is a trap.
-            if (typeof document !== 'undefined' && document.fullscreenElement) return;
+            // Escape means "get me out of this", so it leaves the screen and
+            // stops the countdown in one step, fullscreen or not. Letting the
+            // browser exit fullscreen alone would keep a shutdown running on a
+            // desktop the reader thinks they just reclaimed.
             event.preventDefault?.();
+            screenKeeper().exitNow();
             cancelCountdown();
             return;
           }
