@@ -2009,6 +2009,21 @@ background-color:rgba(9,11,16,.42);
         return () => host.removeEventListener('keydown', onKey);
       }, [stopping, dismiss]);
 
+      // Escape in fullscreen is consumed by the browser before the page sees it,
+      // so a keydown listener alone leaves the overlay up with the desktop back.
+      // Losing fullscreen therefore closes the presentation too, which is the
+      // same outcome Escape has when the key does reach us.
+      useEffect(() => {
+        const host = typeof document === 'undefined' ? null : document;
+        if (host === null || typeof host.addEventListener !== 'function') return undefined;
+        const onFullscreenChange = () => {
+          if (typeof document !== 'undefined' && document.fullscreenElement) return;
+          dismiss?.();
+        };
+        host.addEventListener('fullscreenchange', onFullscreenChange);
+        return () => host.removeEventListener('fullscreenchange', onFullscreenChange);
+      }, [dismiss]);
+
       return h('div', {
         className: 'ipa-scrim ipa-scrimWait',
         'data-background': surface,
