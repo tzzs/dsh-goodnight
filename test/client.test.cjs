@@ -693,6 +693,61 @@ console.log('\n=== wait screen: the whole screen while waiting ===')
   check('cancel reaches the Host from the waiting screen', cancelled === 1, String(cancelled))
 }
 
+console.log('\n=== wait screen: the ring carries the composition, and it moves ===')
+{
+  const waitEntry = byId('dsh-goodnight.wait')
+  const load = { available: true, agentsRunning: 2, inboxPending: 3, jobsRunning: 1, total: 6 }
+  const blocked = {
+    data: { ...baseState, phase: 'armed', quietSeconds: 20, quietRemainingSeconds: 0, fullscreenOnWait: true, busy: load },
+    busy: load,
+  }
+  const tree = renderEntry(waitEntry, blocked).tree
+
+  const arcs = []
+  walkElements(tree, (node) => {
+    const name = node.props?.className
+    if (typeof name === 'string' && node.tag === 'circle' && /ipa-seg[ABC]/.test(name)) arcs.push(name)
+  })
+  check('one arc per kind of work', arcs.length === 3, String(arcs.length))
+  check('the arcs use the three tones', arcs.includes('ipa-segA') && arcs.includes('ipa-segB') && arcs.includes('ipa-segC'), arcs.join(','))
+
+  // Each arc's length is its share of the circumference, not a fixed value, so
+  // the ring reads as a composition rather than three unrelated strokes.
+  const lengths = []
+  walkElements(tree, (node) => {
+    const name = node.props?.className
+    if (typeof name === 'string' && node.tag === 'circle' && /ipa-seg[ABC]/.test(name)) {
+      lengths.push(Number(String(node.props['stroke-dasharray']).split(' ')[0]))
+    }
+  })
+  // 2 agents / 3 queued / 1 job: the arcs have to be proportional to those
+  // shares, so the biggest series is the biggest arc wherever it sits.
+  const biggest = Math.max(...lengths)
+  check('the largest share is the largest arc', lengths.indexOf(biggest) === 1, lengths.join(','))
+  check('the arcs are proportional to the counts', Math.abs(lengths[0] / lengths[2] - 2) < 0.25, lengths.join(','))
+  check('every arc leaves room for its gap', lengths.every((one) => one > 0), lengths.join(','))
+
+  // Motion: the halo breathes, the sweep rotates, the number and legend get one
+  // beat. All of it is inside the scrim, which the reduced-motion block silences.
+  check('a breathing halo sits behind the dial', findElement(tree, (n) => n.props.className === 'ipa-waitHalo') !== undefined)
+  check('a sweep ring sits outside the composition', findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-ringSweep')) !== undefined)
+  check('the number is keyed so a change replays its beat', findElement(tree, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-count') && n.props.key === '6') !== undefined)
+  check('the legend rises in behind the dial', countClass(tree, 'ipa-waitStat') === 3 && findElement(tree, (n) => n.props['data-fresh'] !== undefined && typeof n.props.className === 'string' && n.props.className.includes('ipa-waitStat')) !== undefined)
+
+  // The quiet half must not show a composition it does not have.
+  const quiet = renderEntry(waitEntry, {
+    data: { ...baseState, phase: 'armed', quietSeconds: 20, quietRemainingSeconds: 12, fullscreenOnWait: true, busy: { available: true, agentsRunning: 0, inboxPending: 0, jobsRunning: 0, total: 0 } },
+  }).tree
+  const quietArcs = []
+  walkElements(quiet, (node) => {
+    const name = node.props?.className
+    if (typeof name === 'string' && node.tag === 'circle' && /ipa-seg[ABC]/.test(name)) quietArcs.push(name)
+  })
+  check('no composition while nothing is running', quietArcs.length === 0, String(quietArcs.length))
+  check('the quiet half keeps its progress arc', findElement(quiet, (n) => n.props.className === 'ipa-ringValue') !== undefined)
+  check('and no sweep, because there is nothing to look for', findElement(quiet, (n) => typeof n.props.className === 'string' && n.props.className.includes('ipa-ringSweep')) === undefined)
+}
+
 console.log('\n=== wait screen: a frozen blocker offers a way past it ===')
 {
   const waitEntry = byId('dsh-goodnight.wait')
