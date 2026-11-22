@@ -767,7 +767,7 @@ console.log('\n=== wait screen: Escape closes the presentation, not the reservat
   check('the screen explains what Escape does', textsOf(tree).join('|').includes('wait.escHint'), textsOf(tree).join('|'))
 }
 
-console.log('\n=== countdown: the two-step Escape is explained ===')
+console.log('\n=== countdown: Escape is explained once it is fullscreen ===')
 {
   const counting = { data: { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null } }
   let fullscreenElement = null
@@ -779,10 +779,56 @@ console.log('\n=== countdown: the two-step Escape is explained ===')
 
   fullscreenElement = { tagName: 'HTML' }
   const full = renderEntry(countdown, counting)
-  check('fullscreen explains the two-step Escape', textsOf(full.tree).join('|').includes('countdown.escFullscreen'), textsOf(full.tree).join('|'))
+  check('fullscreen explains what Escape does', textsOf(full.tree).join('|').includes('countdown.escFullscreen'), textsOf(full.tree).join('|'))
 
   delete documentStub.documentElement
   delete documentStub.fullscreenElement
+}
+
+console.log('\n=== Escape leaves the whole presentation, fullscreen included ===')
+{
+  // A fullscreen document that was entered by someone else: the overlay must
+  // still take it down on the way out, or the reader is left staring at a
+  // fullscreen window with no plugin UI on it.
+  const loads = { available: true, agentsRunning: 1, inboxPending: 0, jobsRunning: 0, total: 1 }
+  const armed = {
+    ...baseState,
+    phase: 'armed',
+    quietSeconds: 20,
+    quietRemainingSeconds: 14,
+    fullscreenOnWait: true,
+    busy: loads,
+  }
+
+  let exited = 0
+  let fullscreenElement = { tagName: 'HTML' }
+  documentStub.documentElement = { requestFullscreen: () => Promise.resolve() }
+  Object.defineProperty(documentStub, 'fullscreenElement', { configurable: true, get: () => fullscreenElement })
+  documentStub.exitFullscreen = () => { exited += 1; fullscreenElement = null; return Promise.resolve() }
+
+  let dismissed = 0
+  renderEntry(byId('dsh-goodnight.wait'), { data: armed, busy: loads, waitDismissed: false }, {
+    dismiss: () => { dismissed += 1 },
+  })
+  fire('keydown', { key: 'Escape', preventDefault() {} })
+  check('Escape exits fullscreen in the same action', exited === 1, String(exited))
+  check('and still closes the overlay', dismissed === 1, String(dismissed))
+
+  // The countdown owns the same key: stopping it is the only way out of it, and
+  // it must not be left running behind a desktop the reader just reclaimed.
+  exited = 0
+  fullscreenElement = { tagName: 'HTML' }
+  let cancelled = 0
+  renderEntry(byId('dsh-goodnight.countdown'), {
+    data: { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null },
+  }, { cancel: async () => { cancelled += 1; return true } })
+  fire('keydown', { key: 'Escape', preventDefault() {} })
+  check('countdown Escape cancels in fullscreen too', cancelled === 1, String(cancelled))
+  check('countdown Escape also leaves fullscreen', exited === 1, String(exited))
+
+  delete documentStub.documentElement
+  delete documentStub.fullscreenElement
+  delete documentStub.exitFullscreen
 }
 
 console.log('\n=== countdown: whole-screen fullscreen ===')
@@ -1218,6 +1264,60 @@ console.log('\n=== background presets: CSS and runtime wiring ===')
   const plain = await moduleObj.internals.openMirrorWindows({ text, open: () => fakeWin() })
   check('without screen details it still opens one draggable mirror', plain.handles.length === 1 && plain.plain === true, JSON.stringify({ n: plain.handles.length, plain: plain.plain }))
 
-  console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'}`)
+  console.log('\n=== Escape: the browser may take the screen first ===')
+{
+  // In fullscreen the user agent handles Escape itself: it leaves fullscreen and
+  // the page may never see a keydown. Losing fullscreen therefore has to close
+  // the presentation on its own, or one Escape leaves the overlay behind.
+  const loads = { available: true, agentsRunning: 1, inboxPending: 0, jobsRunning: 0, total: 1 }
+  const armed = {
+    ...baseState,
+    phase: 'armed',
+    quietSeconds: 20,
+    quietRemainingSeconds: 14,
+    fullscreenOnWait: true,
+    busy: loads,
+  }
+
+  const fsListeners = []
+  let fullscreenElement = { tagName: 'HTML' }
+  documentStub.documentElement = { requestFullscreen: () => Promise.resolve() }
+  Object.defineProperty(documentStub, 'fullscreenElement', { configurable: true, get: () => fullscreenElement })
+  const originalAdd = documentStub.addEventListener
+  const originalRemove = documentStub.removeEventListener
+  documentStub.addEventListener = (type, fn) => {
+    if (type === 'fullscreenchange') fsListeners.push(fn)
+    else originalAdd?.(type, fn)
+  }
+  documentStub.removeEventListener = (type, fn) => {
+    if (type === 'fullscreenchange') {
+      const at = fsListeners.indexOf(fn)
+      if (at >= 0) fsListeners.splice(at, 1)
+    } else originalRemove?.(type, fn)
+  }
+
+  let dismissed = 0
+  renderEntry(byId('dsh-goodnight.wait'), { data: armed, busy: loads, waitDismissed: false }, {
+    dismiss: () => { dismissed += 1 },
+  })
+  check('the waiting screen watches fullscreen changes', fsListeners.length > 0, String(fsListeners.length))
+
+  // Entering fullscreen must not close anything.
+  fullscreenElement = { tagName: 'HTML' }
+  for (const fn of [...fsListeners]) fn()
+  check('gaining fullscreen dismisses nothing', dismissed === 0, String(dismissed))
+
+  // Losing it — which is what Escape does inside the user agent — must close it.
+  fullscreenElement = null
+  for (const fn of [...fsListeners]) fn()
+  check('losing fullscreen closes the presentation', dismissed === 1, String(dismissed))
+
+  documentStub.addEventListener = originalAdd
+  documentStub.removeEventListener = originalRemove
+  delete documentStub.documentElement
+  delete documentStub.fullscreenElement
+}
+
+console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'}`)
   process.exit(failures === 0 ? 0 : 1)
 })()
