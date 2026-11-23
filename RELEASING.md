@@ -48,63 +48,40 @@ CI 会在 PR 上校验**每一个 commit 的标题**和 **PR 标题**（squash �
 
 之所以把 npm 发布放在同一个 workflow，而不是监听 `release: published`：用内置 `GITHUB_TOKEN` 创建的事件不会再触发其它 workflow，那样发布 job 永远不会跑。
 
-## 4. npm 认证 —— 需要重新授权一次（改名遗留）
+## 4. npm 认证 —— 已完成改名迁移
 
 `dsh-goodnight` 用的是 **npm Trusted Publishing（OIDC）**，仓库里**没有** `NPM_TOKEN` secret，也不需要有人维护长期密钥。发布时 GitHub Actions 用 `id-token: write` 换取一个短效凭证，npm 同时自动生成 provenance。
 
-⚠️ **这个包是从 `dsh-idle-power` 改名来的，授权还没迁过来。** trusted publisher 把「包名 + 仓库名 + workflow 文件名」三者绑在一起，而三者里的前两个都变了（`dsh-idle-power` → `dsh-goodnight`、`tzzs/dsh-idle-power` → `tzzs/dsh-goodnight`）。在重新授权之前，下一次发布会以 `ENEEDAUTH` 失败。
-
-### 一次性迁移步骤（需要交互式 2FA）
-
-npm 上**还没有** `dsh-goodnight` 这个包，所以先做一次手动首发把名字占住：
-
-```powershell
-cd E:\workspaces\dsh-idle-power
-npm login
-npm publish --access public      # 输一次 OTP；这一步不走 OIDC
-```
-
-然后给这个新包配上 trusted publisher：
-
-```powershell
-npm trust github dsh-goodnight --file release.yml --repo tzzs/dsh-goodnight --allow-publish
-npm trust list dsh-goodnight --registry https://registry.npmjs.org/   # 核对
-```
-
-最后把旧包标记为废弃，让还装着老名字的人看到迁移提示：
-
-```powershell
-npm deprecate dsh-idle-power "Renamed to dsh-goodnight (https://github.com/tzzs/dsh-goodnight). Run: dsh-goodnight"
-```
-
-做完之后，`.github/workflows/release.yml` 的 publish job 就能重新工作，不需要再改任何代码。
-
-### 迁移完成后的期望配置
+改名迁移已经在 2026-11-24 完成：新包首发、trusted publisher 绑定、旧包废弃。当前状态：
 
 | 项 | 值 |
 |---|---|
-| 包 | `dsh-goodnight`（id 见 `npm trust list` 输出） |
+| 新包 | `dsh-goodnight@0.4.0`（`latest`） |
 | Organization or user | `tzzs` |
 | Repository | `tzzs/dsh-goodnight` |
 | Workflow filename | `release.yml` |
-| Permissions | `npm publish` + `npm stage publish` |
+| Permissions | `npm publish` |
+| 旧包 | `dsh-idle-power@0.3.0` 已标记废弃，指向新名字 |
 
 用 CLI 核对：
 
 ```powershell
+npm view dsh-goodnight version --registry https://registry.npmjs.org/
 npm trust list dsh-goodnight --registry https://registry.npmjs.org/
 ```
 
-⚠️ **不要改 `release.yml` 的文件名** —— trusted publisher 绑定的是这个文件名，改名会让发布立刻以 `ENEEDAUTH` 失败。改动绑定要删掉旧的再加新的：
+npm 的文档明确要求 **包必须已存在于 registry 才能配置 trusted publisher**。所以改名时不能只改名字等 CI 发布——那会卡在「包不存在 → 无法授权 → 无授权又发不了包」的死锁里。迁移顺序是：先手动首发占住名字 → 再配置 trusted publisher → 之后全部交给 CI。
+
+首发和改绑定都需要交互式 2FA（网页 passkey 或验证器），**不能**只靠本地 token 完成——npm 会把长期 token 的免 2FA 权限逐步收回，而且 `npm login` 拿到的 token 发布时仍会要求一次 OTP。CLI 在 TTY 下会自动打开浏览器完成这一步；非 TTY 环境需要走网页 `authUrl` / `doneUrl` 流程。
+
+⚠️ **不要改 `release.yml` 的文件名** —— trusted publisher 绑定的是这个文件名，改名会让发布立刻以 `ENEEDAUTH` 失败。改动绑定要删掉旧的再加新的（两个命令都需要交互式 2FA）：
 
 ```powershell
 npm trust revoke dsh-goodnight --id <id> --registry https://registry.npmjs.org/
 npm trust github dsh-goodnight --file release.yml --repo tzzs/dsh-goodnight --allow-publish
 ```
 
-这两个命令都需要交互式 2FA（安全密钥/验证器）。
-
-**历史包袱**：`0.2.0` 是在接上自动化之前手动发布的，因此没有 provenance；同时 npm 对新包会先占位一个 `0.0.0-stage` 空版本，这个版本无害、可以忽略。从 `0.2.1` 起全部由 CI 带 provenance 发布。
+**历史包袱**：`0.2.0` 是在接上自动化之前手动发布的，因此没有 provenance；npm 对新包会先占位一个 `0.0.0-stage` 空版本，这个版本无害、可以忽略。从 `0.2.1` 起全部由 CI 带 provenance 发布。
 
 ## 5. 可选：让 CI 也跑在发布 PR 上
 
@@ -139,3 +116,4 @@ npm trust github dsh-goodnight --file release.yml --repo tzzs/dsh-goodnight --al
 |---|---|---|---|
 | `0.2.0` | `v0.2.0` | ✅ `latest`（后由 0.2.1 接替） | 手动（当时还没有 trusted publisher） |
 | `0.2.1` | `v0.2.1` | ✅ `latest` + SLSA provenance | GitHub Actions（OIDC，无密钥） |
+| `0.4.0` | `v0.4.0` | ✅ `latest` | 改名后手动首发（CI 那次因未授权失败），随后配好 trusted publisher；`dsh-idle-power@0.3.0` 已废弃 |
