@@ -69,8 +69,6 @@ const ROUTE_FORCE = 'goodnight/force';
       'awake.onDesc': '阻止系统休眠与锁屏。电脑一旦睡过去，Host 也会被挂起，倒计时就没法按时执行了。',
       'awake.platform': '使用 SetThreadExecutionState 申请；取消预约或命令提交后立即释放。',
       'wait.title': '等待任务结束',
-      'wait.subtitle': '安静期内没有再出现任务，才会开始倒计时',
-      'wait.meta': '安静期 %s 秒',
       'wait.headlineBusy': '任务还在跑',
       'wait.headlineQuiet': '安静期进行中',
       'wait.blockedHint': '全部结束后，还要再连续空闲 %s 秒。',
@@ -86,8 +84,7 @@ const ROUTE_FORCE = 'goodnight/force';
       'wait.agents': '智能体',
       'wait.inbox': '排队消息',
       'wait.jobs': '后台任务',
-      'wait.hint': '任何新任务都会让安静期归零重来。',
-      'wait.escHint': 'Esc 直接退出整个全屏界面；预约仍然有效，可在页面上随时返回或取消。',
+      'wait.escHint': 'Esc 收起全屏界面，预约仍然有效。',
       'section.notes': '说明',
       'mode.hibernate': '休眠',
       'mode.hibernateDesc': '内存快照落盘，等于断电；下次开机原样恢复窗口和未保存的内容。',
@@ -217,8 +214,6 @@ const ROUTE_FORCE = 'goodnight/force';
       'awake.onDesc': 'Blocks sleep and the lock screen. A suspended Host cannot fire its countdown on time.',
       'awake.platform': 'Requested through SetThreadExecutionState and released as soon as the reservation ends or the command is committed.',
       'wait.title': 'Waiting for tasks to finish',
-      'wait.subtitle': 'The countdown only starts once the quiet window passes',
-      'wait.meta': 'Quiet window %s s',
       'wait.headlineBusy': 'Tasks are still running',
       'wait.headlineQuiet': 'Quiet window in progress',
       'wait.blockedHint': 'Once they finish, %s s of quiet is still required.',
@@ -234,8 +229,7 @@ const ROUTE_FORCE = 'goodnight/force';
       'wait.agents': 'Agents',
       'wait.inbox': 'Queued',
       'wait.jobs': 'Jobs',
-      'wait.hint': 'Any new task restarts the quiet window.',
-      'wait.escHint': 'Esc leaves the fullscreen view at once; the reservation stays active and you can return or cancel on the page.',
+      'wait.escHint': 'Esc closes the fullscreen view; the reservation stays.',
       'section.notes': 'Notes',
       'mode.hibernate': 'Hibernate',
       'mode.hibernateDesc': 'Writes a memory snapshot to disk, so the next boot restores every open window and unsaved edit.',
@@ -680,7 +674,10 @@ background-color:rgba(9,11,16,.42);
 .ipa-notes .ipa-hintWarn{color:var(--dsw-alias-label-secondary)}
 /* A hint that sits with the controls rather than in the footer notes. */
 .ipa-stageText .ipa-hintInline{font-size:clamp(11px,1.35vmin,15px);color:var(--dsw-alias-label-tertiary);line-height:1.6;margin:0;max-width:min(56ch,80vw)}
-.ipa-scopeTag{font-size:clamp(10px,1.15vmin,13px);color:var(--dsw-alias-label-tertiary);text-align:right;white-space:nowrap}
+/* margin-inline-start keeps the tag against the right edge when the waiting
+   screen's footer has nothing else in it; the countdown's notes already push it
+   there, so this changes nothing for that screen. */
+.ipa-scopeTag{margin-inline-start:auto;font-size:clamp(10px,1.15vmin,13px);color:var(--dsw-alias-label-tertiary);text-align:right;white-space:nowrap}
 .ipa-feedback{color:var(--dsw-alias-state-error-primary);font-size:clamp(12px,1.5vmin,17px);line-height:1.5;max-width:520px;overflow-wrap:anywhere}
 .ipa-mirrorNote{font-size:clamp(10px,1.15vmin,13px);color:var(--dsw-alias-label-tertiary);line-height:1.5;max-width:44ch}
 .ipa-cta[aria-disabled=true]{opacity:.6;cursor:wait}
@@ -2321,10 +2318,7 @@ background-color:rgba(9,11,16,.42);
           h('div', { className: 'ipa-top' },
             h('div', { className: 'ipa-statusLine' },
               h('span', { className: 'ipa-stateDot', 'aria-hidden': true }),
-              h('div', { className: 'ipa-eyebrow' },
-                t('wait.title'),
-                h('span', { className: 'ipa-eyebrowSub' }, t('wait.subtitle')),
-              ),
+              h('div', { className: 'ipa-eyebrow' }, t('wait.title')),
             ),
             h('div', { className: 'ipa-topRight' },
               screen.supported && !screen.fullscreen && h('button', {
@@ -2333,7 +2327,6 @@ background-color:rgba(9,11,16,.42);
                 title: t('countdown.fullscreenHint'),
                 onClick: () => screen.request(),
               }, t('countdown.fullscreen')),
-              h('div', { className: 'ipa-meta' }, fmt(t('wait.meta'), String(quietTotal))),
             ),
           ),
           h('div', { className: 'ipa-stage' },
@@ -2420,12 +2413,10 @@ background-color:rgba(9,11,16,.42);
               h('p', { className: 'ipa-hint ipa-hintInline' }, t('wait.escHint')),
             ),
           ),
+          // One tag, not a second copy of the walkthrough: the page states the
+          // monitoring scope, and the countdown repeats the shutdown warning at
+          // the moment it can still stop the action.
           h('div', { className: 'ipa-bottom' },
-            h('div', { className: 'ipa-notes' },
-              h('p', { className: 'ipa-hint' }, t('wait.hint')),
-              h('p', { className: 'ipa-hint' }, t('note.scope')),
-              data.mode === 'shutdown' && h('p', { className: 'ipa-hint ipa-hintWarn' }, t('note.shutdown')),
-            ),
             h('div', { className: 'ipa-scopeTag' }, t(screen.fullscreen ? 'countdown.scopeTagFull' : 'countdown.scopeTag')),
           ),
         ),

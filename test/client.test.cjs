@@ -687,7 +687,9 @@ console.log('\n=== wait screen: the whole screen while waiting ===')
   const waiting = renderEntry(waitEntry, waitingStore)
   const texts = textsOf(waiting.tree)
   const joined = texts.join('|')
-  check('says what it is waiting for', joined.includes('wait.title') && joined.includes('wait.subtitle'), joined)
+  // One line of state, not a second explanation of the quiet window: the
+  // support line under the headline already says what has to pass first.
+  check('says what it is waiting for, once', joined.includes('wait.title') && !joined.includes('wait.subtitle') && !joined.includes('wait.meta'), joined)
   const progress = findElement(waiting.tree, (n) => n.props.role === 'progressbar')
   check('shows the quiet window as a progress bar', progress !== undefined && progress.props['aria-valuemax'] === 20, JSON.stringify(progress?.props))
   check('the bar tracks the elapsed quiet time', progress?.props['aria-valuenow'] === 8, String(progress?.props['aria-valuenow']))
@@ -699,7 +701,13 @@ console.log('\n=== wait screen: the whole screen while waiting ===')
   check('that number is the blocking task count', texts.includes('wait.unitTasks') && texts.includes(String(load.total)), joined)
   check('the headline names what is blocking', joined.includes('wait.headlineBusy') && !joined.includes('wait.headlineQuiet'))
   check('it still shows no deadline', !joined.includes('countdown.remaining'))
-  check('keeps the countdown notes', joined.includes('note.scope'))
+  // The page owns the walkthrough and the countdown repeats the shutdown
+  // warning where it can still stop the action, so the wait screen carries
+  // neither: what is left is state, the counts, the way out, and one tag.
+  check('leaves the walkthrough to the page', !joined.includes('note.scope') && !joined.includes('wait.hint'), joined)
+  const shutdownWait = renderEntry(waitEntry, { data: { ...armed, mode: 'shutdown' }, busy: load })
+  check('leaves the shutdown warning to the countdown', !textsOf(shutdownWait.tree).join('|').includes('note.shutdown'))
+  check('still says how far the countdown will reach', byClass(waiting.tree, 'ipa-scopeTag') !== undefined)
 
   let cancelled = 0
   const interactive = renderEntry(waitEntry, waitingStore, { cancel: async () => { cancelled += 1; return true } })
