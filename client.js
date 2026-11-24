@@ -24,8 +24,10 @@ const ROUTE_FORCE = 'goodnight/force';
       'page.subtitle': '等当前 DSH Host 的任务全部结束，替你把机器关机或休眠。',
       'page.refresh': '刷新状态',
       'page.retry': '重试',
-      'page.armShutdown': '道晚安 · 关机',
-      'page.armHibernate': '道晚安 · 休眠',
+      'page.armShutdown': '晚安 · 关机',
+      'page.armHibernate': '晚安 · 休眠',
+      'page.returnWait': '返回全屏等待',
+      'page.openWait': '全屏等待',
       'page.cancel': '取消预约',
       'foot.plan': '预约后：空闲 %s 秒 → 倒计时 %s 秒 → %s',
       'page.saving': '正在提交…',
@@ -85,7 +87,7 @@ const ROUTE_FORCE = 'goodnight/force';
       'wait.inbox': '排队消息',
       'wait.jobs': '后台任务',
       'wait.hint': '任何新任务都会让安静期归零重来。',
-      'wait.escHint': 'Esc 直接退出整个全屏界面（退出全屏）；预约仍然有效，可以在页面上取消。',
+      'wait.escHint': 'Esc 直接退出整个全屏界面；预约仍然有效，可在页面上随时返回或取消。',
       'section.notes': '说明',
       'mode.hibernate': '休眠',
       'mode.hibernateDesc': '内存快照落盘，等于断电；下次开机原样恢复窗口和未保存的内容。',
@@ -102,6 +104,7 @@ const ROUTE_FORCE = 'goodnight/force';
       'metric.jobs': '后台任务',
       'metric.group': '还在运行的任务',
       'hero.progress': '剩余时间',
+      'hero.waitDismissed': '全屏等待已收起，预约仍在运行。',
       'note.scope': '关闭页面不会取消预约；只监测当前 Host，不监测其他应用或其他 Host。',
       'note.autoVoid': '倒计时期间任何新任务都会让本次预约自动作废。',
       'note.platform': '只有 Windows 提供休眠和关机命令。',
@@ -171,6 +174,8 @@ const ROUTE_FORCE = 'goodnight/force';
       'page.retry': 'Retry',
       'page.armShutdown': 'Goodnight · shut down',
       'page.armHibernate': 'Goodnight · hibernate',
+      'page.returnWait': 'Return to wait screen',
+      'page.openWait': 'Open wait screen',
       'page.cancel': 'Cancel schedule',
       'foot.plan': 'When scheduled: %s s idle → %s s countdown → %s',
       'page.saving': 'Submitting…',
@@ -230,7 +235,7 @@ const ROUTE_FORCE = 'goodnight/force';
       'wait.inbox': 'Queued',
       'wait.jobs': 'Jobs',
       'wait.hint': 'Any new task restarts the quiet window.',
-      'wait.escHint': 'Esc leaves the whole fullscreen view at once; the reservation stays and can be cancelled on the page.',
+      'wait.escHint': 'Esc leaves the fullscreen view at once; the reservation stays active and you can return or cancel on the page.',
       'section.notes': 'Notes',
       'mode.hibernate': 'Hibernate',
       'mode.hibernateDesc': 'Writes a memory snapshot to disk, so the next boot restores every open window and unsaved edit.',
@@ -247,6 +252,7 @@ const ROUTE_FORCE = 'goodnight/force';
       'metric.jobs': 'Background jobs',
       'metric.group': 'Tasks still running',
       'hero.progress': 'Time remaining',
+      'hero.waitDismissed': 'Fullscreen wait hidden; reservation is still active.',
       'note.scope': 'Closing this page does not cancel. Only this Host is monitored; other apps and Hosts are not.',
       'note.autoVoid': 'Any new task during the countdown voids this reservation.',
       'note.platform': 'Only Windows provides the hibernate and shutdown commands.',
@@ -370,7 +376,7 @@ box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-directi
 .ipa-footText{display:flex;flex-direction:column;gap:1px;min-width:0}
 .ipa-footPhase{color:var(--ipa-fg);font-size:.8125rem;font-weight:600;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ipa-footMeta{color:var(--ipa-fg-subtle);font-size:.71875rem;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ipa-footActions{display:flex;align-items:center;gap:8px;flex:none}
+.ipa-footActions{display:flex;align-items:center;gap:8px;flex:none;flex-wrap:wrap}
 .ipa-footActions .ipa-button{min-width:140px;min-height:40px;padding-inline:20px;font-size:.84375rem}
 /* Native radios carry every choice; the card is only their visible label.
    The input stays focusable and in the accessibility tree, so keyboard users
@@ -415,8 +421,8 @@ box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-directi
 .ipa-heroMeta{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap;color:var(--ipa-fg-subtle);font-size:.75rem;line-height:1.5}
 .ipa-chip{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;border:1px solid var(--ipa-border);background:var(--ipa-sunken);color:var(--ipa-fg-muted);font-size:.71875rem;line-height:1.6;white-space:nowrap}
 .ipa-chip[data-tone=accent]{border-color:color-mix(in srgb,var(--ipa-accent) 40%,transparent);background:color-mix(in srgb,var(--ipa-accent) 10%,transparent);color:var(--ipa-accent)}
-/* Four equal cells read as one instrument, not four cards. */
-.ipa-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:10px 0 0;padding:0;border:1px solid var(--ipa-border);border-radius:var(--ipa-radius);overflow:hidden;background:var(--ipa-card)}
+/* Three equal cells read as one instrument, not three cards. */
+.ipa-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:10px 0 0;padding:0;border:1px solid var(--ipa-border);border-radius:var(--ipa-radius);overflow:hidden;background:var(--ipa-card)}
 .ipa-metric{display:flex;flex-direction:column;gap:2px;padding:12px 16px;border-inline-end:1px solid var(--ipa-divider)}
 .ipa-metric:last-child{border-inline-end:0}
 .ipa-metricLabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ipa-fg-subtle);font-size:.71875rem;line-height:1.55}
@@ -606,7 +612,7 @@ background-color:rgba(9,11,16,.42);
 .ipa-waitStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(8px,1.4vmin,16px);margin:0;width:100%}
 .ipa-waitStat{display:flex;flex-direction:column;gap:2px;padding:clamp(6px,1vmin,10px) clamp(8px,1.4vmin,14px);border-radius:var(--dsw-radius-sm);border:.5px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2)}
 .ipa-waitStatLabel{display:flex;align-items:center;color:var(--dsw-alias-label-tertiary);font-size:clamp(10px,1.2vmin,13px);line-height:1.4}
-.ipa-waitStatValue{color:var(--dsw-alias-label-primary);font-size:clamp(16px,2.4vmin,26px);font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.ipa-waitStatValue{margin:0;color:var(--dsw-alias-label-primary);font-size:clamp(16px,2.4vmin,26px);font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
 @keyframes ipa-orbit{to{transform:rotate(360deg)}}
 .ipa-dialWrap{flex:0 0 auto;display:grid;place-items:center;animation:ipa-dial-in 380ms var(--ipa-ease)}
 @keyframes ipa-dial-in{from{opacity:.6;transform:scale(.96)}to{opacity:1;transform:none}}
@@ -708,6 +714,7 @@ background-color:rgba(9,11,16,.42);
 .ipa-card{padding-left:18px;padding-right:18px}
 .ipa-stage{gap:16px}
 .ipa-stageText{min-width:0;width:100%;max-width:none;align-items:center;text-align:center}
+.ipa-escape{align-self:center}
 .ipa-notes{max-width:100%}
 .ipa-topRight{align-items:flex-start;text-align:left}
 .ipa-scopeTag{display:none}
@@ -716,20 +723,20 @@ background-color:rgba(9,11,16,.42);
 @media (max-width:480px){.ipa-dial{width:clamp(160px,58vmin,260px);height:clamp(160px,58vmin,260px)}}
 /* ---- page responsiveness ------------------------------------------------- */
 /* The page is a main-pane view, so it reflows against its own column width
-   instead of the viewport: a narrow window must not squeeze four metrics. */
+   instead of the viewport: a narrow window must not squeeze the metrics. */
 @container ipa-page (max-width:760px){
 .ipa-pageHeader{align-items:flex-start}
 .ipa-pageTools{width:100%;justify-content:flex-end}
-.ipa-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
-.ipa-metric:nth-child(2){border-inline-end:0}
-.ipa-metric:nth-child(-n+2){border-bottom:1px solid var(--ipa-divider)}
 .ipa-modeGrid{grid-template-columns:minmax(0,1fr)}
 .ipa-heroDial{width:88px;height:88px}
-.ipa-footActions{width:100%}
-.ipa-footActions .ipa-button{width:100%}
+.ipa-footActions{width:100%;flex-wrap:wrap}
+.ipa-footActions .ipa-button{flex:1 1 auto;min-width:0}
 }
 @container ipa-page (max-width:520px){
 .ipa-pageWrap{padding-inline:14px}
+.ipa-metrics{grid-template-columns:minmax(0,1fr)}
+.ipa-metric{border-inline-end:0}
+.ipa-metric:not(:last-child){border-bottom:1px solid var(--ipa-divider)}
 .ipa-footMeta{display:none}
 .ipa-presetStage{height:54px}
 .ipa-presetLabel{font-size:.71875rem}
@@ -839,6 +846,40 @@ background-color:rgba(9,11,16,.42);
       lastExecution: null,
     };
 
+    /**
+     * Explicit presentation state for the armed waiting screen:
+     * - `auto`: follow Host's `fullscreenOnWait`
+     * - `pinned`: user explicitly opened/returned to the waiting screen
+     * - `dismissed`: user dismissed the waiting screen for this armed cycle
+     */
+    function reduceWaitPresentation(current, event) {
+      const state = current && typeof current === 'object' ? current : { kind: 'auto' };
+      if (!event || typeof event !== 'object') return state;
+      if (event.type === 'host-sync') {
+        if (event.nextPhase !== 'armed') return { kind: 'auto' };
+        if (event.prevPhase !== 'armed' && event.nextPhase === 'armed') return { kind: 'auto' };
+        if (event.prevFullscreenOnWait !== event.nextFullscreenOnWait) return { kind: 'auto' };
+        return state;
+      }
+      if (event.type === 'enter') {
+        return event.phase === 'armed' ? { kind: 'pinned' } : { kind: 'auto' };
+      }
+      if (event.type === 'dismiss') {
+        return event.phase === 'armed' ? { kind: 'dismissed' } : { kind: 'auto' };
+      }
+      return state;
+    }
+
+    function isWaitScreenVisible(snapshot) {
+      if (!snapshot || snapshot.data?.phase !== 'armed' || snapshot.preview === true) return false;
+      const presentation = snapshot.waitPresentation !== undefined
+        ? snapshot.waitPresentation
+        : { kind: snapshot.waitDismissed === true ? 'dismissed' : 'auto' };
+      if (presentation.kind === 'pinned') return true;
+      if (presentation.kind === 'dismissed') return false;
+      return snapshot.data.fullscreenOnWait === true;
+    }
+
     // --------------------------------------------------------------- runtime
     /**
      * Poll the Host and perform the four mutations. One poller serves every
@@ -848,8 +889,24 @@ background-color:rgba(9,11,16,.42);
      * @returns store handle and the actions every surface shares.
      */
     function createRuntime(ctx) {
-      const store = createStore({ data: EMPTY_STATE, ready: false, offline: false, busy: false, note: null, noteCode: null, notePhase: null, preview: false, waitDismissed: false });
+      const store = createStore({ data: EMPTY_STATE, ready: false, offline: false, busy: false, note: null, noteCode: null, notePhase: null, preview: false, waitPresentation: { kind: 'auto' } });
       const patch = (fields) => store.set((current) => ({ ...current, ...fields }));
+      const commitHostData = (nextData, extra = {}) => {
+        store.set((previous) => ({
+          ...previous,
+          ...extra,
+          data: nextData,
+          ready: true,
+          offline: false,
+          waitPresentation: reduceWaitPresentation(previous.waitPresentation, {
+            type: 'host-sync',
+            prevPhase: previous.data?.phase,
+            nextPhase: nextData?.phase,
+            prevFullscreenOnWait: previous.data?.fullscreenOnWait === true,
+            nextFullscreenOnWait: nextData?.fullscreenOnWait === true,
+          }),
+        }));
+      };
 
       let revision = 0;
       const refresh = async () => {
@@ -862,27 +919,21 @@ background-color:rgba(9,11,16,.42);
           patch({ offline: true });
           return;
         }
-        // The state payload is small and flat enough that comparing it textually
-        // is cheaper than re-rendering both overlay entries on every poll.
-        const serialized = JSON.stringify(result.value);
+        const previous = store.getSnapshot();
         // A rejection belongs to the phase it happened in. Once the Host moves
         // on, the note is stale and must not label the new state as failed.
-        if (store.getSnapshot().note !== null && result.value.phase !== store.getSnapshot().notePhase) {
-          patch({ note: null, noteCode: null, notePhase: null });
-        }
-        if (serialized === JSON.stringify(store.getSnapshot().data)) {
-          patch({ ready: true, offline: false });
+        const clearStaleNote = previous.note !== null && result.value.phase !== previous.notePhase
+          ? { note: null, noteCode: null, notePhase: null }
+          : {};
+        // The state payload is small and flat enough that comparing it textually
+        // is cheaper than re-rendering both overlay entries on every poll.
+        if (JSON.stringify(result.value) === JSON.stringify(previous.data)) {
+          if (!previous.ready || previous.offline || Object.keys(clearStaleNote).length > 0) {
+            patch({ ready: true, offline: false, ...clearStaleNote });
+          }
           return;
         }
-        const previous = store.getSnapshot();
-        patch({
-          data: result.value,
-          ready: true,
-          offline: false,
-          // A new waiting phase earns the screen back: a dismissal only applies
-          // to the phase the reader dismissed.
-          waitDismissed: previous.data?.phase === result.value.phase ? previous.waitDismissed : false,
-        });
+        commitHostData(result.value, clearStaleNote);
       };
 
       /**
@@ -899,17 +950,39 @@ background-color:rgba(9,11,16,.42);
           headers: { 'content-type': 'application/json' },
           body: typeof payload === 'string' ? payload : JSON.stringify(payload),
         });
-        patch({ busy: false });
         if (result.ok) {
-          patch({ data: result.value, ready: true, offline: false, note: null, noteCode: null, notePhase: null });
+          commitHostData(result.value, { busy: false, note: null, noteCode: null, notePhase: null });
           return true;
         }
-        patch({ offline: result.offline === true, note: result.message ?? null, noteCode: result.code ?? null, notePhase: store.getSnapshot().data.phase });
+        patch({ busy: false, offline: result.offline === true, note: result.message ?? null, noteCode: result.code ?? null, notePhase: store.getSnapshot().data.phase });
         return false;
       };
 
-      const arm = (mode) => post(ROUTE_ARM, { mode });
-      const cancel = () => post(ROUTE_CANCEL, '{}');
+      const arm = async (mode) => {
+        const snap = store.getSnapshot();
+        // Request fullscreen synchronously inside the click gesture before awaiting
+        // the Host round-trip; Chromium rejects fullscreen after an async gap.
+        const willShowWait = snap.data.fullscreenOnWait === true && !(snap.data.phase === 'armed' && snap.waitPresentation?.kind === 'dismissed');
+        const wantFullscreen = !snap.busy && willShowWait && snap.ready && !snap.offline && snap.data.supported !== false;
+        if (wantFullscreen) screenKeeper().request();
+        const ok = await post(ROUTE_ARM, { mode });
+        if (wantFullscreen) {
+          const next = store.getSnapshot();
+          if (!ok || (next.data.phase !== 'counting' && !isWaitScreenVisible(next))) {
+            screenKeeper().exitNow();
+          }
+        }
+        return ok;
+      };
+      const cancel = async () => {
+        const ok = await post(ROUTE_CANCEL, '{}');
+        // Drop fullscreen immediately on cancel instead of waiting for the 400ms
+        // release timer, which could otherwise race a quick re-arm.
+        if (ok && store.getSnapshot().data.phase === 'idle') {
+          screenKeeper().exitNow();
+        }
+        return ok;
+      };
       // The sidebar entry and the panel both read the Host mode, so a selection
       // made here has to live there; keeping it local left the entry stale.
       const setMode = (mode) => post(ROUTE_MODE, { mode });
@@ -925,6 +998,28 @@ background-color:rgba(9,11,16,.42);
       // Skip a blocker the reader has decided is frozen. Manual by design: the
       // panel never decides on its own to abandon a running task.
       const force = () => post(ROUTE_FORCE, '{}');
+      const enterWait = () => {
+        if (store.getSnapshot().data.phase !== 'armed') return false;
+        // Request fullscreen synchronously inside the click gesture before mounting.
+        screenKeeper().request();
+        store.set((previous) => ({
+          ...previous,
+          waitPresentation: reduceWaitPresentation(previous.waitPresentation, {
+            type: 'enter',
+            phase: previous.data.phase,
+          }),
+        }));
+        return true;
+      };
+      const dismissWait = () => {
+        store.set((previous) => ({
+          ...previous,
+          waitPresentation: reduceWaitPresentation(previous.waitPresentation, {
+            type: 'dismiss',
+            phase: previous.data.phase,
+          }),
+        }));
+      };
 
       return {
         store,
@@ -937,9 +1032,10 @@ background-color:rgba(9,11,16,.42);
         setFullscreenOnWait,
         setStayAwake,
         force,
+        enterWait,
         // Escape closes the waiting presentation without touching the
         // reservation; the countdown itself is never dismissible.
-        dismissWait: () => patch({ waitDismissed: true }),
+        dismissWait,
         // Previewing the countdown is a client-only state: nothing is armed and
         // no route is touched.
         openPreview: () => patch({ preview: true }),
@@ -1236,6 +1332,29 @@ background-color:rgba(9,11,16,.42);
       );
     }
 
+    /** Expand corners glyph for opening or returning to the fullscreen wait view. */
+    function ExpandGlyph({ size }) {
+      const edge = size ?? 14;
+      return h('svg', {
+        viewBox: '0 0 24 24',
+        width: edge,
+        height: edge,
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: 1.8,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        'aria-hidden': true,
+        focusable: 'false',
+        style: { display: 'block' },
+      },
+        h('path', { d: 'M15 4h5v5' }),
+        h('path', { d: 'M9 20H4v-5' }),
+        h('path', { d: 'M20 4l-6 6' }),
+        h('path', { d: 'M4 20l6-6' }),
+      );
+    }
+
     /** Selection tick drawn inside the mode card's radio mark. */
     function CheckGlyph() {
       return h('svg', { viewBox: '0 0 16 16', width: 12, height: 12, fill: 'none', 'aria-hidden': true, focusable: 'false' },
@@ -1326,13 +1445,16 @@ background-color:rgba(9,11,16,.42);
      * how to stop it — and a full page is where the shipped Plugins and
      * Automation-tasks panels already live.
      */
-    function PowerPage({ usePower, arm, cancel, setMode, setBackground, setColor, setFullscreenOnWait, setStayAwake, force, openPreview, refresh, t }) {
-      const { data, ready, offline, busy, note, noteCode } = usePower((current) => current);
+    function PowerPage({ usePower, arm, cancel, setMode, setBackground, setColor, setFullscreenOnWait, setStayAwake, force, enterWait, openPreview, refresh, t }) {
+      const { data, ready, offline, busy, note, noteCode, waitPresentation, waitDismissed } = usePower((current) => current);
       const counting = data.phase === 'counting';
-      const armed = data.phase === 'armed' || counting;
+      const waiting = data.phase === 'armed';
+      const armed = waiting || counting;
       const locked = data.phase === 'executing';
       const registryDown = data.busy?.available === false;
       const supported = data.supported !== false;
+      const presentationKind = waitPresentation?.kind ?? (waitDismissed === true ? 'dismissed' : 'auto');
+      const waitHidden = waiting && presentationKind === 'dismissed';
       const [now, setNow] = useState(() => Date.now());
 
       // Only the countdown needs a ticking clock; an idle page must not re-render.
@@ -1348,6 +1470,8 @@ background-color:rgba(9,11,16,.42);
         : 0;
       const quietLeft = Math.max(0, data.quietRemainingSeconds ?? 0);
       const quietTotal = data.quietSeconds > 0 ? data.quietSeconds : quietLeft;
+      const quietRunning = (data.quietRemainingSeconds ?? 0) > 0;
+      const quietDisplay = quietRunning ? Math.min(quietTotal, data.quietRemainingSeconds) : quietTotal;
       const mode = data.mode === 'shutdown' ? 'shutdown' : 'hibernate';
       const modeName = mode === 'shutdown' ? t('mode.shutdown') : t('mode.hibernate');
       const background = normalizeBackground(data.backgroundStyle);
@@ -1394,7 +1518,7 @@ background-color:rgba(9,11,16,.42);
         phaseText = total > 0 ? `${t('status.waiting')} · ${total}${t('status.tasksSuffix')}` : t('status.waiting');
         bodyText = total > 0 ? t('body.waiting') : t('body.quiet');
         if (total === 0) {
-          dialValue = quietLeft;
+          dialValue = quietDisplay;
           dialTotal = quietTotal;
         }
       } else if (locked) {
@@ -1442,9 +1566,10 @@ background-color:rgba(9,11,16,.42);
       // The panel refuses to invent a timeout, but it will not hide one either:
       // once a blocker has sat unchanged past the Host's threshold, the reader gets
       // a way past it and an explanation of why it appeared.
+      const blocked = total > 0 || registryDown;
       const blockedFor = Math.max(0, data.blockedForSeconds ?? 0);
       const stuckAfter = data.stuckAfterSeconds > 0 ? data.stuckAfterSeconds : 600;
-      const stuck = armed && total > 0 && blockedFor >= stuckAfter;
+      const stuck = waiting && blocked && blockedFor >= stuckAfter;
 
       const metric = (labelKey, value) => h('div', { className: 'ipa-metric', key: labelKey },
         h('dt', { className: 'ipa-metricLabel' }, t(labelKey)),
@@ -1565,6 +1690,7 @@ background-color:rgba(9,11,16,.42);
               h('div', { className: 'ipa-heroText' },
                 h('span', { className: 'ipa-heroPhase' }, phaseText),
                 bodyText === '' ? null : h('p', { className: 'ipa-heroBody' }, bodyText),
+                waitHidden && h('p', { className: 'ipa-heroBody' }, t('hero.waitDismissed')),
                 stuck && h('p', { className: 'ipa-heroBody ipa-hintStuck' }, fill(t('wait.stuckHint'), Math.floor(blockedFor / 60))),
                 h('div', { className: 'ipa-heroMeta' },
                   h('span', { className: 'ipa-chip', 'data-tone': armed ? 'accent' : undefined },
@@ -1761,6 +1887,12 @@ background-color:rgba(9,11,16,.42);
               ),
             ),
             h('div', { className: 'ipa-footActions' },
+              waiting && h('button', {
+                type: 'button',
+                className: 'ipa-button',
+                disabled: busy || offline,
+                onClick: () => { enterWait?.(); },
+              }, h(ExpandGlyph, { size: 14 }), t(waitHidden ? 'page.returnWait' : 'page.openWait')),
               stuck && h('button', {
                 type: 'button',
                 className: 'ipa-button',
@@ -1783,7 +1915,7 @@ background-color:rgba(9,11,16,.42);
                   disabled: !canArm,
                   onClick: () => { void arm(mode); },
                 }, h(mode === 'shutdown' ? PowerGlyph : HibernateGlyph, { size: 15 }),
-                t(busy ? 'page.saving' : (mode === 'shutdown' ? t('page.armShutdown') : t('page.armHibernate')))),
+                t(busy ? 'page.saving' : (mode === 'shutdown' ? 'page.armShutdown' : 'page.armHibernate'))),
             ),
           ),
         ),
@@ -1831,8 +1963,12 @@ background-color:rgba(9,11,16,.42);
     function createScreenKeeper() {
       const owners = new Set();
       const listeners = new Set();
-      let watching = false;
+      let watchedDoc = null;
+      let watchedAdd = null;
       let entered = false;
+      let pendingEnter = false;
+      let pendingElement = null;
+      let enterSeq = 0;
       let exitTimer = null;
 
       const doc = () => (typeof document === 'undefined' || document === null ? null : document);
@@ -1845,29 +1981,54 @@ background-color:rgba(9,11,16,.42);
         return element !== null && element !== undefined;
       };
       const notify = () => {
+        pendingEnter = false;
+        pendingElement = null;
         if (!isFullscreen()) entered = false;
         for (const listener of listeners) listener();
       };
       const watch = () => {
         const host = doc();
-        if (watching || host === null || typeof host.addEventListener !== 'function') return;
-        watching = true;
+        if (host === null || typeof host.addEventListener !== 'function') return;
+        if (watchedDoc === host && watchedAdd === host.addEventListener) return;
+        if (watchedDoc !== null && typeof watchedDoc.removeEventListener === 'function') {
+          try { watchedDoc.removeEventListener('fullscreenchange', notify); } catch { /* ignore */ }
+        }
+        watchedDoc = host;
+        watchedAdd = host.addEventListener;
         host.addEventListener('fullscreenchange', notify);
       };
 
-      const enter = () => {
+      const enter = ({ fromGesture = false } = {}) => {
         const element = root();
         if (element === null || isFullscreen()) return;
+        if (!fromGesture && pendingEnter && pendingElement === element) return;
         watch();
+        const id = ++enterSeq;
+        pendingEnter = true;
+        pendingElement = element;
         try {
           const attempt = element.requestFullscreen({ navigationUI: 'hide' });
           if (attempt !== undefined && typeof attempt.then === 'function') {
             attempt.then(() => {
+              if (id !== enterSeq) {
+                if (owners.size === 0 && !pendingEnter) leave();
+                return;
+              }
+              pendingEnter = false;
+              pendingElement = null;
               entered = true;
               for (const listener of listeners) listener();
-            }).catch(() => { entered = false; });
+            }).catch(() => {
+              if (id === enterSeq) { pendingEnter = false; pendingElement = null; }
+              entered = false;
+            });
+          } else {
+            pendingEnter = false;
+            pendingElement = null;
           }
         } catch {
+          pendingEnter = false;
+          pendingElement = null;
           entered = false;
         }
       };
@@ -1896,13 +2057,14 @@ background-color:rgba(9,11,16,.42);
         /** Called from a click, so the engine sees a user gesture. */
         request() {
           watch();
-          enter();
+          if (exitTimer !== null) { clearTimeout(exitTimer); exitTimer = null; }
+          enter({ fromGesture: true });
         },
         hold(owner) {
           watch();
           owners.add(owner);
           if (exitTimer !== null) { clearTimeout(exitTimer); exitTimer = null; }
-          enter();
+          enter({ fromGesture: false });
         },
         /**
          * Leave the screen now, with no hand-off grace period. Escape and Cancel
@@ -1910,7 +2072,10 @@ background-color:rgba(9,11,16,.42);
          * window fullscreen behind.
          */
         exitNow() {
+          enterSeq += 1;
           owners.clear();
+          pendingEnter = false;
+          pendingElement = null;
           if (exitTimer !== null) { clearTimeout(exitTimer); exitTimer = null; }
           leave();
         },
@@ -1934,24 +2099,101 @@ background-color:rgba(9,11,16,.42);
       return screenKeeperInstance;
     }
 
-    /** Hold the screen for as long as one overlay is mounted. */
-    function useWholeScreen() {
+    /**
+     * Shared lifecycle for fullscreen overlays (waiting screen and countdown):
+     * holds fullscreen, traps focus, treats browser fullscreen exit as Escape,
+     * and latches exit attempts so Escape + fullscreenchange never double-fire.
+     */
+    function useOverlayScreen({ onExit, dialogRef = null, initialFocusRef = null }) {
       const keeper = screenKeeper();
       const owner = useRef(null);
       if (owner.current === null) owner.current = {};
+      const onExitRef = useRef(onExit);
+      onExitRef.current = onExit;
+      // Seed from current fullscreen state so a synchronous arm()/enterWait() or
+      // wait->countdown handoff is recognized immediately, while a stale exit
+      // fired while windowed is ignored.
+      const observedFullscreenRef = useRef(keeper.isFullscreen());
+      const exitLatchRef = useRef('ready');
       const [fullscreen, setFullscreen] = useState(() => keeper.isFullscreen());
+
+      const triggerExit = useCallback(async (source) => {
+        if (exitLatchRef.current !== 'ready') return false;
+        exitLatchRef.current = 'exiting';
+        if (source === 'escape') keeper.exitNow();
+        let result;
+        try {
+          result = await onExitRef.current();
+        } catch {
+          exitLatchRef.current = 'ready';
+          return false;
+        }
+        if (result === false) {
+          exitLatchRef.current = 'ready';
+          return false;
+        }
+        exitLatchRef.current = 'done';
+        keeper.exitNow();
+        return true;
+      }, [keeper]);
+
       useEffect(() => {
-        const unsubscribe = keeper.subscribe(() => setFullscreen(keeper.isFullscreen()));
+        const onFullscreenState = () => {
+          const active = keeper.isFullscreen();
+          setFullscreen(active);
+          if (active) {
+            observedFullscreenRef.current = true;
+            return;
+          }
+          if (observedFullscreenRef.current) {
+            observedFullscreenRef.current = false;
+            void triggerExit('fullscreen-exit');
+          }
+        };
+        const unsubscribe = keeper.subscribe(onFullscreenState);
         keeper.hold(owner.current);
+        if (keeper.isFullscreen()) observedFullscreenRef.current = true;
         return () => {
           unsubscribe();
           keeper.release(owner.current);
         };
+      }, [keeper, triggerExit]);
+
+      useEffect(() => {
+        const previous = typeof document === 'undefined' ? null : document.activeElement;
+        initialFocusRef?.current?.focus?.();
+        return () => { if (previous?.isConnected) previous.focus?.(); };
       }, []);
+
+      useEffect(() => {
+        const host = typeof window === 'undefined' ? null : window;
+        if (host === null || typeof host.addEventListener !== 'function') return undefined;
+        const onKey = (event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault?.();
+            void triggerExit('escape');
+            return;
+          }
+          if (event.key !== 'Tab' || dialogRef === null) return;
+          const controls = Array.from(dialogRef.current?.querySelectorAll?.('button:not(:disabled)') ?? [])
+            .filter((el) => typeof el.focus === 'function' && el.isConnected !== false);
+          if (controls.length === 0) { event.preventDefault?.(); initialFocusRef?.current?.focus?.(); return; }
+          const active = typeof document === 'undefined' ? null : document.activeElement;
+          const index = controls.indexOf(active);
+          if (index === -1) { event.preventDefault?.(); controls[0].focus(); return; }
+          const step = event.shiftKey ? -1 : 1;
+          event.preventDefault?.();
+          controls[(index + step + controls.length) % controls.length].focus();
+        };
+        host.addEventListener('keydown', onKey);
+        return () => host.removeEventListener('keydown', onKey);
+      }, [dialogRef, initialFocusRef, triggerExit]);
+
       return {
         supported: keeper.supported(),
         fullscreen,
         request: () => keeper.request(),
+        triggerExit,
       };
     }
 
@@ -1963,7 +2205,16 @@ background-color:rgba(9,11,16,.42);
      */
     function PowerWaitScreen({ usePower, cancel, force, dismiss, t }) {
       const { data, busy, offline, note, noteCode } = usePower((current) => current);
-      const screen = useWholeScreen();
+      const dialogRef = useRef(null);
+      const cancelRef = useRef(null);
+      const screen = useOverlayScreen({
+        dialogRef,
+        initialFocusRef: cancelRef,
+        onExit: () => {
+          dismiss?.();
+          return true;
+        },
+      });
       // `busy` from the snapshot is the in-flight flag; the task counts live in
       // data.busy, which is where the Host puts them.
       const [submitting, setSubmitting] = useState(false);
@@ -1976,6 +2227,7 @@ background-color:rgba(9,11,16,.42);
       // rather than "finished" — otherwise the bar sits full while it says 0/20.
       const quietRunning = (data.quietRemainingSeconds ?? 0) > 0;
       const quietLeft = quietRunning ? Math.min(quietTotal, data.quietRemainingSeconds) : quietTotal;
+      const quietElapsed = quietRunning ? Math.max(0, quietTotal - quietLeft) : 0;
       const done = quietRunning ? Math.min(1, Math.max(0, 1 - quietLeft / quietTotal)) : 0;
       const blocked = load.total > 0 || load.available === false;
       // One number carries the waiting screen: how many tasks are in the way, or
@@ -1985,7 +2237,7 @@ background-color:rgba(9,11,16,.42);
       const bigUnit = blocked ? t('wait.unitTasks') : t('countdown.suffix');
       const supportLine = blocked
         ? fill(t('wait.blockedHint'), quietTotal)
-        : fill(t('wait.quiet'), quietLeft, quietTotal);
+        : fill(t('wait.quiet'), quietElapsed, quietTotal);
       // A blocker that never clears would pin this screen forever, so after a
       // while the reader is offered a way past it. The Host still decides whether
       // the skip is legal; this only decides whether to ask.
@@ -2023,12 +2275,11 @@ background-color:rgba(9,11,16,.42);
 
       const stopping = submitting || busy === true;
       const skip = async () => {
-        if (submitting) return;
+        if (stopping) return;
         setSubmitting(true);
         try {
-          const ok = await force();
-          if (!ok) setSubmitting(false);
-        } catch {
+          await force();
+        } finally {
           setSubmitting(false);
         }
       };
@@ -2043,40 +2294,9 @@ background-color:rgba(9,11,16,.42);
         }
       };
 
-      useEffect(() => {
-        const host = typeof window === 'undefined' ? null : window;
-        if (host === null || typeof host.addEventListener !== 'function') return undefined;
-        const onKey = (event) => {
-          if (event.key !== 'Escape') return;
-          // Escape leaves the big screen entirely: the OS fullscreen and this
-          // overlay go away together, exactly like Cancel, and the reservation
-          // stays armed. Leaving the window fullscreen while the overlay left
-          // was a half-state — neither the app nor the presentation.
-          event.preventDefault?.();
-          screenKeeper().exitNow();
-          dismiss?.();
-        };
-        host.addEventListener('keydown', onKey);
-        return () => host.removeEventListener('keydown', onKey);
-      }, [stopping, dismiss]);
-
-      // Escape in fullscreen is consumed by the browser before the page sees it,
-      // so a keydown listener alone leaves the overlay up with the desktop back.
-      // Losing fullscreen therefore closes the presentation too, which is the
-      // same outcome Escape has when the key does reach us.
-      useEffect(() => {
-        const host = typeof document === 'undefined' ? null : document;
-        if (host === null || typeof host.addEventListener !== 'function') return undefined;
-        const onFullscreenChange = () => {
-          if (typeof document !== 'undefined' && document.fullscreenElement) return;
-          dismiss?.();
-        };
-        host.addEventListener('fullscreenchange', onFullscreenChange);
-        return () => host.removeEventListener('fullscreenchange', onFullscreenChange);
-      }, [dismiss]);
-
       return h('div', {
         className: 'ipa-scrim ipa-scrimWait',
+        ref: dialogRef,
         'data-background': surface,
         'data-ink': ink === null ? undefined : ink,
         'data-phase': data.phase,
@@ -2184,6 +2404,7 @@ background-color:rgba(9,11,16,.42);
               h('button', {
                 type: 'button',
                 className: 'ipa-cta',
+                ref: cancelRef,
                 'aria-disabled': stopping || undefined,
                 onClick: () => { void stop(); },
               },
@@ -2226,9 +2447,18 @@ background-color:rgba(9,11,16,.42);
       // stale as soon as the countdown grew a third button.
       const dialogRef = useRef(null);
       const mirrorsRef = useRef([]);
+      const busyRef = useRef(Boolean(busy));
+      busyRef.current = Boolean(busy);
       // The keeper holds the screen while this overlay is mounted and hands it
       // over to the waiting screen (or back to the desktop) when it leaves.
-      const screen = useWholeScreen();
+      const screen = useOverlayScreen({
+        dialogRef,
+        initialFocusRef: cancelRef,
+        onExit: () => {
+          if (busyRef.current) return false;
+          return cancel();
+        },
+      });
       const [now, setNow] = useState(() => Date.now());
       const [align, setAlign] = useState('center');
       const [mirrorStatus, setMirrorStatus] = useState({ kind: 'idle', count: 0 });
@@ -2256,42 +2486,8 @@ background-color:rgba(9,11,16,.42);
         };
       }, []);
 
-      const cancelCountdown = useCallback(() => { if (!busy) void cancel(); }, [cancel, busy]);
-
-      useEffect(() => {
-        const previous = document.activeElement;
-        cancelRef.current?.focus?.();
-        return () => { if (previous?.isConnected) previous.focus?.(); };
-      }, []);
-
-      // Escape cancels from anywhere. Tab cycles through every enabled control in
-      // the dialog so each button stays reachable without escaping the trap.
-      useEffect(() => {
-        const onKey = (event) => {
-          if (event.key === 'Escape') {
-            // Escape means "get me out of this", so it leaves the screen and
-            // stops the countdown in one step, fullscreen or not. Letting the
-            // browser exit fullscreen alone would keep a shutdown running on a
-            // desktop the reader thinks they just reclaimed.
-            event.preventDefault?.();
-            screenKeeper().exitNow();
-            cancelCountdown();
-            return;
-          }
-          if (event.key !== 'Tab') return;
-          const controls = Array.from(dialogRef.current?.querySelectorAll?.('button:not(:disabled)') ?? [])
-            .filter((el) => typeof el.focus === 'function' && el.isConnected !== false);
-          if (controls.length === 0) { event.preventDefault?.(); cancelRef.current?.focus?.(); return; }
-          const active = typeof document === 'undefined' ? null : document.activeElement;
-          const index = controls.indexOf(active);
-          if (index === -1) { event.preventDefault?.(); controls[0].focus(); return; }
-          const step = event.shiftKey ? -1 : 1;
-          event.preventDefault?.();
-          controls[(index + step + controls.length) % controls.length].focus();
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-      }, [cancelCountdown]);
+      const cancelFromButton = useCallback(() => { void screen.triggerExit('button'); }, [screen.triggerExit]);
+      const cancelFromMirror = useCallback(() => { void screen.triggerExit('mirror'); }, [screen.triggerExit]);
 
       const showMirrors = useCallback(async () => {
         setMirrorStatus({ kind: 'working', count: 0 });
@@ -2316,15 +2512,15 @@ background-color:rgba(9,11,16,.42);
         });
         for (const handle of result.handles) {
           try {
-            handle.button.addEventListener('click', cancelCountdown);
-            handle.win.addEventListener('keydown', (event) => { if (event.key === 'Escape') cancelCountdown(); });
+            handle.button.addEventListener('click', cancelFromMirror);
+            handle.win.addEventListener('keydown', (event) => { if (event.key === 'Escape') cancelFromMirror(); });
           } catch { /* listeners are best-effort */ }
         }
         mirrorsRef.current = result.handles;
         if (result.handles.length === 0) setMirrorStatus({ kind: 'blocked', count: 0 });
         else if (result.plain) setMirrorStatus({ kind: 'plain', count: result.handles.length });
         else setMirrorStatus({ kind: 'on', count: result.handles.length });
-      }, [t, busy, cancelCountdown]);
+      }, [t, busy, cancelFromMirror]);
 
       const deadline = data.deadline;
       const remaining = deadline === null ? data.remainingSeconds : Math.max(0, Math.ceil((deadline - now) / 1000));
@@ -2480,7 +2676,7 @@ background-color:rgba(9,11,16,.42);
                 className: 'ipa-cta',
                 ref: cancelRef,
                 'aria-disabled': Boolean(busy),
-                onClick: cancelCountdown,
+                onClick: cancelFromButton,
                 autoFocus: true,
               },
                 preview ? t('preview.close') : t(busy ? 'countdown.cancelling' : 'countdown.cancel'),
@@ -2507,7 +2703,7 @@ background-color:rgba(9,11,16,.42);
     // only reads `inject` and `apply`, so this adds no runtime behaviour.
     return {
       inject: ['slots', 'locale'],
-      internals: { fmt, formatClock, normalizeBackground, BACKGROUND_STYLES, hasMultipleScreens, mirrorGeometry, mirrorFeatures, readScreenDetails, openMirrorWindows, createMirrorDocument },
+      internals: { fmt, formatClock, normalizeBackground, BACKGROUND_STYLES, hasMultipleScreens, mirrorGeometry, mirrorFeatures, readScreenDetails, openMirrorWindows, createMirrorDocument, reduceWaitPresentation, isWaitScreenVisible },
       apply(ctx) {
         const runtime = createRuntime(ctx);
         // The rail glyph is rendered outside any injected seat, so it reads the
@@ -2573,6 +2769,7 @@ background-color:rgba(9,11,16,.42);
             setFullscreenOnWait: runtime.setFullscreenOnWait,
             setStayAwake: runtime.setStayAwake,
             force: runtime.force,
+            enterWait: runtime.enterWait,
             openPreview: runtime.openPreview,
             refresh: runtime.refresh,
           }),
@@ -2592,8 +2789,7 @@ background-color:rgba(9,11,16,.42);
           }),
         }, function WaitWhenArmed({ usePower, cancel, force, dismiss, t }) {
           const snapshot = usePower((current) => current);
-          if (snapshot.data.fullscreenOnWait !== true || snapshot.data.phase !== 'armed') return null;
-          if (snapshot.waitDismissed === true) return null;
+          if (!isWaitScreenVisible(snapshot)) return null;
           return h(PowerWaitScreen, { usePower, cancel, force, dismiss, t });
         }));
 

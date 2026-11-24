@@ -128,22 +128,46 @@ const baseData = {
   lastExecution: null,
 }
 
-const store = (data) => ({ data: { ...baseData, ...data }, ready: true, offline: false, busy: false, note: null, noteCode: null, notePhase: null })
+const store = (data, extra = {}) => ({
+  data: { ...baseData, ...data },
+  ready: true,
+  offline: false,
+  busy: false,
+  note: null,
+  noteCode: null,
+  notePhase: null,
+  waitPresentation: { kind: 'auto' },
+  ...extra,
+})
+
+const pageActions = {
+  arm: async () => true,
+  cancel: async () => true,
+  setMode: async () => true,
+  setBackground: async () => true,
+  setColor: async () => true,
+  setFullscreenOnWait: async () => true,
+  setStayAwake: async () => true,
+  force: async () => true,
+  enterWait: () => true,
+  openPreview: () => {},
+  refresh: async () => true,
+}
 
 const surfaces = {
   rail: () => registered.find((entry) => entry.id === 'goodnight').label(),
   pageIdle: () => renderNode(React.createElement(byKey('goodnight').component, {
     usePower: (selector) => (typeof selector === 'function' ? selector(store({})) : store({})),
     t: (key) => dictionaries.zh[key] ?? key,
-    arm: async () => true,
-    cancel: async () => true,
-    setMode: async () => true,
-    setBackground: async () => true,
-    setColor: async () => true,
-    setFullscreenOnWait: async () => true,
-    setStayAwake: async () => true,
-    openPreview: () => {},
-    refresh: async () => true,
+    ...pageActions,
+  })),
+  pageArmedDismissed: () => renderNode(React.createElement(byKey('goodnight').component, {
+    usePower: (selector) => {
+      const value = store({ phase: 'armed', fullscreenOnWait: true }, { waitPresentation: { kind: 'dismissed' } })
+      return typeof selector === 'function' ? selector(value) : value
+    },
+    t: (key) => dictionaries.zh[key] ?? key,
+    ...pageActions,
   })),
   countdown: () => renderNode(React.createElement(byId('dsh-goodnight.countdown').component, {
     usePower: (selector) => {
@@ -160,6 +184,7 @@ const surfaces = {
     },
     t: (key) => dictionaries.zh[key] ?? key,
     cancel: async () => true,
+    force: async () => true,
     dismiss: () => {},
   })),
 }
@@ -201,7 +226,7 @@ check('every value carries the same placeholders in both languages',
   keysOf(zh).filter((key) => placeholders(zh[key]) !== placeholders(en[key])).join(','))
 
 console.log('\n=== the product name is the one the docs promise ===')
-const retired = ['预约关机', '预约休眠', '空闲关机', '空闲电源', 'Scheduled power', 'Schedule shutdown',
+const retired = ['预约关机', '预约休眠', '空闲关机', '空闲电源', '道晚安', 'Scheduled power', 'Schedule shutdown',
   'Schedule hibernation', 'Idle power', 'Idle Shutdown']
 const offenders = []
 for (const [language, dict] of [['zh', zh], ['en', en]]) {
@@ -211,6 +236,9 @@ for (const [language, dict] of [['zh', zh], ['en', en]]) {
 }
 check('no label still uses a retired name', offenders.length === 0, offenders.join(','))
 check('zh names the plugin 晚安', zh['rail.label'] === '晚安' && zh['page.title'] === '晚安', zh['rail.label'])
+check('zh uses 晚安 · 关机 and 晚安 · 休眠 on the primary button',
+  zh['page.armShutdown'] === '晚安 · 关机' && zh['page.armHibernate'] === '晚安 · 休眠',
+  `${zh['page.armShutdown']} | ${zh['page.armHibernate']}`)
 check('en names the plugin Goodnight', en['rail.label'] === 'Goodnight' && en['page.title'] === 'Goodnight', en['rail.label'])
 // The icon ships its own accessible name, which no dictionary check can see.
 const icon = fs.readFileSync(path.join(__dirname, '..', 'icon.svg'), 'utf8')
@@ -227,6 +255,12 @@ for (const [name, render] of Object.entries(surfaces)) {
   const unresolved = texts.filter((text) => knownKeys.has(text))
   check(`${name} resolves every key it shows`, unresolved.length === 0, unresolved.join(','))
 }
+const idleTexts = textsOf(surfaces.pageIdle())
+check('pageIdle renders 晚安 · 休眠', idleTexts.includes('晚安 · 休眠'), idleTexts.join('|'))
+const dismissedTexts = textsOf(surfaces.pageArmedDismissed())
+check('pageArmedDismissed renders 返回全屏等待 and hero cue',
+  dismissedTexts.includes('返回全屏等待') && dismissedTexts.includes('全屏等待已收起，预约仍在运行。'),
+  dismissedTexts.join('|'))
 
 function kevs(a, b) {
   return [...a.filter((key) => !b.includes(key)), ...b.filter((key) => !a.includes(key))].join(',')

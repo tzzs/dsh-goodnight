@@ -123,9 +123,14 @@ From top to bottom the page shows the current state (not scheduled / waiting · 
 - **Countdown background** — three preview tiles that draw the countdown window each preset produces (solid / frosted glass / gaussian blur), applied immediately and persisted on the Host.
 - **A solid surface can be recoloured** — with the solid preset selected, a colour row offers the theme, six presets (four dark, two light) and the system colour picker; the ink switches between black and white by luminance.
 - **A reservation keeps the machine awake** — an idle desktop turns the display off, then locks, then sleeps, and a **suspended Host never reaches the end of its countdown**: that is exactly why "the shutdown stopped working after the lock screen". While a reservation is pending the plugin holds `SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED)`, so it neither sleeps nor blanks the display (and therefore never auto-locks), and releases it the moment the reservation ends or the command is committed. The switch lives in the "Stay awake" section and is on by default.
-- **The waiting phase can take the screen too** — with "Whole screen → Full screen while waiting" on, arming goes straight to a fullscreen waiting screen: what is still running, the quiet-window progress, and Cancel. When the quiet window passes it hands the screen to the countdown without ever leaving fullscreen. `Esc` takes the whole presentation away (fullscreen included) and keeps the reservation; the countdown screen cannot be dismissed.
+- **The waiting phase can take the screen too** — with "Whole screen → Full screen while waiting" on, arming goes straight to a fullscreen waiting screen: what is still running, the quiet-window progress, and Cancel. When the quiet window passes it hands the screen to the countdown without ever leaving fullscreen. `Esc` takes the whole presentation away (fullscreen included) and keeps the reservation, and **Return to wait screen** in the page footer (or **Open wait screen** when fullscreen-on-wait is off) brings it right back; the countdown screen cannot be dismissed.
 
 ![The waiting screen](docs/wait.png)
+
+After `Esc` the presentation is gone but the reservation is not, so the page offers **Return to wait screen** next to **Cancel schedule**:
+
+![The page while the fullscreen wait is hidden](docs/page-armed.png)
+
 - **Countdown preview** — the Preview button in that section runs the real countdown component for ten seconds with the current colour, background and mode. Nothing is armed, no route is called, and it closes itself at zero.
 
 ![Countdown preview](docs/preview.png)
@@ -134,7 +139,7 @@ From top to bottom the page shows the current state (not scheduled / waiting · 
 - **Connection state** — "Loading status…" before the first answer, "Cannot reach the plugin Host" with controls disabled when the connection drops, "Submitting…" while a request is in flight so a button cannot be pressed twice.
 - **Failure state** — if cancelling the countdown fails, the dialog stays and says cancellation is unconfirmed instead of pretending it worked.
 
-Keyboard: on the **waiting screen** `Esc` closes the whole presentation (fullscreen and overlay together) and keeps the reservation; the **countdown screen** cannot be dismissed — `Esc` leaves fullscreen first (the countdown keeps running) and a second press cancels; windowed, `Esc` cancels directly; modes, backgrounds and colours are native radio groups (a radio inside a `<label>` card), so the arrow keys move and select; `Tab` cycles through every button inside the dialog instead of escaping it.
+Keyboard: on the **waiting screen** `Esc` closes the whole presentation (fullscreen and overlay together) and keeps the reservation; on the **countdown screen** `Esc` leaves fullscreen and cancels the reservation in one step (windowed or fullscreen); modes, backgrounds and colours are native radio groups (a radio inside a `<label>` card), so the arrow keys move and select; `Tab` cycles through every button inside the dialog instead of escaping it.
 
 ## Configuration
 
@@ -155,7 +160,7 @@ A mode or background you pick in the UI is remembered by the Host (it survives a
 
 ## HTTP routes
 
-The browser half talks to the Host over six authenticated routes. Every one checks Host, Origin, `sec-fetch-site` and the auth cookie first, answering `403` or `401`; when the connection service is unavailable every route answers `503`.
+The browser half talks to the Host over nine authenticated routes. Every one checks Host, Origin, `sec-fetch-site` and the auth cookie first, answering `403` or `401`; when the connection service is unavailable every route answers `503`.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -167,8 +172,9 @@ The browser half talks to the Host over six authenticated routes. Every one chec
 | `POST` | `/goodnight/color` | change the solid colour only; body `{ "color": "#rrggbb" \| null }` |
 | `POST` | `/goodnight/fullscreen` | change the waiting fullscreen only; body `{ "onWait": true \| false }` |
 | `POST` | `/goodnight/awake` | change the stay-awake behaviour only; body `{ "on": true \| false }` |
+| `POST` | `/goodnight/force` | skip a stuck blocker and start the countdown while still voiding on any new task |
 
-Once the power command is committed, `/arm`, `/cancel`, `/mode`, `/background`, `/color`, `/fullscreen` and `/awake` all answer `409 execution-in-progress`. A superseded arm, and any `/mode` sent while a reservation is live, answers `409 reservation-changed`; to change the action of an existing reservation, arm again so the quiet window restarts.
+Once the power command is committed, `/arm`, `/cancel`, `/mode`, `/background`, `/color`, `/fullscreen`, `/awake` and `/force` all answer `409 execution-in-progress`. A superseded arm, and any `/mode` sent while a reservation is live, answers `409 reservation-changed`; to change the action of an existing reservation, arm again so the quiet window restarts.
 
 `/background` is a pure appearance preference and **deliberately does not touch the reservation state machine**: it never bumps the internal revision, so changing the background can never make an in-flight arm look superseded.
 
@@ -191,7 +197,7 @@ Three dependency-free harnesses drive the real code with stand-ins, so the suite
 - `test/client.test.cjs` — renders the real `client.js` components with a minimal React stand-in and asserts on the produced tree: the rail glyph and its pending dot, every page state (loading / offline / registry unavailable / executing / failed), the live load and per-kind task breakdown, mode and background selection with their disabled states, the flow and notes, the full-screen countdown's information hierarchy and progressbar semantics, the emitted `data-background` with fallback for unknown values, the progress ring's geometry and edge cases, multi-screen detection and mirror degradation, cancel-failure feedback, and `prefers-reduced-motion` coverage.
 - `test/locale.test.cjs` — renders the rail entry, the page, the countdown and the waiting screen with the real dictionaries, and fails on a label that resolves to nothing, a placeholder that only one language has, or a retired product name coming back.
 
-The host tests also cover a failed trust check, an unavailable connection service, mode changes during a reservation, and waking up during the executable lookup; the client tests cover keyboard access to every countdown control plus the fullscreen request and the two-step `Esc`.
+The host tests also cover a failed trust check, an unavailable connection service, mode changes during a reservation, waking up during the executable lookup, and force-skipping a stuck blocker with baseline shrinking; the client tests cover keyboard access to every countdown and wait-screen control, returning to the fullscreen wait screen, fullscreen requests, and one-step `Esc`.
 
 ### Cross-platform testing
 

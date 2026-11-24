@@ -171,6 +171,46 @@ function parseModeBody(text, currentMode) {
 	return { mode: body.mode }
 }
 
+function captureForceBaseline(observation) {
+	if (!observation.busy.available) return { kind: 'registry-unavailable' }
+	return {
+		kind: 'snapshot',
+		runningAgentIds: new Set(observation.runningAgentIds),
+		runningJobIds: new Set(observation.runningJobIds),
+		inboxItemKeys: new Set(observation.inboxItemKeys),
+		inboxUnidentifiedCounts: new Map(observation.inboxUnidentifiedCounts),
+	}
+}
+
+/**
+ * Evaluate live activity against an optional force baseline. When a forced
+ * snapshot tolerates a subset of its original tasks, the returned `nextBaseline`
+ * shrinks to the survivors so a task that finishes and restarts still voids the
+ * countdown.
+ */
+function evaluateActivity(observation, baseline) {
+	if (observation.busy.available && observation.busy.total === 0) return { kind: 'clear' }
+	if (baseline === null) return { kind: 'blocked' }
+	if (baseline.kind === 'registry-unavailable') {
+		if (!observation.busy.available) return { kind: 'tolerated', nextBaseline: baseline }
+		return { kind: 'blocked' }
+	}
+	if (!observation.busy.available) return { kind: 'blocked' }
+	for (const id of observation.runningAgentIds) {
+		if (!baseline.runningAgentIds.has(id)) return { kind: 'blocked' }
+	}
+	for (const id of observation.runningJobIds) {
+		if (!baseline.runningJobIds.has(id)) return { kind: 'blocked' }
+	}
+	for (const key of observation.inboxItemKeys) {
+		if (!baseline.inboxItemKeys.has(key)) return { kind: 'blocked' }
+	}
+	for (const [key, count] of observation.inboxUnidentifiedCounts) {
+		if (count > (baseline.inboxUnidentifiedCounts.get(key) ?? 0)) return { kind: 'blocked' }
+	}
+	return { kind: 'tolerated', nextBaseline: captureForceBaseline(observation) }
+}
+
 /**
  * Host half entry point.
  *
@@ -223,10 +263,11 @@ export function apply(ctx, config, environment = {}) {
 	let awakeHandle = null
 	let awakeStarting = false
 	let quietSince = null
-	// When the current blocker appeared, plus its shape, so the UI can say how
-	// long this exact combination has been sitting there unchanged.
+	// When the current blocker appeared, plus its identity digest, so the UI can
+	// say how long this exact set of tasks has been sitting there unchanged.
 	let blockedSince = null
-	let blockedShape = null
+	let blockedFingerprint = null
+	let forceBaseline = null
 	let deadline = null
 	let error = null
 	let lastExecution = null
@@ -238,22 +279,47 @@ export function apply(ctx, config, environment = {}) {
 	const superseded = () => ({ ok: false, code: 'reservation-changed', message: 'the reservation changed; please try again' })
 
 	/**
-	 * Count everything this Host is still doing: agent turns, queued inbox work,
+	 * Scan everything this Host is still doing: agent turns, queued inbox work,
 	 * and background jobs. Workflow children and subagents are ordinary agents in
 	 * `agents.list()`, so they are covered without a separate ledger. Mirrors the
 	 * shipped `hasDesktopActiveTasks` predicate in `dsh-desktop-host`.
 	 */
-	function countBusy() {
+	function inspectBusy() {
 		const agents = ctx.get('agents')
 		const jobs = ctx.get('jobs')
-		const live = agents === undefined ? [] : agents.list()
+		const available = agents !== undefined
+		const live = available ? agents.list() : []
+		const runningAgentIds = new Set()
+		const inboxItemKeys = new Set()
+		const inboxUnidentifiedCounts = new Map()
 		let agentsRunning = 0
 		let inboxPending = 0
 		for (const agent of live) {
-			if (agent.status === 'running') agentsRunning += 1
+			if (agent.status === 'running') {
+				agentsRunning += 1
+				runningAgentIds.add(String(agent.id))
+			}
 			const inbox = agent.inbox
-			inboxPending += (inbox?.nextTurn?.length ?? 0) + (inbox?.nextStep?.length ?? 0)
+			for (const lane of ['nextTurn', 'nextStep']) {
+				const items = inbox?.[lane]
+				if (!Array.isArray(items) || items.length === 0) continue
+				inboxPending += items.length
+				let unidentified = 0
+				for (const item of items) {
+					const itemId = item !== null && typeof item === 'object' ? item.id : undefined
+					if (typeof itemId === 'string' || typeof itemId === 'number') {
+						inboxItemKeys.add(`${agent.id}:${lane}:${itemId}`)
+					} else {
+						unidentified += 1
+					}
+				}
+				if (unidentified > 0) {
+					const laneKey = `${agent.id}:${lane}`
+					inboxUnidentifiedCounts.set(laneKey, (inboxUnidentifiedCounts.get(laneKey) ?? 0) + unidentified)
+				}
+			}
 		}
+		const runningJobIds = new Set()
 		let jobsRunning = 0
 		if (jobs !== undefined) {
 			const seen = new Set()
@@ -261,29 +327,48 @@ export function apply(ctx, config, environment = {}) {
 				for (const job of jobs.list(owner)) {
 					if (seen.has(job.id)) continue
 					seen.add(job.id)
-					if (job.status === 'running' || job.status === 'stopping') jobsRunning += 1
+					if (job.status === 'running' || job.status === 'stopping') {
+						jobsRunning += 1
+						runningJobIds.add(String(job.id))
+					}
 				}
 			}
 		}
+		const fingerprint = JSON.stringify([
+			available,
+			[...runningAgentIds].sort(),
+			[...runningJobIds].sort(),
+			[...inboxItemKeys].sort(),
+			[...inboxUnidentifiedCounts.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+		])
 		return {
-			available: agents !== undefined,
-			agentsRunning,
-			inboxPending,
-			jobsRunning,
-			total: agentsRunning + inboxPending + jobsRunning,
+			busy: {
+				available,
+				agentsRunning,
+				inboxPending,
+				jobsRunning,
+				total: agentsRunning + inboxPending + jobsRunning,
+			},
+			runningAgentIds,
+			runningJobIds,
+			inboxItemKeys,
+			inboxUnidentifiedCounts,
+			fingerprint,
 		}
 	}
 
+	function countBusy() {
+		return inspectBusy().busy
+	}
+
 	/**
-	 * Remember how long the current blocker has been sitting there. The shape is
-	 * the breakdown, not just the total: one job turning into two different jobs
-	 * is new information, so the clock has to restart rather than claim the same
-	 * blocker has been frozen for an hour.
+	 * Track how long the exact same blocker set has persisted. Comparing the
+	 * identity fingerprint restarts the clock even when one job finishes and a
+	 * different job takes its place at the same count.
 	 */
-	function noteBlocked(busy, now) {
-		const shape = `${busy.available ? 'up' : 'down'}:${busy.agentsRunning}:${busy.inboxPending}:${busy.jobsRunning}`
-		if (shape === blockedShape) return
-		blockedShape = shape
+	function noteBlocked(observation, now) {
+		if (observation.fingerprint === blockedFingerprint) return
+		blockedFingerprint = observation.fingerprint
 		blockedSince = now
 	}
 
@@ -304,7 +389,9 @@ export function apply(ctx, config, environment = {}) {
 			quietSeconds: options.quietSeconds,
 			stuckAfterSeconds: options.stuckAfterSeconds,
 			blockedForSeconds:
-				blockedSince === null || busy.total === 0 ? 0 : Math.max(0, Math.floor((now - blockedSince) / 1000)),
+				blockedSince === null || (busy.available && busy.total === 0)
+					? 0
+					: Math.max(0, Math.floor((now - blockedSince) / 1000)),
 			remainingSeconds: deadline === null ? 0 : Math.max(0, Math.ceil((deadline - now) / 1000)),
 			quietRemainingSeconds:
 				quietSince === null ? 0 : Math.max(0, Math.ceil((quietSince + options.quietSeconds * 1000 - now) / 1000)),
@@ -376,7 +463,8 @@ export function apply(ctx, config, environment = {}) {
 		phase = PHASE_IDLE
 		quietSince = null
 		blockedSince = null
-		blockedShape = null
+		blockedFingerprint = null
+		forceBaseline = null
 		deadline = null
 		error = null
 		void syncAwake()
@@ -389,36 +477,48 @@ export function apply(ctx, config, environment = {}) {
 	 */
 	function evaluate(now = Date.now()) {
 		if (disposed || (phase !== PHASE_ARMED && phase !== PHASE_COUNTING)) return
-		const busy = countBusy()
-		// Missing registries are unknown activity, never proof of idleness.
-		if (!busy.available || busy.total > 0) {
+		const observation = inspectBusy()
+		const check = evaluateActivity(observation, phase === PHASE_COUNTING ? forceBaseline : null)
+		if (check.kind === 'blocked') {
 			if (phase === PHASE_COUNTING) revision += 1
 			phase = PHASE_ARMED
 			deadline = null
 			quietSince = null
-			noteBlocked(busy, now)
+			forceBaseline = null
+			noteBlocked(observation, now)
 			return
 		}
-		blockedSince = null
-		blockedShape = null
-		if (phase === PHASE_ARMED) {
-			if (quietSince === null) {
-				quietSince = now
+		if (check.kind === 'tolerated') {
+			forceBaseline = check.nextBaseline
+		} else {
+			blockedSince = null
+			blockedFingerprint = null
+			if (phase === PHASE_COUNTING) forceBaseline = null
+			if (phase === PHASE_ARMED) {
+				if (quietSince === null) {
+					quietSince = now
+					return
+				}
+				if (now - quietSince >= options.quietSeconds * 1000) {
+					phase = PHASE_COUNTING
+					deadline = now + options.countdownSeconds * 1000
+					quietSince = null
+				}
 				return
 			}
-			if (now - quietSince >= options.quietSeconds * 1000) {
-				phase = PHASE_COUNTING
-				deadline = now + options.countdownSeconds * 1000
-				quietSince = null
-			}
-			return
 		}
 		if (now >= deadline) {
 			if (now - deadline > RESUME_GAP_MS) {
 				revision += 1
 				phase = PHASE_ARMED
 				deadline = null
-				quietSince = now
+				forceBaseline = null
+				if (check.kind === 'clear') {
+					quietSince = now
+				} else {
+					quietSince = null
+					noteBlocked(observation, now)
+				}
 				ctx.logger.info('dsh-goodnight: woke past the countdown deadline; re-armed instead of executing')
 				return
 			}
@@ -442,11 +542,12 @@ export function apply(ctx, config, environment = {}) {
 			}
 			// Resolving PATH may yield while new work arrives. Recheck immediately
 			// before spawn, with no asynchronous boundary after this check.
-			const busy = countBusy()
-			if (!busy.available || busy.total > 0) {
-				evaluate()
+			const check = evaluateActivity(inspectBusy(), forceBaseline)
+			if (check.kind === 'blocked') {
+				evaluate(now)
 				return
 			}
+			forceBaseline = null
 			phase = PHASE_EXECUTING
 			deadline = null
 			void syncAwake()
@@ -480,6 +581,7 @@ export function apply(ctx, config, environment = {}) {
 		} catch (failure) {
 			if (disposed || revision !== attempt) return
 			deadline = null
+			forceBaseline = null
 			phase = PHASE_FAILED
 			error = failure instanceof Error ? failure.message : String(failure)
 			lastExecution = { mode: actionMode, at: Date.now(), ok: false }
@@ -526,6 +628,9 @@ export function apply(ctx, config, environment = {}) {
 		mode = requestedMode
 		phase = PHASE_ARMED
 		quietSince = null
+		blockedSince = null
+		blockedFingerprint = null
+		forceBaseline = null
 		deadline = null
 		error = null
 		ctx.logger.info(`dsh-goodnight: armed for ${mode} after ${options.quietSeconds}s quiet`)
@@ -838,15 +943,18 @@ export function apply(ctx, config, environment = {}) {
 				return
 			}
 			// Only a real blocker can be skipped; an idle panel has nothing to force.
-			const busy = countBusy()
-			if (busy.available && busy.total === 0) {
+			const observation = inspectBusy()
+			if (observation.busy.available && observation.busy.total === 0) {
 				sendJson(res, 409, { code: 'not-blocked', message: 'no task is blocking the reservation' })
 				return
 			}
 			revision += 1
 			phase = PHASE_COUNTING
 			quietSince = null
+			blockedSince = null
+			blockedFingerprint = null
 			deadline = Date.now() + options.countdownSeconds * 1000
+			forceBaseline = captureForceBaseline(observation)
 			void syncAwake()
 			ctx.logger.info('dsh-goodnight: skipping a stuck blocker on request')
 			sendJson(res, 200, stateSnapshot())
