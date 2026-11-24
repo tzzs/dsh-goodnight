@@ -218,7 +218,7 @@ Host 测试还覆盖信任检查失败、连接服务不可用、预约期间的
 
 在此之前，宿主测试里有 `if (process.platform !== 'win32')` 的跳过分支，也就是说整套测试**只有 Windows 能过**；现在 Linux/macOS runner 上跑的是同一批断言的真实执行，而不是跳过。
 
-`docs/preview.html` 是零依赖的静态预览页：用真实的 `client.js` 组件和真实样式表在浏览器里渲染倒计时与整页，不会触发电源操作。查询串可切换状态，例如 `?s=6&mode=shutdown&multi=1` 查看紧急态与多屏控件，`?bg=glass` / `?bg=blur` 对比背景，`?page=1` 看整页，`?dark=1` 看暗色主题；`docs/backgrounds.html` 把毛玻璃与高斯模糊并排放在一页里。
+`docs/preview.html` 是零依赖的静态预览页：用真实的 `client.js` 组件和真实样式表在浏览器里渲染倒计时与整页，不会触发电源操作。查询串可切换状态，例如 `?s=6&mode=shutdown&multi=1` 查看紧急态与多屏控件，`?bg=glass` / `?bg=blur` 对比背景，`?page=1` 看整页，`?dark=1` 看暗色主题，`?windows=1` 复现 Desktop 的 Windows 顶栏（应用 / 编辑 菜单）以检查整屏接管是否盖住它；`docs/backgrounds.html` 把毛玻璃与高斯模糊并排放在一页里。
 
 三套测试都不能替代肉眼看页面，也**不能证明 `shutdown` 真的把机器关掉**——那一步需要人按一次。
 
