@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/tzzs/dsh-goodnight/compare/v0.5.0...v0.5.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **ui:** cover the Desktop caption menu in the takeovers ([#21](https://github.com/tzzs/dsh-goodnight/issues/21)) ([b03c6d2](https://github.com/tzzs/dsh-goodnight/commit/b03c6d21d5e208d006f0044aba099435685fa555))
+
 ## [0.5.0](https://github.com/tzzs/dsh-goodnight/compare/v0.4.0...v0.5.0) (2026-11-24)
 
 
