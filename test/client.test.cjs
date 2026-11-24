@@ -11,6 +11,7 @@ const source = fs.readFileSync(process.argv[2] ?? require('node:path').join(__di
 // --- hook runtime ---------------------------------------------------------
 let cursor = 0
 let slots = []
+let activeCleanups = null
 
 function beginComponent() {
   cursor = 0
@@ -26,7 +27,15 @@ const React = {
     if (!(i in slots)) slots[i] = typeof init === 'function' ? init() : init
     return [slots[i], (next) => { slots[i] = typeof next === 'function' ? next(slots[i]) : next }]
   },
-  useEffect(fn) { cursor++; const cleanup = fn(); return typeof cleanup === 'function' ? cleanup : undefined },
+  useEffect(fn) {
+    cursor++
+    const cleanup = fn()
+    if (typeof cleanup === 'function') {
+      if (activeCleanups !== null) activeCleanups.push(cleanup)
+      return cleanup
+    }
+    return undefined
+  },
   useCallback(fn) { cursor++; return fn },
   useMemo(fn) { cursor++; return fn() },
   useRef(v) { cursor++; return { current: v } },
@@ -60,7 +69,8 @@ const documentStub = {
   createElement: () => ({ dataset: {}, remove() {} }),
   head: { appendChild() {} },
 }
-const fetchStub = async () => ({ ok: true, status: 200, json: async () => ({}) })
+let fetchImpl = async () => ({ ok: true, status: 200, json: async () => ({}) })
+const fetchStub = (...args) => fetchImpl(...args)
 
 const context = vm.createContext({
   window: windowStub,
@@ -202,13 +212,19 @@ function renderEntry(entry, storeValue, actions = {}, ownerProps = {}) {
     cancel: async () => true,
     setMode: async () => true,
     setBackground: async () => true,
+    force: async () => true,
+    enterWait: () => true,
     refresh: async () => true,
     ...ownerProps,
     ...actions,
   }
+  const cleanups = []
+  activeCleanups = cleanups
   beginComponent()
   const root = entry.component(props)
-  return { root, tree: renderNode(root) }
+  const tree = renderNode(root)
+  activeCleanups = null
+  return { root, tree, unmount: () => { for (const fn of cleanups.splice(0)) fn() } }
 }
 
 const rail = byId('goodnight')
@@ -1371,6 +1387,443 @@ console.log('\n=== background presets: CSS and runtime wiring ===')
   documentStub.removeEventListener = originalRemove
   delete documentStub.documentElement
   delete documentStub.fullscreenElement
+}
+
+console.log('\n=== wait presentation: state machine & visibility ===')
+{
+  const { reduceWaitPresentation, isWaitScreenVisible } = moduleObj.internals
+  check('exports reduceWaitPresentation and isWaitScreenVisible',
+    typeof reduceWaitPresentation === 'function' && typeof isWaitScreenVisible === 'function')
+
+  const auto = { kind: 'auto' }
+  const pinned = { kind: 'pinned' }
+  const dismissed = { kind: 'dismissed' }
+
+  check('leaving armed resets pinned and dismissed to auto',
+    reduceWaitPresentation(pinned, { type: 'host-sync', prevPhase: 'armed', nextPhase: 'idle', prevFullscreenOnWait: true, nextFullscreenOnWait: true }).kind === 'auto'
+    && reduceWaitPresentation(dismissed, { type: 'host-sync', prevPhase: 'armed', nextPhase: 'counting', prevFullscreenOnWait: true, nextFullscreenOnWait: true }).kind === 'auto')
+  check('entering armed from non-armed resets to auto',
+    reduceWaitPresentation(dismissed, { type: 'host-sync', prevPhase: 'idle', nextPhase: 'armed', prevFullscreenOnWait: true, nextFullscreenOnWait: true }).kind === 'auto')
+  check('toggling fullscreenOnWait while armed resets to auto',
+    reduceWaitPresentation(dismissed, { type: 'host-sync', prevPhase: 'armed', nextPhase: 'armed', prevFullscreenOnWait: true, nextFullscreenOnWait: false }).kind === 'auto'
+    && reduceWaitPresentation(pinned, { type: 'host-sync', prevPhase: 'armed', nextPhase: 'armed', prevFullscreenOnWait: false, nextFullscreenOnWait: true }).kind === 'auto')
+  check('unchanged armed phase and fullscreenOnWait preserves dismissed and pinned',
+    reduceWaitPresentation(dismissed, { type: 'host-sync', prevPhase: 'armed', nextPhase: 'armed', prevFullscreenOnWait: true, nextFullscreenOnWait: true }).kind === 'dismissed'
+    && reduceWaitPresentation(pinned, { type: 'host-sync', prevPhase: 'armed', nextPhase: 'armed', prevFullscreenOnWait: false, nextFullscreenOnWait: false }).kind === 'pinned')
+  check('enter pins only while armed',
+    reduceWaitPresentation(dismissed, { type: 'enter', phase: 'armed' }).kind === 'pinned'
+    && reduceWaitPresentation(dismissed, { type: 'enter', phase: 'idle' }).kind === 'auto')
+  check('dismiss hides only while armed',
+    reduceWaitPresentation(pinned, { type: 'dismiss', phase: 'armed' }).kind === 'dismissed'
+    && reduceWaitPresentation(pinned, { type: 'dismiss', phase: 'counting' }).kind === 'auto')
+
+  const armedAuto = { data: { ...baseState, phase: 'armed', fullscreenOnWait: true }, preview: false, waitPresentation: auto }
+  const armedOff = { data: { ...baseState, phase: 'armed', fullscreenOnWait: false }, preview: false, waitPresentation: auto }
+  check('auto follows fullscreenOnWait', isWaitScreenVisible(armedAuto) === true && isWaitScreenVisible(armedOff) === false)
+  check('pinned shows even when fullscreenOnWait is false',
+    isWaitScreenVisible({ ...armedOff, waitPresentation: pinned }) === true)
+  check('dismissed hides even when fullscreenOnWait is true',
+    isWaitScreenVisible({ ...armedAuto, waitPresentation: dismissed }) === false)
+  check('preview suppresses the wait screen',
+    isWaitScreenVisible({ ...armedAuto, preview: true, waitPresentation: pinned }) === false)
+  check('non-armed phases never show the wait screen',
+    isWaitScreenVisible({ data: { ...baseState, phase: 'counting', fullscreenOnWait: true }, waitPresentation: pinned }) === false)
+  check('legacy waitDismissed snapshot stays supported',
+    isWaitScreenVisible({ data: { ...baseState, phase: 'armed', fullscreenOnWait: true }, waitDismissed: true }) === false
+    && isWaitScreenVisible({ data: { ...baseState, phase: 'armed', fullscreenOnWait: true }, waitDismissed: false }) === true)
+}
+
+console.log('\n=== runtime: cancel -> re-arm fullscreen, failed arm cleanup, and enterWait ===')
+{
+  const { isWaitScreenVisible } = moduleObj.internals
+  const slots = new Map()
+  moduleObj.apply({
+    effect() { return () => {} },
+    get: () => undefined,
+    locale: { register: () => () => {}, bind: () => (k) => k },
+    slots: {
+      inject: (name, cb) => { cb(); return () => {} },
+      register(options) { slots.set(options.id ?? options.key, options.inject); return () => {} },
+    },
+  })
+  const pageInjected = slots.get('goodnight')()
+  const waitInjected = slots.get('dsh-goodnight.wait')()
+  const store = pageInjected.hooks.power
+
+  let fsElement = null
+  const fsEvents = []
+  let fsRequests = 0
+  let fsExits = 0
+  const savedAdd = documentStub.addEventListener
+  const savedRemove = documentStub.removeEventListener
+  const savedFetch = fetchImpl
+  documentStub.documentElement = {
+    requestFullscreen: () => { fsRequests += 1; fsEvents.push('request'); fsElement = { tagName: 'HTML' }; return Promise.resolve() },
+  }
+  Object.defineProperty(documentStub, 'fullscreenElement', { configurable: true, get: () => fsElement })
+  documentStub.exitFullscreen = () => { fsExits += 1; fsEvents.push('exit'); fsElement = null; return Promise.resolve() }
+  documentStub.addEventListener = () => {}
+  documentStub.removeEventListener = () => {}
+
+  const hostState = { ...baseState, phase: 'idle', fullscreenOnWait: true }
+  fetchImpl = async (route, init) => {
+    fsEvents.push(`fetch:${route}`)
+    if (route === 'goodnight/state') return { ok: true, status: 200, json: async () => ({ ...hostState }) }
+    if (route === 'goodnight/arm') {
+      const body = JSON.parse(init.body)
+      hostState.phase = 'armed'
+      hostState.mode = body.mode
+      return { ok: true, status: 200, json: async () => ({ ...hostState }) }
+    }
+    if (route === 'goodnight/cancel') {
+      hostState.phase = 'idle'
+      return { ok: true, status: 200, json: async () => ({ ...hostState }) }
+    }
+    if (route === 'goodnight/fullscreen') {
+      const body = JSON.parse(init.body)
+      hostState.fullscreenOnWait = body.onWait
+      return { ok: true, status: 200, json: async () => ({ ...hostState }) }
+    }
+    return { ok: true, status: 200, json: async () => ({ ...hostState }) }
+  }
+
+  await pageInjected.refresh()
+  check('enterWait returns false when idle', pageInjected.enterWait() === false)
+
+  fsEvents.length = 0
+  const armedOk = await pageInjected.arm('hibernate')
+  check('arm succeeds and shows wait screen', armedOk === true && isWaitScreenVisible(store.getSnapshot()) === true)
+  check('arm requests fullscreen synchronously before fetch',
+    fsEvents[0] === 'request' && fsEvents[1] === 'fetch:goodnight/arm', JSON.stringify(fsEvents))
+
+  waitInjected.dismiss()
+  check('dismiss hides wait screen',
+    store.getSnapshot().waitPresentation.kind === 'dismissed' && isWaitScreenVisible(store.getSnapshot()) === false)
+
+  fsRequests = 0
+  await pageInjected.arm('shutdown')
+  check('switching mode while armed+dismissed keeps wait dismissed',
+    store.getSnapshot().waitPresentation.kind === 'dismissed' && store.getSnapshot().data.mode === 'shutdown' && fsRequests === 0,
+    JSON.stringify({ kind: store.getSnapshot().waitPresentation.kind, fsRequests }))
+
+  fsExits = 0
+  await pageInjected.cancel()
+  check('cancel resets waitPresentation to auto and exits fullscreen immediately',
+    store.getSnapshot().data.phase === 'idle' && store.getSnapshot().waitPresentation.kind === 'auto' && fsExits === 1,
+    JSON.stringify({ phase: store.getSnapshot().data.phase, kind: store.getSnapshot().waitPresentation.kind, fsExits }))
+
+  fsEvents.length = 0
+  fsRequests = 0
+  await pageInjected.arm('shutdown')
+  check('re-arm after Escape+cancel requests fullscreen synchronously and shows wait screen again',
+    fsRequests === 1 && fsEvents[0] === 'request' && store.getSnapshot().waitPresentation.kind === 'auto' && isWaitScreenVisible(store.getSnapshot()) === true,
+    JSON.stringify({ fsRequests, fsEvents, kind: store.getSnapshot().waitPresentation.kind }))
+
+  await pageInjected.setFullscreenOnWait(false)
+  check('toggling fullscreenOnWait off via post hides wait screen',
+    store.getSnapshot().waitPresentation.kind === 'auto' && isWaitScreenVisible(store.getSnapshot()) === false)
+
+  fsElement = null
+  fsRequests = 0
+  const entered = pageInjected.enterWait()
+  check('enterWait requests fullscreen synchronously and pins wait screen even with fullscreenOnWait off',
+    entered === true && fsRequests === 1 && store.getSnapshot().waitPresentation.kind === 'pinned' && isWaitScreenVisible(store.getSnapshot()) === true)
+
+  hostState.fullscreenOnWait = true
+  await pageInjected.refresh()
+  check('refresh resets waitPresentation on fullscreenOnWait change',
+    store.getSnapshot().waitPresentation.kind === 'auto')
+
+  await pageInjected.cancel()
+  fsElement = null
+  fsRequests = 0
+  fsExits = 0
+  fetchImpl = async (route) => {
+    if (route === 'goodnight/arm') {
+      return { ok: false, status: 500, json: async () => ({ code: 'command-unavailable', message: 'boom' }) }
+    }
+    return { ok: true, status: 200, json: async () => ({ ...hostState }) }
+  }
+  const failedArm = await pageInjected.arm('hibernate')
+  check('failed arm exits fullscreen so window is never stranded',
+    failedArm === false && fsRequests === 1 && fsExits === 1 && fsElement === null,
+    JSON.stringify({ failedArm, fsRequests, fsExits, fsElement }))
+
+  // Fast-failing arm whose requestFullscreen() settles AFTER exitNow() must still exit.
+  fsElement = null
+  fsRequests = 0
+  fsExits = 0
+  let resolveSlowFullscreen = null
+  documentStub.documentElement = {
+    requestFullscreen: () => {
+      fsRequests += 1
+      return new Promise((resolve) => {
+        resolveSlowFullscreen = () => {
+          fsElement = { tagName: 'HTML' }
+          resolve()
+        }
+      })
+    },
+  }
+  const fastFail = await pageInjected.arm('hibernate')
+  check('fast-failing arm has not stranded fullscreen before promise resolves', fastFail === false && fsRequests === 1 && fsExits === 0)
+  resolveSlowFullscreen()
+  await Promise.resolve()
+  await Promise.resolve()
+  check('late requestFullscreen resolution after exitNow exits immediately',
+    fsExits === 1 && fsElement === null,
+    JSON.stringify({ fsExits, fsElement }))
+
+  fetchImpl = savedFetch
+  documentStub.addEventListener = savedAdd
+  documentStub.removeEventListener = savedRemove
+  delete documentStub.documentElement
+  delete documentStub.fullscreenElement
+  delete documentStub.exitFullscreen
+}
+
+console.log('\n=== page: wait re-entry, stuck phase guard, quiet dial, and single-t arm label ===')
+{
+  const footButtonsOf = (tree) => {
+    const foot = byClass(tree, 'ipa-footActions')
+    const buttons = []
+    walkElements(foot, (node) => { if (node.tag === 'button') buttons.push(node) })
+    return buttons
+  }
+
+  const idle = renderEntry(page, pageState(baseState), { t: (key) => `[${key}]` })
+  const idleTexts = textsOf(idle.tree)
+  check('arm button translates key once without double-t()',
+    idleTexts.includes('[page.armHibernate]') && !idleTexts.includes('[[page.armHibernate]]'),
+    idleTexts.filter((s) => s.includes('armHibernate')).join('|'))
+  const idleShutdown = renderEntry(page, pageState({ ...baseState, mode: 'shutdown' }), { t: (key) => `[${key}]` })
+  check('shutdown arm button translates key once without double-t()',
+    textsOf(idleShutdown.tree).includes('[page.armShutdown]'))
+  check('no wait re-entry button when idle',
+    !textsOf(renderEntry(page, pageState(baseState)).tree).some((s) => s === 'page.returnWait' || s === 'page.openWait'))
+
+  let entered = 0
+  const armedDismissed = renderEntry(page, pageState(
+    { ...baseState, phase: 'armed', fullscreenOnWait: true },
+    { waitPresentation: { kind: 'dismissed' } },
+  ), { enterWait: () => { entered += 1; return true } })
+  const dismissedFootButtons = footButtonsOf(armedDismissed.tree)
+  check('shows return-to-wait button first when armed and dismissed',
+    textsOf(dismissedFootButtons[0]).includes('page.returnWait'), textsOf(dismissedFootButtons[0]).join('|'))
+  check('hero shows wait-dismissed cue when armed and dismissed',
+    textsOf(byClass(armedDismissed.tree, 'ipa-heroText')).includes('hero.waitDismissed'))
+  dismissedFootButtons[0]?.props.onClick?.()
+  check('clicking return-to-wait invokes enterWait()', entered === 1, String(entered))
+
+  const armedAutoOff = renderEntry(page, pageState(
+    { ...baseState, phase: 'armed', fullscreenOnWait: false },
+    { waitPresentation: { kind: 'auto' } },
+  ))
+  const openWaitBtn = footButtonsOf(armedAutoOff.tree)[0]
+  check('shows open-wait button when armed with fullscreenOnWait off',
+    textsOf(openWaitBtn).includes('page.openWait'), textsOf(openWaitBtn).join('|'))
+  check('does not show wait-dismissed hero cue when not dismissed',
+    !textsOf(armedAutoOff.tree).includes('hero.waitDismissed'))
+
+  const armedOffline = renderEntry(page, pageState(
+    { ...baseState, phase: 'armed', fullscreenOnWait: true },
+    { offline: true, waitPresentation: { kind: 'dismissed' } },
+  ))
+  check('re-entry button is disabled when offline', footButtonsOf(armedOffline.tree)[0]?.props.disabled === true)
+
+  const countingStuck = renderEntry(page, pageState({
+    ...baseState,
+    phase: 'counting',
+    remainingSeconds: 30,
+    countdownSeconds: 60,
+    blockedForSeconds: 900,
+    stuckAfterSeconds: 600,
+    busy: { available: true, agentsRunning: 1, inboxPending: 0, jobsRunning: 0, total: 1 },
+  }))
+  const countingTexts = textsOf(countingStuck.tree)
+  check('no wait re-entry button during counting',
+    !countingTexts.includes('page.returnWait') && !countingTexts.includes('page.openWait'))
+  check('stuck hint and force button are not shown during counting',
+    !countingTexts.includes('wait.stuckHint') && !countingTexts.includes('wait.force') && !countingTexts.includes('wait.forceHibernate'))
+
+  const quietNotStarted = renderEntry(page, pageState({
+    ...baseState,
+    phase: 'armed',
+    quietSeconds: 20,
+    quietRemainingSeconds: 0,
+    busy: { available: true, agentsRunning: 0, inboxPending: 0, jobsRunning: 0, total: 0 },
+  }))
+  check('quiet dial shows full quietSeconds instead of flashing 0',
+    byClass(quietNotStarted.tree, 'ipa-heroNum')?.children[0].text === '20',
+    textsOf(byClass(quietNotStarted.tree, 'ipa-heroNum')).join(''))
+}
+
+console.log('\n=== wait screen: quiet elapsed copy, Tab trap, and fullscreenchange guards ===')
+{
+  const waitEntry = byId('dsh-goodnight.wait')
+  const quietArmed = {
+    ...baseState,
+    phase: 'armed',
+    quietSeconds: 20,
+    quietRemainingSeconds: 12,
+    fullscreenOnWait: true,
+    busy: { available: true, agentsRunning: 0, inboxPending: 0, jobsRunning: 0, total: 0 },
+  }
+  const quietRender = renderEntry(waitEntry, { data: quietArmed, waitPresentation: { kind: 'auto' } }, {
+    t: (key) => (key === 'wait.quiet' ? 'idle %s / %s s' : key),
+  })
+  const quietTexts = textsOf(quietRender.tree)
+  check('quiet text reports elapsed seconds (8 / 20), not remaining seconds',
+    quietTexts.includes('idle 8 / 20 s'), quietTexts.join('|'))
+  check('big dial number still shows remaining seconds (12)',
+    textsOf(byClass(quietRender.tree, 'ipa-count')).join('') === '12')
+  quietRender.unmount()
+
+  listeners.keydown.length = 0
+  const stuckArmed = {
+    ...baseState,
+    phase: 'armed',
+    quietSeconds: 20,
+    quietRemainingSeconds: 0,
+    blockedForSeconds: 900,
+    stuckAfterSeconds: 600,
+    fullscreenOnWait: true,
+    busy: { available: true, agentsRunning: 1, inboxPending: 0, jobsRunning: 0, total: 1 },
+  }
+  const trapRender = renderEntry(waitEntry, { data: stuckArmed, waitPresentation: { kind: 'auto' } })
+  const cta = findElement(trapRender.tree, (n) => n.props.className === 'ipa-cta')
+  const escapeBtn = findElement(trapRender.tree, (n) => n.props.className === 'ipa-escape')
+  const trapButtons = [cta, escapeBtn]
+  trapRender.tree.querySelectorAll = () => trapButtons
+  for (const btn of trapButtons) btn.focus = () => { documentStub.activeElement = btn }
+  cta.focus()
+  fire('keydown', { key: 'Tab', shiftKey: false, preventDefault() {} })
+  check('wait screen Tab moves focus to next enabled button', documentStub.activeElement === escapeBtn)
+  fire('keydown', { key: 'Tab', shiftKey: false, preventDefault() {} })
+  check('wait screen Tab wraps focus back to cancel', documentStub.activeElement === cta)
+  trapRender.unmount()
+  delete documentStub.activeElement
+  listeners.keydown.length = 0
+
+  const fsListeners = []
+  let fsElement = null
+  const savedAdd = documentStub.addEventListener
+  const savedRemove = documentStub.removeEventListener
+  documentStub.documentElement = { requestFullscreen: () => Promise.resolve() }
+  Object.defineProperty(documentStub, 'fullscreenElement', { configurable: true, get: () => fsElement })
+  documentStub.addEventListener = (type, fn) => { if (type === 'fullscreenchange') fsListeners.push(fn) }
+  documentStub.removeEventListener = (type, fn) => {
+    if (type === 'fullscreenchange') {
+      const at = fsListeners.indexOf(fn)
+      if (at >= 0) fsListeners.splice(at, 1)
+    }
+  }
+
+  let staleDismissed = 0
+  const staleWait = renderEntry(waitEntry, { data: stuckArmed, waitPresentation: { kind: 'auto' } }, {
+    dismiss: () => { staleDismissed += 1 },
+  })
+  fsElement = null
+  for (const fn of [...fsListeners]) fn()
+  check('wait screen ignores stale fullscreenchange when fullscreen was never observed',
+    staleDismissed === 0, String(staleDismissed))
+  staleWait.unmount()
+
+  let preMountedDismissed = 0
+  fsElement = { tagName: 'HTML' }
+  const preMountedWait = renderEntry(waitEntry, { data: stuckArmed, waitPresentation: { kind: 'auto' } }, {
+    dismiss: () => { preMountedDismissed += 1 },
+  })
+  fsElement = null
+  for (const fn of [...fsListeners]) fn()
+  check('wait screen dismisses when fullscreen was already active on mount and then exits',
+    preMountedDismissed === 1, String(preMountedDismissed))
+  preMountedWait.unmount()
+
+  documentStub.addEventListener = savedAdd
+  documentStub.removeEventListener = savedRemove
+  delete documentStub.documentElement
+  delete documentStub.fullscreenElement
+}
+
+console.log('\n=== countdown: fullscreen Escape parity, latch, and retry ===')
+{
+  const countingStore = { data: { ...baseState, phase: 'counting', remainingSeconds: 45, countdownSeconds: 60, deadline: null } }
+  const fsListeners = []
+  let fsElement = null
+  const savedAdd = documentStub.addEventListener
+  const savedRemove = documentStub.removeEventListener
+  documentStub.documentElement = { requestFullscreen: () => Promise.resolve() }
+  Object.defineProperty(documentStub, 'fullscreenElement', { configurable: true, get: () => fsElement })
+  documentStub.exitFullscreen = () => {
+    fsElement = null
+    for (const fn of [...fsListeners]) fn()
+    return Promise.resolve()
+  }
+  documentStub.addEventListener = (type, fn) => { if (type === 'fullscreenchange') fsListeners.push(fn) }
+  documentStub.removeEventListener = (type, fn) => {
+    if (type === 'fullscreenchange') {
+      const at = fsListeners.indexOf(fn)
+      if (at >= 0) fsListeners.splice(at, 1)
+    }
+  }
+
+  listeners.keydown.length = 0
+  let staleCancels = 0
+  const staleCountdown = renderEntry(countdown, countingStore, { cancel: async () => { staleCancels += 1; return true } })
+  fsElement = null
+  for (const fn of [...fsListeners]) fn()
+  check('countdown ignores stale fullscreenchange if never observed fullscreen', staleCancels === 0, String(staleCancels))
+  staleCountdown.unmount()
+
+  let handoffCancels = 0
+  fsElement = { tagName: 'HTML' }
+  const handoffCountdown = renderEntry(countdown, countingStore, { cancel: async () => { handoffCancels += 1; return true } })
+  fsElement = null
+  for (const fn of [...fsListeners]) fn()
+  check('countdown cancels in one step when pre-mounted fullscreen (handoff) exits', handoffCancels === 1, String(handoffCancels))
+  handoffCountdown.unmount()
+
+  let doubleCancels = 0
+  fsElement = { tagName: 'HTML' }
+  const latchCountdown = renderEntry(countdown, countingStore, { cancel: async () => { doubleCancels += 1; return true } })
+  fire('keydown', { key: 'Escape', preventDefault() {} })
+  await Promise.resolve()
+  check('Escape + synchronous fullscreenchange never double-cancels countdown', doubleCancels === 1, String(doubleCancels))
+  latchCountdown.unmount()
+
+  let retryCancels = 0
+  fsElement = { tagName: 'HTML' }
+  const retryCountdown = renderEntry(countdown, countingStore, {
+    cancel: async () => {
+      retryCancels += 1
+      return retryCancels > 1
+    },
+  })
+  fsElement = null
+  for (const fn of [...fsListeners]) fn()
+  await new Promise((resolve) => setImmediate(resolve))
+  fire('keydown', { key: 'Escape', preventDefault() {} })
+  await new Promise((resolve) => setImmediate(resolve))
+  check('failed cancel resets exit latch so user can retry', retryCancels === 2, String(retryCancels))
+  retryCountdown.unmount()
+
+  listeners.keydown.length = 0
+  documentStub.addEventListener = savedAdd
+  documentStub.removeEventListener = savedRemove
+  delete documentStub.documentElement
+  delete documentStub.fullscreenElement
+  delete documentStub.exitFullscreen
+}
+
+console.log('\n=== CSS: layout fixes ===')
+{
+  const css = require('node:fs').readFileSync(process.argv[2] ?? require('node:path').join(__dirname, '..', 'client.js'), 'utf8')
+  check('.ipa-waitStatValue resets default dd margin', css.includes('.ipa-waitStatValue{margin:0;'))
+  check('.ipa-metrics uses three equal columns', css.includes('.ipa-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))'))
+  const narrowBlock = css.slice(css.indexOf('@media (max-width:720px){'), css.indexOf('@media (max-width:480px)'))
+  check('.ipa-escape centers on narrow viewports', narrowBlock.includes('.ipa-escape{align-self:center}'))
+  check('.ipa-footActions allows wrapping', css.includes('.ipa-footActions{display:flex;align-items:center;gap:8px;flex:none;flex-wrap:wrap}'))
 }
 
 console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'}`)

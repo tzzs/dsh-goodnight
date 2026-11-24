@@ -124,6 +124,10 @@
   // quiet window with nothing running (?quiet=1).
   const quietMode = params.has('quiet');
   const stuckMode = params.has('stuck');
+  const armedMode = params.has('armed');
+  const dismissedMode = params.has('dismissed');
+  const busyMode = params.has('busy');
+  const previewMode = params.has('preview');
   let alive = true;
   let current = null;
   let scheduled = false;
@@ -298,34 +302,34 @@
   }
 
   function initialState() {
+    const waitingInitial = waitMode || quietMode || stuckMode || armedMode;
+    const hasTasks = waitMode || stuckMode || busyMode;
     return {
       data: {
-        supported: true, platform: 'win32', phase: (waitMode || quietMode || stuckMode) ? 'armed' : (pageMode ? 'idle' : 'counting'), mode: initialMode,
-        fullscreenOnWait: (waitMode || quietMode || stuckMode) && !pageMode,
+        supported: true, platform: 'win32', phase: waitingInitial ? 'armed' : (pageMode ? 'idle' : 'counting'), mode: initialMode,
+        fullscreenOnWait: ((waitMode || quietMode || stuckMode) && !pageMode) || dismissedMode,
         backgroundStyle: initialBackground, countdownColor: initialColor, countdownSeconds: 60, quietSeconds: 20,
-        remainingSeconds: initialSeconds, quietRemainingSeconds: quietMode ? 12 : 0, deadline: null,
+        remainingSeconds: initialSeconds, quietRemainingSeconds: (quietMode || (armedMode && !hasTasks)) ? 12 : 0, deadline: null,
         // ?stuck=1 rehearses a blocker that never clears, which is what the
         // panel looks like after an overnight hang.
-        blockedForSeconds: params.has('stuck') ? 900 : 0,
+        blockedForSeconds: stuckMode ? 900 : 0,
         stuckAfterSeconds: 600,
         busy: {
           available: true,
-          agentsRunning: (waitMode || stuckMode) ? 2 : 0,
-          inboxPending: (waitMode || stuckMode) ? 3 : 0,
-          jobsRunning: (waitMode || stuckMode) ? 1 : 0,
-          total: (waitMode || stuckMode) ? 6 : 0,
+          agentsRunning: hasTasks ? 2 : 0,
+          inboxPending: hasTasks ? 3 : 0,
+          jobsRunning: hasTasks ? 1 : 0,
+          total: hasTasks ? 6 : 0,
         },
         error: null, lastExecution: null,
       },
       ready: true, offline: false, busy: false, note: null, noteCode: null, notePhase: null,
+      preview: previewMode,
+      waitPresentation: dismissedMode ? { kind: 'dismissed' } : { kind: 'auto' },
     };
   }
   let state = initialState();
   const usePower = (selector) => selector ? selector(state) : state;
-  const update = (fields, data) => {
-    state = { ...state, ...fields, data: { ...state.data, ...data } };
-    scheduleRender();
-  };
 
   // Register real components/CSS/locales, but NEVER start the Host runtime or
   // use its injected actions. In particular, the poller effect is not executed.
@@ -348,7 +352,27 @@
       register(options, component) { registered.set(options.id ?? options.key, component); return () => {}; },
     },
   };
-  captured((spec) => spec === 'react' ? React : null).apply(ctx);
+  const pluginModule = captured((spec) => spec === 'react' ? React : null);
+  pluginModule.apply(ctx);
+  const { reduceWaitPresentation } = pluginModule.internals;
+
+  const update = (fields, data) => {
+    const previous = state;
+    const nextData = data ? { ...previous.data, ...data } : previous.data;
+    const nextPresentation = fields && 'waitPresentation' in fields
+      ? fields.waitPresentation
+      : (data
+        ? reduceWaitPresentation(previous.waitPresentation, {
+          type: 'host-sync',
+          prevPhase: previous.data.phase,
+          nextPhase: nextData.phase,
+          prevFullscreenOnWait: previous.data.fullscreenOnWait === true,
+          nextFullscreenOnWait: nextData.fullscreenOnWait === true,
+        })
+        : previous.waitPresentation);
+    state = { ...previous, ...fields, data: nextData, waitPresentation: nextPresentation };
+    scheduleRender();
+  };
 
   const controls = document.getElementById('preview-controls');
   const status = document.getElementById('preview-status');
@@ -370,7 +394,20 @@
     timer = setInterval(tick, 250);
     tick();
   }
-  const start = async (mode = state.data.mode) => {
+  function driveQuiet() {
+    const tick = () => {
+      if (state.data.phase !== 'armed' || state.data.busy.total > 0) { stopTimer(); return; }
+      const next = Math.max(0, (state.data.quietRemainingSeconds ?? 0) - 1);
+      if (next === 0) {
+        stopTimer();
+        void startCountdown(state.data.mode);
+        return;
+      }
+      update({}, { quietRemainingSeconds: next });
+    };
+    timer = setInterval(tick, 1000);
+  }
+  const startCountdown = async (mode = state.data.mode) => {
     if (!live) return true;
     stopTimer();
     demoStatus = '安全倒计时演示中；到 0 秒自动停止，不执行电源命令。';
@@ -378,27 +415,66 @@
     driveCountdown();
     return true;
   };
+  const arm = async (mode = state.data.mode) => {
+    if (!live) return true;
+    if (state.data.phase === 'armed') {
+      update({}, { mode });
+      return true;
+    }
+    stopTimer();
+    const hasTasks = state.data.busy.total > 0;
+    if (state.data.fullscreenOnWait) {
+      try { document.documentElement.requestFullscreen?.({ navigationUI: 'hide' })?.catch?.(() => {}); } catch (e) {}
+    }
+    demoStatus = hasTasks ? '等待演示中：有阻塞任务，可按 Esc 退出全屏并在页脚返回。' : '安静期演示中：归零后自动进入安全倒计时。';
+    update({}, {
+      phase: 'armed',
+      mode,
+      quietRemainingSeconds: hasTasks ? 0 : state.data.quietSeconds,
+      remainingSeconds: 0,
+      deadline: null,
+    });
+    if (!hasTasks) driveQuiet();
+    return true;
+  };
+  const force = async () => {
+    if (!live) return true;
+    return startCountdown(state.data.mode);
+  };
   const cancel = async () => {
     if (!live) return true;
     stopTimer();
     demoStatus = '演示已取消。可重新打开设置或再次演示倒计时。';
-    update({}, { phase: 'idle', remainingSeconds: 0, deadline: null });
+    update({}, { phase: 'idle', remainingSeconds: 0, quietRemainingSeconds: 0, deadline: null });
+    if (document.fullscreenElement) {
+      try { document.exitFullscreen?.()?.catch?.(() => {}); } catch (e) {}
+    }
     return true;
   };
+  const enterWait = () => {
+    if (!live || state.data.phase !== 'armed') return false;
+    try { document.documentElement.requestFullscreen?.({ navigationUI: 'hide' })?.catch?.(() => {}); } catch (e) {}
+    demoStatus = '已返回全屏等待界面；按 Esc 可随时收起。';
+    update({ waitPresentation: reduceWaitPresentation(state.waitPresentation, { type: 'enter', phase: state.data.phase }) });
+    return true;
+  };
+  const dismiss = () => {
+    if (!live) return;
+    demoStatus = '全屏等待已收起，预约仍在运行；可点击页脚按钮返回。';
+    update({ waitPresentation: reduceWaitPresentation(state.waitPresentation, { type: 'dismiss', phase: state.data.phase }) });
+  };
+  const openPreview = () => { if (live) update({ preview: true }); };
+  const closePreview = () => { if (live) update({ preview: false }); };
   const setMode = async (mode) => { if (live) update({}, { mode }); return true; };
   const setBackground = async (backgroundStyle) => { if (live) update({}, { backgroundStyle }); return true; };
   const setColor = async (color) => { if (live) update({}, { countdownColor: color }); return true; };
   const setFullscreenOnWait = async (onWait) => { if (live) update({}, { fullscreenOnWait: onWait }); return true; };
   const setStayAwake = async (on) => { if (live) update({}, { stayAwake: on }); return true; };
-  // The preview page renders with the same component the Host mounts; two actions
-  // it cannot genuinely perform are no-ops, so the UI still renders.
-  const pageProps = { usePower, t, arm: start, cancel, setMode, setBackground, setColor, setFullscreenOnWait, setStayAwake, openPreview: () => {}, refresh: async () => true };
+  const pageProps = { usePower, t, arm, cancel, force, enterWait, setMode, setBackground, setColor, setFullscreenOnWait, setStayAwake, openPreview, refresh: async () => true };
   const Page = registered.get('goodnight');
   const Countdown = registered.get('dsh-goodnight.countdown');
   const PreviewOverlay = registered.get('dsh-goodnight.preview');
   const WaitOverlay = registered.get('dsh-goodnight.wait');
-  // ?preview=1 rehearses the countdown overlay: the same component the Host
-  // mounts, driven by a fake store snapshot, with nothing armed.
   // The DSH theme injects this globally; without it a 50% radius renders as a
   // circle here and as a squircle inside the app, so the docs would lie about
   // the shape. ?squircle=0 turns it off again for comparison.
@@ -408,8 +484,6 @@
     document.head.appendChild(shapeStyle);
   }
 
-  const previewMode = params.has('preview');
-  const previewStore = { data: state.data, preview: true };
   const root = document.getElementById('overlay-root');
   // The page is a main-pane view: the app gives it a sized column, and so does
   // this preview, otherwise height:100% would collapse to nothing.
@@ -418,15 +492,17 @@
     const node = React.createElement('div', { key: resetGeneration, style: { display: 'flex', width: '100%', height: '100%' } },
       React.createElement(Page, { ...pageProps, key: 'page' }),
       React.createElement(Countdown, { usePower, t, cancel, key: 'countdown' }),
-      (waitMode || quietMode || stuckMode) && WaitOverlay !== undefined ? React.createElement(WaitOverlay, {
+      WaitOverlay !== undefined ? React.createElement(WaitOverlay, {
         usePower,
         cancel,
+        force,
+        dismiss,
         t,
         key: 'wait',
       }) : null,
-      previewMode && PreviewOverlay !== undefined ? React.createElement(PreviewOverlay, {
-        usePower: (selector) => (typeof selector === 'function' ? selector(previewStore) : previewStore),
-        close: () => {},
+      PreviewOverlay !== undefined ? React.createElement(PreviewOverlay, {
+        usePower,
+        close: closePreview,
         t,
         key: 'preview',
       }) : null,
@@ -434,14 +510,15 @@
     const previous = tree;
     tree = patch(root, tree, node, false);
     if (!previous) root.appendChild(tree.dom);
-    // The page is a main-pane view, so the stand-in app behind it must go.\n    document.querySelector('.fake-app').style.display = pageMode ? 'none' : '';
+    // The page is a main-pane view, so the stand-in app behind it must go.
+    document.querySelector('.fake-app').style.display = pageMode ? 'none' : '';
     if (status.textContent !== demoStatus) status.textContent = demoStatus;
     flushEffects();
   }
 
   if (live) {
     controls.hidden = false;
-    document.getElementById('preview-start').addEventListener('click', () => { void start(); });
+    document.getElementById('preview-start').addEventListener('click', () => { void startCountdown(); });
     document.getElementById('preview-reset').addEventListener('click', () => {
       stopTimer();
       state = initialState();
