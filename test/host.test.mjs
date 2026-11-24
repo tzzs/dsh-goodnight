@@ -915,5 +915,213 @@ await scenario('force refuses everything that is not a blocked reservation', { q
   check('force never armed on its own', (await readState(routes)).phase === 'armed')
 })
 
+await scenario('forced countdown executes while the frozen blocker stays unchanged', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes }) => {
+  state.jobs.push(job('job-1', 'running'))
+  await call(routes, '/goodnight/arm', { method: 'POST', body: '{"mode":"hibernate"}' })
+  await sleep(1000)
+  const forced = await call(routes, '/goodnight/force', { method: 'POST', body: '{}' })
+  check('force enters counting', forced.statusCode === 200 && parse(forced)?.phase === 'counting')
+  await sleep(3000)
+  const mid = await readState(routes)
+  check('unchanged blocker stays in counting across ticks', mid.phase === 'counting' && mid.busy.total === 1 && state.spawned.length === 0)
+  await sleep(2000)
+  check('forced countdown executes at deadline', state.spawned.length === 1 && state.spawned[0].includes('/h'))
+  const done = await readState(routes)
+  check('phase returns to idle with ok execution', done.phase === 'idle' && done.lastExecution?.ok === true)
+})
+
+await scenario('forced countdown completes when one of two frozen jobs finishes', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes }) => {
+  state.jobs.push(job('job-1', 'running'), job('job-2', 'running'))
+  await call(routes, '/goodnight/arm', { method: 'POST', body: '{}' })
+  await sleep(1000)
+  await call(routes, '/goodnight/force', { method: 'POST', body: '{}' })
+  await sleep(1000)
+  state.jobs = [job('job-1', 'running')]
+  await sleep(4000)
+  check('countdown completes with surviving frozen job', state.spawned.length === 1 && (await readState(routes)).phase === 'idle')
+})
+
+await scenario('forced countdown shrinks baseline so a restarted job voids it', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes }) => {
+  state.jobs.push(job('job-1', 'running'), job('job-2', 'running'))
+  await call(routes, '/goodnight/arm', { method: 'POST', body: '{}' })
+  await sleep(1000)
+  await call(routes, '/goodnight/force', { method: 'POST', body: '{}' })
+  await sleep(1000)
+  state.jobs = [job('job-1', 'running')]
+  await sleep(1000)
+  check('countdown continues after job-2 finishes', (await readState(routes)).phase === 'counting')
+  state.jobs = [job('job-1', 'running'), job('job-2', 'running')]
+  await sleep(1000)
+  check('restarted job-2 voids forced countdown', (await readState(routes)).phase === 'armed' && (await readState(routes)).deadline === null)
+  await sleep(10000)
+  check('voided countdown does not execute', state.spawned.length === 0)
+})
+
+await scenario('forced countdown voids on new, replaced, agent, inbox, or registry-loss activity', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes, services }) => {
+  const cases = [
+    {
+      label: 'new job',
+      setup: () => { state.jobs = [job('job-1', 'running')]; state.agents = [] },
+      mutate: () => { state.jobs.push(job('job-2', 'running')) },
+    },
+    {
+      label: 'replaced job at same count',
+      setup: () => { state.jobs = [job('job-1', 'running')]; state.agents = [] },
+      mutate: () => { state.jobs = [job('job-2', 'running')] },
+    },
+    {
+      label: 'running agent',
+      setup: () => { state.jobs = [job('job-1', 'running')]; state.agents = [agent('a1', 'idle')] },
+      mutate: () => { state.agents = [agent('a1', 'running')] },
+    },
+    {
+      label: 'new identified inbox item',
+      setup: () => {
+        state.jobs = []
+        state.agents = [{ id: 'a1', status: 'idle', inbox: { nextTurn: [{ id: 'msg-1' }], nextStep: [] } }]
+      },
+      mutate: () => {
+        state.agents = [{ id: 'a1', status: 'idle', inbox: { nextTurn: [{ id: 'msg-2' }], nextStep: [] } }]
+      },
+    },
+    {
+      label: 'new unidentified inbox item',
+      setup: () => {
+        state.jobs = []
+        state.agents = [{ id: 'a1', status: 'idle', inbox: { nextTurn: [{ text: 'old' }], nextStep: [] } }]
+      },
+      mutate: () => {
+        state.agents = [{ id: 'a1', status: 'idle', inbox: { nextTurn: [{ text: 'old' }, { text: 'new' }], nextStep: [] } }]
+      },
+    },
+    {
+      label: 'registry loss during snapshot force',
+      setup: () => { state.jobs = [job('job-1', 'running')]; state.agents = [] },
+      mutate: () => { services.agents = undefined },
+    },
+  ]
+
+  const registry = services.agents
+  for (const entry of cases) {
+    services.agents = registry
+    await call(routes, '/goodnight/cancel', { method: 'POST' })
+    entry.setup()
+    await call(routes, '/goodnight/arm', { method: 'POST', body: '{}' })
+    await sleep(1000)
+    const forced = await call(routes, '/goodnight/force', { method: 'POST', body: '{}' })
+    check(`${entry.label}: force starts counting`, forced.statusCode === 200 && parse(forced)?.phase === 'counting')
+    await sleep(1000)
+    entry.mutate()
+    await sleep(1000)
+    const after = await readState(routes)
+    check(`${entry.label}: voids back to armed`, after.phase === 'armed' && after.deadline === null && state.spawned.length === 0)
+  }
+  services.agents = registry
+})
+
+await scenario('forced countdown while registry is unavailable executes if registry stays down', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes, services }) => {
+  await call(routes, '/goodnight/arm', { method: 'POST', body: '{}' })
+  services.agents = undefined
+  await sleep(1000)
+  const forced = await call(routes, '/goodnight/force', { method: 'POST', body: '{}' })
+  check('force accepts unavailable registry', forced.statusCode === 200 && parse(forced)?.phase === 'counting')
+  await sleep(5000)
+  check('executes when registry stays unavailable', state.spawned.length === 1 && (await readState(routes)).phase === 'idle')
+})
+
+await scenario('forced countdown while registry is unavailable executes if registry returns empty', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes, services }) => {
+  const registry = services.agents
+  await call(routes, '/goodnight/arm', { method: 'POST', body: '{}' })
+  services.agents = undefined
+  await sleep(1000)
+  await call(routes, '/goodnight/force', { method: 'POST', body: '{}' })
+  await sleep(1000)
+  services.agents = registry
+  await sleep(4000)
+  check('executes after registry returns with zero tasks', state.spawned.length === 1 && (await readState(routes)).phase === 'idle')
+})
+
+await scenario('forced countdown after registry returns empty voids if a task appears later', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes, services }) => {
+  const registry = services.agents
+  await call(routes, '/goodnight/arm', { method: 'POST', body: '{}' })
+  services.agents = undefined
+  await sleep(1000)
+  await call(routes, '/goodnight/force', { method: 'POST', body: '{}' })
+  await sleep(1000)
+  services.agents = registry
+  await sleep(1000)
+  check('still counting after empty registry restoration', (await readState(routes)).phase === 'counting')
+  state.jobs.push(job('late-job', 'running'))
+  await sleep(1000)
+  check('task appearing after clear voids countdown', (await readState(routes)).phase === 'armed' && state.spawned.length === 0)
+})
+
+await scenario('forced countdown while registry is unavailable voids if registry returns with live tasks', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes, services }) => {
+  const registry = services.agents
+  await call(routes, '/goodnight/arm', { method: 'POST', body: '{}' })
+  services.agents = undefined
+  await sleep(1000)
+  await call(routes, '/goodnight/force', { method: 'POST', body: '{}' })
+  await sleep(1000)
+  state.jobs.push(job('live-job', 'running'))
+  services.agents = registry
+  await sleep(1000)
+  check('returning registry with active work voids countdown', (await readState(routes)).phase === 'armed' && state.spawned.length === 0)
+})
+
+await scenario('blockedForSeconds restarts when a job is replaced by a different id at the same count', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes }) => {
+  state.jobs.push(job('job-1', 'running'))
+  await call(routes, '/goodnight/arm', { method: 'POST', body: '{}' })
+  await sleep(1000)
+  clock.now += 25_000
+  await sleep(1000)
+  check('accumulates while job-1 persists', (await readState(routes)).blockedForSeconds >= 25)
+  state.jobs = [job('job-2', 'running')]
+  await sleep(1000)
+  check('restarts to zero when job-1 is replaced by job-2', (await readState(routes)).blockedForSeconds === 0)
+  clock.now += 10_000
+  await sleep(1000)
+  check('counts up again for job-2', (await readState(routes)).blockedForSeconds >= 10)
+})
+
+await scenario('missing registry accumulates blockedForSeconds while armed', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes, services }) => {
+  await call(routes, '/goodnight/arm', { method: 'POST', body: '{}' })
+  services.agents = undefined
+  await sleep(1000)
+  check('starts at zero on first missing-registry observation', (await readState(routes)).blockedForSeconds === 0)
+  clock.now += 35_000
+  await sleep(1000)
+  const snapshot = await readState(routes)
+  check('missing registry reports non-zero blockedForSeconds', snapshot.busy.available === false && snapshot.blockedForSeconds >= 35, String(snapshot.blockedForSeconds))
+})
+
+await scenario('forced execute allows spawn when blocker is unchanged during lookup', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes, ctx }) => {
+  state.jobs.push(job('job-1', 'running'))
+  await call(routes, '/goodnight/arm', { method: 'POST', body: '{}' })
+  await sleep(1000)
+  await call(routes, '/goodnight/force', { method: 'POST', body: '{}' })
+  const lookup = deferred()
+  ctx.subprocess.resolveExecutable = () => lookup.promise
+  await sleep(5000)
+  lookup.resolve('C:\\fake\\shutdown.exe')
+  await flush()
+  check('unchanged forced blocker still allows spawn after lookup', state.spawned.length === 1 && (await readState(routes)).phase === 'idle')
+})
+
+await scenario('forced execute aborts spawn if a new job arrives during lookup', { quietSeconds: 3, countdownSeconds: 5 }, async ({ routes, ctx }) => {
+  state.jobs.push(job('job-1', 'running'))
+  await call(routes, '/goodnight/arm', { method: 'POST', body: '{}' })
+  await sleep(1000)
+  await call(routes, '/goodnight/force', { method: 'POST', body: '{}' })
+  const lookup = deferred()
+  ctx.subprocess.resolveExecutable = () => lookup.promise
+  await sleep(5000)
+  state.jobs.push(job('job-2', 'running'))
+  lookup.resolve('C:\\fake\\shutdown.exe')
+  await flush()
+  check('new job during lookup prevents spawn', state.spawned.length === 0)
+  check('new job during lookup voids back to armed', (await readState(routes)).phase === 'armed')
+})
+
 console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'}`)
 process.exit(failures === 0 ? 0 : 1)
