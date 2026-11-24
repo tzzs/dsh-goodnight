@@ -1832,6 +1832,12 @@ console.log('\n=== CSS: layout fixes ===')
   const narrowBlock = css.slice(css.indexOf('@media (max-width:720px){'), css.indexOf('@media (max-width:480px)'))
   check('.ipa-escape centers on narrow viewports', narrowBlock.includes('.ipa-escape{align-self:center}'))
   check('.ipa-footActions allows wrapping', css.includes('.ipa-footActions{display:flex;align-items:center;gap:8px;flex:none;flex-wrap:wrap}'))
+  // The Desktop's caption menu (应用 / 编辑) is injected straight into <body> at
+  // z-index 1100, above the layout's overlay layer (20). A takeover only covers
+  // that strip by lifting the layer while it is mounted.
+  check('the takeover outranks the Desktop caption menu', css.includes('html:has(.ipa-scrim) [data-shell-overlay]{z-index:1200}'))
+  check('.ipa-card starts at the host overlay line', css.includes('padding:max(clamp(24px,4vmin,64px),var(--dsh-frame-overlay-top,0px))'))
+  check('short viewports keep that clearance', css.includes('padding-top:max(clamp(20px,3vmin,36px),var(--dsh-frame-overlay-top,0px))'))
 }
 
 console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : failures + ' CHECK(S) FAILED'}`)

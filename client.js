@@ -530,6 +530,13 @@ box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-directi
 .ipa-scrim{position:fixed;inset:0;z-index:60;box-sizing:border-box;overflow:auto;overscroll-behavior:contain;background-color:var(--dsw-alias-bg-mask-3);color:var(--dsw-alias-label-primary);animation:ipa-fade 160ms var(--ipa-ease)}
 @media (prefers-reduced-motion:reduce){.ipa-scrim{animation:none}}
 @keyframes ipa-fade{from{opacity:0}to{opacity:1}}
+/* The Desktop app mounts shell.overlay inside the layout's overlay layer, which
+   is pinned at z-index 20, and injects its Windows caption menu (应用 / 编辑)
+   straight into <body> at 1100 — above every in-page overlay. That is right for
+   dialogs and wrong for a takeover that claims the whole window, so while one of
+   these screens is mounted the layer moves above that strip. The rule lives and
+   dies with the screen; no other host surface is restyled. */
+html:has(.ipa-scrim) [data-shell-overlay]{z-index:1200}
 /* A rail pinned to the viewport edge keeps draining in peripheral vision even
    when the Harness window is stretched across two monitors, where dead centre
    can land on the bezel between them. */
@@ -540,8 +547,12 @@ box-sizing:border-box;container:ipa-page / inline-size;display:flex;flex-directi
 /* Three rows spanning the full viewport, no fixed card width: the information
    breathes with whatever monitor (or monitors) the window is on. The surface
    colour is the host's own overlay token, so its label tokens stay readable in
-   BOTH themes — dark labels on the dark mask were illegible. */
-.ipa-card{position:relative;box-sizing:border-box;width:100%;min-height:100vh;min-height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(10px,1.8vmin,30px);padding:clamp(24px,4vmin,64px) clamp(20px,4.4vmin,80px) clamp(18px,3vmin,48px);background-color:var(--dsw-alias-bg-overlay);background-image:radial-gradient(ellipse at 50% 38%,rgba(120,135,165,.07),transparent 72%)}
+   BOTH themes — dark labels on the dark mask were illegible. The top inset
+   starts at the host's own overlay line: the takeover now paints the Windows
+   caption strip, so its first row has to clear the window buttons that the
+   Desktop still draws over the page (--dsh-frame-overlay-top is 0 in a browser,
+   which leaves the old measure untouched). */
+.ipa-card{position:relative;box-sizing:border-box;width:100%;min-height:100vh;min-height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:clamp(10px,1.8vmin,30px);padding:max(clamp(24px,4vmin,64px),var(--dsh-frame-overlay-top,0px)) clamp(20px,4.4vmin,80px) clamp(18px,3vmin,48px);background-color:var(--dsw-alias-bg-overlay);background-image:radial-gradient(ellipse at 50% 38%,rgba(120,135,165,.07),transparent 72%)}
 /* ---- background presets -------------------------------------------------
    All three keep the surface/text token PAIR consistent, so contrast never
    depends on what happens to be behind the window. color-mix() is progressive:
@@ -702,7 +713,7 @@ background-color:rgba(9,11,16,.42);
 /* Short or zoomed-in viewports: shrink the dial with vmin so Cancel never falls
    below the fold, and quiet the notes rather than letting them push it away. */
 @media (max-height:620px){
-.ipa-card{gap:clamp(8px,1.4vmin,16px);padding-top:clamp(20px,3vmin,36px);padding-bottom:clamp(12px,2vmin,24px)}
+.ipa-card{gap:clamp(8px,1.4vmin,16px);padding-top:max(clamp(20px,3vmin,36px),var(--dsh-frame-overlay-top,0px));padding-bottom:clamp(12px,2vmin,24px)}
 .ipa-dial{width:clamp(150px,38vmin,320px);height:clamp(150px,38vmin,320px)}
 .ipa-count{font-size:clamp(64px,16vmin,150px)}
 .ipa-notes .ipa-hint{font-size:11px}

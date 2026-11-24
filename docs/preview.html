@@ -62,6 +62,26 @@
   #preview-controls button:hover { background: var(--dsw-alias-interactive-bg-hover); }
   #preview-controls button:focus-visible { outline: 2px solid var(--dsw-focus-ring-color); outline-offset: 2px; }
   #preview-status { margin-top: 4px; max-width: 42ch; color: var(--dsw-alias-label-secondary); }
+  /* ?windows=1 reproduces the Desktop window the plugin actually runs in: the
+     preload injects a Windows caption row (the 应用/编辑 menu) at z-index 1100,
+     and the layout's overlay layer (which hosts shell.overlay) sits at 20 under
+     it. A takeover only covers that strip by lifting the layer, so the preview
+     has to show the strip or the check proves nothing. */
+  html[data-windows-titlebar] {
+    --dsh-windows-titlebar-height: 40px;
+    --dsh-frame-top-clearance: 40px;
+    --dsh-frame-chrome-top: 40px;
+    --dsh-frame-overlay-top: 60px;
+  }
+  #overlay-root { position: fixed; inset: 0; display: flex; }
+  #overlay-root:not([data-shell-overlay]) { z-index: 1; }
+  [data-shell-overlay] { z-index: 20; pointer-events: none; }
+  [data-shell-overlay] > * { pointer-events: auto; }
+  #desktop-caption[hidden] { display: none; }
+  #desktop-caption { position: fixed; inset: 0 0 auto; z-index: 1100; height: var(--dsh-windows-titlebar-height); background: #dfe3ea; }
+  #desktop-caption .captionToggle { position: fixed; top: 6px; left: 12px; box-sizing: border-box; width: 28px; height: 28px; border: 1px solid #aab3c0; border-radius: 6px; }
+  #desktop-caption .captionButton { display: inline-flex; align-items: center; height: 28px; margin-top: 6px; padding: 0 10px; border-radius: 6px; color: #585f70; font-size: 14px; }
+  #desktop-caption .captionFirst { margin-left: 48px; }
 </style>
 </head>
 <body>
@@ -74,6 +94,11 @@
     <div class="line"></div><div class="line"></div><div class="line"></div>
   </div>
   <div class="tile a"></div><div class="tile b"></div><div class="tile c"></div><div class="tile d"></div>
+</div>
+<div id="desktop-caption" aria-hidden="true" hidden>
+  <span class="captionToggle"></span>
+  <span class="captionButton captionFirst">应用</span>
+  <span class="captionButton">编辑</span>
 </div>
 <div id="overlay-root"></div>
 <aside id="preview-controls" aria-label="交互预览控制" hidden>
@@ -485,9 +510,16 @@
   }
 
   const root = document.getElementById('overlay-root');
+  // ?windows=1 puts the preview in the Desktop shell's stacking order: the
+  // overlay layer is 20 and the injected caption row is 1100 above it.
+  const windowsMode = params.has('windows');
+  if (windowsMode) {
+    document.documentElement.dataset.windowsTitlebar = '';
+    document.getElementById('desktop-caption').hidden = false;
+    root.dataset.shellOverlay = '';
+  }
   // The page is a main-pane view: the app gives it a sized column, and so does
   // this preview, otherwise height:100% would collapse to nothing.
-  root.style.cssText = 'position:fixed;inset:0;display:flex;z-index:1';
   function render() {
     const node = React.createElement('div', { key: resetGeneration, style: { display: 'flex', width: '100%', height: '100%' } },
       React.createElement(Page, { ...pageProps, key: 'page' }),
